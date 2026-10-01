@@ -5,45 +5,30 @@ import re
 from bs4 import BeautifulSoup, Tag
 from loguru import logger
 
-from src.models.course import Course
-from src.parsers.base import BaseParser
 from src.models.course import Course, CourseStatus
+from src.parsers.base import BaseParser
 
 
 class CourseParser(BaseParser):
     """استخراج درس‌ها از HTML /pages/nodeclass.
 
-    ساختار HTML:
-    <a href="...">
-      <div class="classwig">
-        <table class="classtable">
-          <tr><td class="coverimg">
-            <div class="mastertitle">استاد XXX</div>
-          </td></tr>
-          <tr><td>
-            <h2 class="classtitle">نام درس</h2>
-          </td></tr>
-          <tr><td class="classdesc">
-            <span>کد درس : XXX</span>
-          </td></tr>
-        </table>
-      </div>
-    </a>
+    پشتیبانی از دو فرمت URL:
+    - /group/{id}                      → lms4
+    - /nodeg/{token}/{id}/{n}          → lms3/lms5
     """
 
     def __init__(self, base_url: str = "https://lms4.ui.ac.ir") -> None:
         self.base_url = base_url.rstrip("/")
         self._group_pattern = re.compile(r"/group/(\d+)")
         self._nodeg_pattern = re.compile(r"/nodeg/[^/]+/(\d+)/\d+")
+        self._nodeg_domain_pattern = re.compile(r"https?://(lms\d)\.ui\.ac\.ir")
         self._code_pattern = re.compile(r"کد درس\s*:\s*([\d\-]+)")
-        self._term_pattern = re.compile(r"(\d+)\s*$")  # عدد آخر = ترم
+        self._term_pattern = re.compile(r"(\d+)\s*$")
 
     def parse(self, html: str) -> list[Course]:
         """Parse کردن HTML و برگرداندن لیست درس‌ها."""
         soup = BeautifulSoup(html, "lxml")
 
-        # پیدا کردن همه لینک‌های درس
-        # هر لینک یک div.classwig دارد
         links = soup.find_all("a", href=True)
         courses: list[Course] = []
         seen_ids: set[str] = set()
@@ -63,15 +48,18 @@ class CourseParser(BaseParser):
         if not href:
             return None
 
-        # داخل لینک، باید div.classwig باشد
+        # داخل لینک باید div.classwig باشد
         classwig = link.find("div", class_="classwig")
         if not classwig:
             return None
 
-        # استخراج گروه/شناسه
-        group_id = self._extract_group_id(href)
+        # استخراج دامنه و group_id
+        domain, group_id = self._extract_domain_and_id(href)
         if not group_id:
             return None
+
+        # nodeg_url (اگر از دامنه‌ی دیگر باشد)
+        nodeg_url = href if "/nodeg/" in href else None
 
         # استخراج نام درس
         name_el = classwig.find("h2", class_="classtitle")
@@ -83,83 +71,75 @@ class CourseParser(BaseParser):
         teacher_el = classwig.find("div", class_="mastertitle")
         teacher = teacher_el.get_text(strip=True) if teacher_el else None
         if teacher:
-            # حذف "استاد " از ابتدا
             teacher = re.sub(r"^استاد\s+", "", teacher).strip()
 
-        # استخراج کد درس
+        # استخراج کد درس و status
         desc_el = classwig.find("td", class_="classdesc")
         code = None
-        if desc_el:
-            desc_text = desc_el.get_text(strip=True)
-            code_match = self._code_pattern.search(desc_text)
-            if code_match:
-                code = code_match.group(1)
+        status = CourseStatus.ACTIVE
 
-        # استخراج ترم (عدد آخر در name)
-        term = None
-        term_match = self._term_pattern.search(name)
-        if term_match:
-            term = term_match.group(1)
-            # حذف عدد از name
-            name = self._term_pattern.sub("", name).strip()
-
-        # ساخت URL کامل
-        url = self._make_full_url(href)
-
-        # تشخیص status از HTML
-        status = CourseStatus.ACTIVE  # پیش‌فرض
-        # چک کردن opacity در classwig (اگر 0.7 بود → finished)
-        style = classwig.get("style", "")
-        if "opacity:0.7" in style or "opacity: 0.7" in style:
-            status = CourseStatus.FINISHED
-
-        # یا چک کردن متن "ترم پایان یافته" در desc
         if desc_el:
             desc_text = desc_el.get_text(strip=True)
             if "ترم پایان یافته" in desc_text:
                 status = CourseStatus.FINISHED
-            # استخراج code (فقط اگر status active باشد)
-            if status == CourseStatus.ACTIVE:
+            else:
                 code_match = self._code_pattern.search(desc_text)
                 if code_match:
                     code = code_match.group(1)
+
+        # استخراج ترم
+        term = None
+        term_match = self._term_pattern.search(name)
+        if term_match:
+            term = term_match.group(1)
+            name = self._term_pattern.sub("", name).strip()
+
+        # ساخت URL کامل
+        url = self._make_full_url(href, domain)
 
         return Course(
             id=group_id,
             name=name,
             url=url,
             group_id=group_id,
+            domain=domain,
+            nodeg_url=nodeg_url,
             teacher=teacher,
             code=code,
             term=term,
             status=status,
         )
 
-    def _extract_group_id(self, href: str) -> str | None:
-        """استخراج group_id از URL.
+    def _extract_domain_and_id(self, href: str) -> tuple[str, str | None]:
+        """استخراج دامنه و group_id از URL.
 
-        پشتیبانی از دو فرمت:
-        - /group/139710
-        - /nodeg/{token}/140060/2
+        Returns:
+            (domain, group_id) — مثلاً ("lms3", "140060") یا ("lms4", "139710")
         """
-        # اول /group/
+        # nodeg → lms3 یا lms5
+        if "/nodeg/" in href:
+            domain_match = self._nodeg_domain_pattern.search(href)
+            domain = domain_match.group(1) if domain_match else "lms3"
+
+            id_match = self._nodeg_pattern.search(href)
+            group_id = id_match.group(1) if id_match else None
+
+            return domain, group_id
+
+        # /group/ → lms4
         match = self._group_pattern.search(href)
         if match:
-            return match.group(1)
+            return "lms4", match.group(1)
 
-        # بعد /nodeg/
-        match = self._nodeg_pattern.search(href)
-        if match:
-            return match.group(1)
+        return "lms4", None
 
-        return None
-
-    def _make_full_url(self, href: str) -> str:
+    def _make_full_url(self, href: str, domain: str) -> str:
         """ساخت URL کامل."""
         if href.startswith("http"):
             return href
         if href.startswith("/"):
             return f"{self.base_url}{href}"
+
         # نسبی مثل "../group/139710"
         cleaned = href.lstrip("./")
         return f"{self.base_url}/{cleaned}"
