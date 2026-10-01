@@ -1,15 +1,16 @@
 """Sync Service: هماهنگ‌سازی LMS و Database."""
 
 import time
+from datetime import datetime
 
 from loguru import logger
 
-from src.core.exceptions import LMSError
 from src.models.change import Change, ChangeType, EntityType
 from src.services.lms_assistant import LMSAssistant
 from src.services.sync_result import SyncResult
 from src.storage.database import Database
 from src.storage.repositories import (
+    ChangeRepository,
     ContentRepository,
     CourseRepository,
     EventRepository,
@@ -31,6 +32,7 @@ class SyncService:
         self.content_repo = ContentRepository(db)
         self.event_repo = EventRepository(db)
         self.setting_repo = SettingRepository(db)
+        self.change_repo = ChangeRepository(db)
 
     # === Main Sync ===
 
@@ -40,27 +42,22 @@ class SyncService:
         result = SyncResult()
 
         try:
-            # ۱. آیا اولین Sync است؟
             first_sync = self.setting_repo.get(self.FIRST_SYNC_KEY) != "true"
             result.is_first_sync = first_sync
             logger.info(f"شروع Sync (اولین بار: {first_sync})")
 
-            # ۲. Sync دروس
             self._sync_courses(result, first_sync)
-
-            # ۳. Sync محتوا
             self._sync_contents(result, first_sync)
-
-            # ۴. Sync رویدادها
             self._sync_events(result, first_sync)
 
-            # ۵. علامت‌گذاری
+            # ذخیره تغییرات در دیتابیس
+            if result.changes and not first_sync:
+                self.change_repo.save_many(result.changes)
+
             if first_sync:
                 self.setting_repo.set(self.FIRST_SYNC_KEY, "true")
                 logger.info("✅ اولین Sync تمام شد")
 
-            # ۶. ذخیره زمان
-            from datetime import datetime
             self.setting_repo.set(self.LAST_SYNC_KEY, datetime.now().isoformat())
 
             result.duration_seconds = time.time() - start
@@ -75,23 +72,18 @@ class SyncService:
     # === Courses ===
 
     def _sync_courses(self, result: SyncResult, first_sync: bool) -> None:
-        """Sync دروس."""
         logger.debug("Sync دروس...")
 
-        # LMS
         lms_courses = self.assistant.get_all_courses()
         lms_ids = {c.id for c in lms_courses}
 
-        # DB
         db_courses = self.course_repo.get_all()
         db_ids = {c.id for c in db_courses}
 
-        # محاسبه
         new_ids = lms_ids - db_ids
         removed_ids = db_ids - lms_ids
         common_ids = lms_ids & db_ids
 
-        # درج جدیدها
         for c in lms_courses:
             if c.id in new_ids:
                 self.course_repo.save(c)
@@ -109,10 +101,9 @@ class SyncService:
                     logger.info(f"🆕 درس جدید: {c.name}")
 
             elif c.id in common_ids:
-                self.course_repo.save(c)  # به‌روزرسانی
+                self.course_repo.save(c)
                 result.courses_updated += 1
 
-        # حذف‌شده‌ها
         for cid in removed_ids:
             result.courses_removed += 1
             change = Change(
@@ -122,17 +113,14 @@ class SyncService:
             )
             result.changes.append(change)
 
-        # اگر اولین Sync، is_new = 0
         if first_sync:
             self.course_repo.mark_all_seen()
 
     # === Contents ===
 
     def _sync_contents(self, result: SyncResult, first_sync: bool) -> None:
-        """Sync محتوا."""
         logger.debug("Sync محتوا...")
 
-        # همه محتوای LMS
         lms_contents_by_course = self.assistant.get_all_contents()
         all_lms_contents = []
         for contents in lms_contents_by_course.values():
@@ -182,7 +170,6 @@ class SyncService:
     # === Events ===
 
     def _sync_events(self, result: SyncResult, first_sync: bool) -> None:
-        """Sync رویدادها."""
         logger.debug("Sync رویدادها...")
 
         lms_events = self.assistant.get_all_events()
