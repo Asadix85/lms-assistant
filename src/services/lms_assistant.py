@@ -2,24 +2,24 @@
 
 from loguru import logger
 
+from src.collectors.contents import ContentsCollector
 from src.collectors.courses import CoursesCollector
 from src.core.auth import LMSAuth
 from src.core.http_client import LMSHttpClient
+from src.models.content import Content
 from src.models.course import Course
+from src.parsers.contents import ContentParser
 from src.parsers.courses import CourseParser
 
 
 class LMSAssistant:
-    """مدیریت کامل LMS.
+    """مدیریت کامل LMS: login + multi-domain + collect."""
 
-    جریان کار:
-    1. login به lms4 (دامنه‌ی دانشکده)
-    2. GET /pages/nodeclass → لیست دروس (شامل nodeg برای lms3/lms5)
-    3. برای هر nodeg → فعال‌سازی session دامنه‌ی مقصد
-    4. حالا می‌توانیم به همه دامنه‌ها دسترسی داشته باشیم
-    """
-
-    BASE_DOMAIN = "lms4"
+    DOMAIN_URLS = {
+        "lms3": "https://lms3.ui.ac.ir",
+        "lms4": "https://lms4.ui.ac.ir",
+        "lms5": "https://lms5.ui.ac.ir",
+    }
 
     def __init__(self, username: str, password: str) -> None:
         self.username = username
@@ -30,13 +30,11 @@ class LMSAssistant:
         self.auth = LMSAuth(self.client)
         self.course_parser = CourseParser(base_url="https://lms4.ui.ac.ir")
 
-        # دامنه‌های فعال
         self.active_domains: set[str] = set()
 
     # === Login ===
 
     def login(self) -> bool:
-        """Login به دامنه‌ی اصلی (lms4)."""
         success = self.auth.login(self.username, self.password)
         if success:
             self.active_domains.add("lms4")
@@ -45,15 +43,13 @@ class LMSAssistant:
 
     @property
     def is_authenticated(self) -> bool:
-        """آیا login کرده‌ایم؟"""
         return self.auth.is_authenticated
 
     @property
     def user_id(self) -> str | None:
-        """شناسه کاربر."""
         return self.auth.user_id
 
-    # === Activate Domain via nodeg ===
+    # === Activate Domain ===
 
     def activate_domain(self, nodeg_url: str, domain: str) -> bool:
         """فعال‌سازی session دامنه‌ی دیگر از طریق nodeg."""
@@ -71,7 +67,6 @@ class LMSAssistant:
 
             logger.warning(f"❌ فعال‌سازی {domain} ناموفق: {r.status_code}")
             return False
-
         except Exception as e:
             logger.error(f"خطا در فعال‌سازی {domain}: {e}")
             return False
@@ -79,15 +74,11 @@ class LMSAssistant:
     # === Courses ===
 
     def get_all_courses(self) -> list[Course]:
-        """دریافت همه درس‌ها و فعال‌سازی دامنه‌ها."""
-        # ۱. Collect
         collector = CoursesCollector(self.client)
         html = collector.collect()
-
-        # ۲. Parse
         courses = self.course_parser.parse(html)
 
-        # ۳. فعال‌سازی دامنه‌های nodeg
+        # فعال‌سازی دامنه‌ها
         activated: set[str] = set()
         for c in courses:
             if c.nodeg_url and c.domain not in activated:
@@ -97,13 +88,47 @@ class LMSAssistant:
         return courses
 
     def get_active_courses(self) -> list[Course]:
-        """فقط دروس ترم جاری."""
         return [c for c in self.get_all_courses() if c.is_active]
+
+    # === Contents ===
+
+    def get_course_contents(self, course: Course) -> list[Content]:
+        """دریافت محتوای یک درس (خودکار دامنه‌ی درست)."""
+        # اطمینان از فعال بودن دامنه
+        if course.domain not in self.active_domains:
+            if course.nodeg_url:
+                self.activate_domain(course.nodeg_url, course.domain)
+            else:
+                logger.warning(f"دامنه {course.domain} فعال نیست و nodeg ندارد")
+                return []
+
+        # دریافت HTML
+        collector = ContentsCollector(self.client, course=course)
+        html = collector.collect()
+
+        # Parse
+        base_url = self.DOMAIN_URLS.get(course.domain, "https://lms4.ui.ac.ir")
+        parser = ContentParser(course_id=course.group_id, base_url=base_url)
+        return parser.parse(html)
+
+    def get_all_contents(self) -> dict[str, list[Content]]:
+        """دریافت محتوای همه دروس فعال."""
+        courses = self.get_active_courses()
+        result: dict[str, list[Content]] = {}
+
+        for c in courses:
+            try:
+                contents = self.get_course_contents(c)
+                if contents:
+                    result[c.id] = contents
+            except Exception as e:
+                logger.error(f"خطا در محتوای {c.name}: {e}")
+
+        return result
 
     # === Lifecycle ===
 
     def close(self) -> None:
-        """بستن client."""
         self.client.close()
 
     def __enter__(self) -> "LMSAssistant":
