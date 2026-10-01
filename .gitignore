@@ -1,0 +1,47 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+
+# === PyCharm ===
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# === Environment (خیلی مهم!) ===
+.env
+.env.local
+.env.*.local
+
+# === Database ===
+data/lms.db
+data/lms.db-journal
+data/files/
+
+# === Logs ===
+*.log
+logs/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Testing ===
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# === uv ===
+# uv.lock  (فعلاً نگه‌دار، بعداً تصمیم می‌گیریم)
