@@ -73,3 +73,45 @@ CREATE INDEX IF NOT EXISTS idx_contents_is_new ON contents(is_new);
 CREATE INDEX IF NOT EXISTS idx_events_course ON events(course_id);
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_at);
 CREATE INDEX IF NOT EXISTS idx_changes_detected ON changes(detected_at);
+
+-- جدول پست‌های wall
+CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY,
+    course_id TEXT NOT NULL,
+    author TEXT NOT NULL,
+    author_id TEXT,
+    text TEXT NOT NULL,
+    posted_at TEXT,
+    posted_at_jalali TEXT,
+    post_url TEXT,
+    is_new INTEGER NOT NULL DEFAULT 0,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+-- جدول تکالیف
+CREATE TABLE IF NOT EXISTS assignments (
+    id TEXT PRIMARY KEY,
+    course_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    post_id TEXT,
+    start_at TEXT,
+    deadline TEXT,
+    start_at_jalali TEXT,
+    deadline_jalali TEXT,
+    submit_url TEXT,
+    view_url TEXT,
+    response_count INTEGER NOT NULL DEFAULT 0,
+    is_new INTEGER NOT NULL DEFAULT 0,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+-- ایندکس‌ها
+CREATE INDEX IF NOT EXISTS idx_posts_course ON posts(course_id);
+CREATE INDEX IF NOT EXISTS idx_posts_posted_at ON posts(posted_at);
+CREATE INDEX IF NOT EXISTS idx_assignments_course ON assignments(course_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_deadline ON assignments(deadline);
