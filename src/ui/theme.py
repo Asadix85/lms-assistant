@@ -355,6 +355,18 @@ def get_global_qss() -> str:
         padding: 10px 0;
     }}
 
+    /* === Change Card === */
+    QFrame#ChangeCard {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 12px;
+    }}
+
+    QFrame#ChangeCard:hover {{
+        border-color: {c.PRIMARY};
+        background-color: #FAFCFD;
+    }}
+
     /* === Scroll === */
     QScrollArea {{
         border: none;

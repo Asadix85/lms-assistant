@@ -82,6 +82,7 @@ class MainWindow(QMainWindow):
         """بارگذاری صفحات."""
         from src.ui.pages.courses_page import CoursesPage
         from src.ui.pages.events_page import EventsPage
+        from src.ui.pages.changes_page import ChangesPage
 
         # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
@@ -99,15 +100,16 @@ class MainWindow(QMainWindow):
         self._pages["events"] = self.events_page
         self.stack.addWidget(self.events_page)
 
-        # Placeholder pages
-        for key, title in [
-            ("changes", "تغییرات"),
-            ("settings", "تنظیمات"),
-        ]:
-            from src.ui.pages.base_page import BasePage
-            page = BasePage(title=title, subtitle="به‌زودی...")
-            self._pages[key] = page
-            self.stack.addWidget(page)
+        # Changes
+        self.changes_page = ChangesPage(self.DB_PATH)
+        self._pages["changes"] = self.changes_page
+        self.stack.addWidget(self.changes_page)
+
+        # Settings placeholder
+        from src.ui.pages.base_page import BasePage
+        settings_page = BasePage(title="تنظیمات", subtitle="به‌زودی...")
+        self._pages["settings"] = settings_page
+        self.stack.addWidget(settings_page)
 
         self.stack.setCurrentWidget(self._pages["dashboard"])
 
