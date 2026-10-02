@@ -330,6 +330,31 @@ def get_global_qss() -> str:
         border-color: {c.PRIMARY};
     }}
 
+    /* === Event Card === */
+    QFrame#EventCard {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 12px;
+    }}
+
+    QFrame#EventCard:hover {{
+        border-color: {c.PRIMARY};
+        background-color: #FAFCFD;
+    }}
+
+    QFrame#TimeBox {{
+        background-color: {c.PRIMARY_LIGHT};
+        border-radius: 10px;
+    }}
+
+    /* === Day Header === */
+    QLabel#DayHeader {{
+        font-size: {f.SIZE_MD}pt;
+        font-weight: bold;
+        color: {c.TEXT_PRIMARY};
+        padding: 10px 0;
+    }}
+
     /* === Scroll === */
     QScrollArea {{
         border: none;

@@ -81,6 +81,7 @@ class MainWindow(QMainWindow):
     def _load_data(self) -> None:
         """بارگذاری صفحات."""
         from src.ui.pages.courses_page import CoursesPage
+        from src.ui.pages.events_page import EventsPage
 
         # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
@@ -93,9 +94,13 @@ class MainWindow(QMainWindow):
         self._pages["courses"] = self.courses_page
         self.stack.addWidget(self.courses_page)
 
+        # Events
+        self.events_page = EventsPage(self.DB_PATH)
+        self._pages["events"] = self.events_page
+        self.stack.addWidget(self.events_page)
+
         # Placeholder pages
         for key, title in [
-            ("events", "رویدادها"),
             ("changes", "تغییرات"),
             ("settings", "تنظیمات"),
         ]:
