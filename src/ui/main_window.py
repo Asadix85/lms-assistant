@@ -1,4 +1,4 @@
-"""پنجره اصلی LMS Assistant با Liquid Glass."""
+"""پنجره اصلی LMS Assistant."""
 
 from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import (
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from config.settings import settings
+from src.services.settings_manager import SettingsManager
 from src.services.sync_result import SyncResult
 from src.storage.database import Database
 from src.storage.repositories import CourseRepository
@@ -20,7 +21,6 @@ from src.ui.header import Header
 from src.ui.sidebar import Sidebar
 from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
 from src.ui.worker import SyncWorker
-from src.ui.pages.about_page import AboutPage
 
 
 class MainWindow(QMainWindow):
@@ -32,28 +32,24 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
         self.resize(1300, 850)
-        from PySide6.QtGui import QIcon
-        from pathlib import Path
 
-        icon_path = Path("assets/icons/app.ico")
-        if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
-        else:
-            from src.ui.icons import Icons
-            self.setWindowIcon(Icons.get("graduation-cap", size=256))
-
-        # ⚠️ شفاف کردن پنجره اصلی برای Acrylic Blur
+        # شفاف کردن پنجره
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAutoFillBackground(False)
 
+        # پاک کردن کش آیکون‌ها
+        from src.ui.icons import Icons
+        Icons.clear_cache()
+
         self._thread: QThread | None = None
         self._worker: SyncWorker | None = None
         self._pages: dict[str, QWidget] = {}
+        self._current_page_key: str = "dashboard"
 
         self._build_ui()
         self._load_data()
-        self._update_user_name()
+        self._restore_geometry()
         self._enable_acrylic_blur()
 
     def _build_ui(self) -> None:
@@ -71,7 +67,6 @@ class MainWindow(QMainWindow):
         # Sidebar
         self.sidebar = Sidebar()
         self.sidebar.page_changed.connect(self._on_page_changed)
-        # ⚠️ theme_toggled حذف شد (به Settings منتقل شد)
         main_layout.addWidget(self.sidebar)
 
         # Content
@@ -112,11 +107,7 @@ class MainWindow(QMainWindow):
         else:
             color = 0xFAF8FAFC
 
-        success = enable_blur(self, color=color, enable=True)
-        if success:
-            print(f"✅ Acrylic Blur فعال شد (tint: {hex(color)})")
-        else:
-            print("⚠️ Acrylic Blur پشتیبانی نمی‌شه")
+        enable_blur(self, color=color, enable=True)
 
     def _load_data(self) -> None:
         """بارگذاری صفحات."""
@@ -128,6 +119,7 @@ class MainWindow(QMainWindow):
         from src.ui.pages.assignments_page import AssignmentsPage
         from src.ui.pages.course_detail_page import CourseDetailPage
         from src.ui.pages.calendar_page import CalendarPage
+        from src.ui.pages.about_page import AboutPage
 
         # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
@@ -142,9 +134,9 @@ class MainWindow(QMainWindow):
         # Courses
         self.courses_page = CoursesPage(self.DB_PATH)
         self.courses_page.course_selected.connect(self._on_course_selected)
+        self.courses_page.sync_requested.connect(self._on_update_clicked)
         self._pages["courses"] = self.courses_page
         self.stack.addWidget(self.courses_page)
-        self.courses_page.sync_requested.connect(self._on_update_clicked)
 
         # Course Detail
         self.course_detail_page = CourseDetailPage(self.DB_PATH)
@@ -156,9 +148,9 @@ class MainWindow(QMainWindow):
 
         # Assignments
         self.assignments_page = AssignmentsPage(self.DB_PATH)
+        self.assignments_page.sync_requested.connect(self._on_update_clicked)
         self._pages["assignments"] = self.assignments_page
         self.stack.addWidget(self.assignments_page)
-        self.assignments_page.sync_requested.connect(self._on_update_clicked)
 
         # Events
         self.events_page = EventsPage(self.DB_PATH)
@@ -167,9 +159,9 @@ class MainWindow(QMainWindow):
 
         # Changes
         self.changes_page = ChangesPage(self.DB_PATH)
+        self.changes_page.sync_requested.connect(self._on_update_clicked)
         self._pages["changes"] = self.changes_page
         self.stack.addWidget(self.changes_page)
-        self.changes_page.sync_requested.connect(self._on_update_clicked)
 
         # Settings
         self.settings_page = SettingsPage(self.DB_PATH)
@@ -181,9 +173,42 @@ class MainWindow(QMainWindow):
         self._pages["about"] = self.about_page
         self.stack.addWidget(self.about_page)
 
-        self._update_user_name()
+        # ⚠️ بازیابی آخرین صفحه
+        last_page = SettingsManager.load_last_page(default="dashboard")
+        if last_page in self._pages:
+            self._current_page_key = last_page
+            self.stack.setCurrentWidget(self._pages[last_page])
+            self.sidebar.set_active(last_page)
+        else:
+            self.stack.setCurrentWidget(self._pages["dashboard"])
 
-        self.stack.setCurrentWidget(self._pages["dashboard"])
+    def _restore_geometry(self) -> None:
+        """بازیابی اندازه و موقعیت پنجره."""
+        geometry_bytes = SettingsManager.load_geometry()
+        if geometry_bytes:
+            try:
+                self.restoreGeometry(geometry_bytes)
+                print("✅ اندازه پنجره بازیابی شد")
+            except Exception as e:
+                print(f"⚠️ خطا در بازیابی geometry: {e}")
+
+    def closeEvent(self, event) -> None:
+        """ذخیره‌ی تنظیمات هنگام بستن پنجره."""
+        try:
+            # ذخیره‌ی geometry
+            SettingsManager.save_geometry(self.saveGeometry().data())
+
+            # ذخیره‌ی تم
+            SettingsManager.save_theme(CurrentTheme.mode)
+
+            # ذخیره‌ی آخرین صفحه
+            SettingsManager.save_last_page(self._current_page_key)
+
+            print("💾 تنظیمات ذخیره شد")
+        except Exception as e:
+            print(f"⚠️ خطا در ذخیره تنظیمات: {e}")
+
+        super().closeEvent(event)
 
     def _on_course_selected(self, course_id: str) -> None:
         try:
@@ -192,6 +217,7 @@ class MainWindow(QMainWindow):
                 if course:
                     self.course_detail_page.load_course(course)
                     self.stack.setCurrentWidget(self.course_detail_page)
+                    self._current_page_key = "courses"  # ⚠️ حفظ کن
                     self.sidebar.set_active("courses")
                     self.status_bar.showMessage(f"درس: {course.name}")
         except Exception as e:
@@ -200,6 +226,7 @@ class MainWindow(QMainWindow):
     def _on_page_changed(self, key: str) -> None:
         if key in self._pages:
             self.stack.setCurrentWidget(self._pages[key])
+            self._current_page_key = key  # ⚠️ ذخیره کن
             page = self._pages[key]
             if hasattr(page, "refresh"):
                 page.refresh()
@@ -244,17 +271,16 @@ class MainWindow(QMainWindow):
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.header.set_busy(False, "آماده")
         self.status_bar.showMessage("✅ Sync تمام شد")
-        self._update_user_name()
 
         current = self.stack.currentWidget()
         if hasattr(current, "refresh"):
             current.refresh()
 
         if result.has_error:
-            QMessageBox.critical(self, "❌ خطا", f"خطا در Sync:\n{result.error}")
+            QMessageBox.critical(self, "خطا", f"خطا در Sync:\n{result.error}")
         elif result.is_first_sync:
             QMessageBox.information(
-                self, "🎉 اولین Sync",
+                self, "اولین Sync",
                 f"🎉 اولین Sync موفق!\n\n"
                 f"📚 {result.courses_new} درس\n"
                 f"📄 {result.contents_new} فایل\n"
@@ -280,17 +306,6 @@ class MainWindow(QMainWindow):
                 f"📋 {result.assignments_new} تکلیف\n\n"
                 f"⏱️ {result.duration_seconds:.1f} ثانیه",
             )
-
-    def _update_user_name(self) -> None:
-        """به‌روزرسانی نام کاربر در header."""
-        try:
-            with Database(self.DB_PATH) as db:
-                from src.storage.repositories import SettingRepository
-                name = SettingRepository(db).get("full_name")
-                if name:
-                    self.header.set_user(name)
-        except Exception as e:
-            print(f"خطا در به‌روزرسانی نام: {e}")
 
     def _on_sync_error(self, message: str) -> None:
         self.header.set_busy(False, "خطا")

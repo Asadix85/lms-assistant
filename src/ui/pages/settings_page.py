@@ -164,6 +164,7 @@ class SettingsPage(BasePage):
         from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
         from src.ui.icons import Icons
         from src.ui.blur import enable_blur
+        from src.services.settings_manager import SettingsManager
 
         # toggle
         new_mode = (
@@ -171,7 +172,10 @@ class SettingsPage(BasePage):
         )
         CurrentTheme.set_mode(new_mode)
 
-        # ⚠️ پاک کردن کش آیکون‌ها
+        # ⚠️ ذخیره‌ی تم
+        SettingsManager.save_theme(new_mode)
+
+        # پاک کردن کش آیکون‌ها
         Icons.clear_cache()
 
         # اعمال QSS جدید
@@ -191,16 +195,17 @@ class SettingsPage(BasePage):
 
             enable_blur(main_window, color=color, enable=True)
 
-            # ⚠️ رفرش آیکون‌های Sidebar
+            # رفرش Sidebar
             if hasattr(main_window, "sidebar"):
                 main_window.sidebar.refresh_icons()
 
-            # ⚠️ رفرش صفحه‌ی فعلی
+            # رفرش صفحه‌ی فعلی
             if hasattr(main_window, "stack"):
                 current = main_window.stack.currentWidget()
                 if hasattr(current, "refresh"):
                     current.refresh()
 
+        # رفرش خود Settings
         self.refresh()
 
     def _build_database_card(self) -> None:
