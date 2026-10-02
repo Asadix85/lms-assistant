@@ -2,8 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, QSize
-from PySide6.QtGui import QFont, QIcon, QAction
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -19,6 +18,7 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QProgressBar,
     QFrame,
+    QCheckBox,
 )
 
 from config.settings import settings
@@ -26,7 +26,6 @@ from src.services.sync_result import SyncResult
 from src.storage.database import Database
 from src.storage.repositories import (
     ChangeRepository,
-    ContentRepository,
     CourseRepository,
     EventRepository,
     SettingRepository,
@@ -44,7 +43,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
         self.resize(1000, 700)
 
-        # Thread
         self._thread: QThread | None = None
         self._worker: SyncWorker | None = None
 
@@ -52,10 +50,7 @@ class MainWindow(QMainWindow):
         self._apply_rtl()
         self._load_initial_data()
 
-    # === UI ===
-
     def _build_ui(self) -> None:
-        """ساخت رابط کاربری."""
         central = QWidget()
         self.setCentralWidget(central)
 
@@ -63,11 +58,11 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
 
-        # === Header ===
+        # Header
         header = self._build_header()
         layout.addWidget(header)
 
-        # === Update button ===
+        # Update button
         self.update_btn = QPushButton("🔄  بروزرسانی از LMS")
         self.update_btn.setMinimumHeight(50)
         self.update_btn.setStyleSheet("""
@@ -79,23 +74,27 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
                 font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #bdc3c7;
-            }
+            QPushButton:hover { background-color: #2980b9; }
+            QPushButton:disabled { background-color: #bdc3c7; }
         """)
         self.update_btn.clicked.connect(self._on_update_clicked)
         layout.addWidget(self.update_btn)
 
-        # === Progress bar ===
+        # Notify checkbox
+        notify_layout = QHBoxLayout()
+        notify_layout.addStretch()
+        self.notify_checkbox = QCheckBox("🔔 نمایش اعلان پس از Sync")
+        self.notify_checkbox.setChecked(True)
+        notify_layout.addWidget(self.notify_checkbox)
+        layout.addLayout(notify_layout)
+
+        # Progress
         self.progress = QProgressBar()
-        self.progress.setRange(0, 0)  # indeterminate
+        self.progress.setRange(0, 0)
         self.progress.setVisible(False)
         layout.addWidget(self.progress)
 
-        # === Tabs ===
+        # Tabs
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane { border: 1px solid #ddd; }
@@ -113,13 +112,12 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.tabs)
 
-        # === Status bar ===
+        # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("آماده")
 
     def _build_header(self) -> QWidget:
-        """ساخت هدر."""
         header = QFrame()
         header.setFrameShape(QFrame.StyledPanel)
         header.setStyleSheet("""
@@ -130,17 +128,14 @@ class MainWindow(QMainWindow):
                 padding: 10px;
             }
         """)
-
         layout = QHBoxLayout(header)
 
-        # عنوان
         title = QLabel("🎓  LMS Assistant")
         title.setStyleSheet("color: white; font-size: 18px; font-weight: bold;")
         layout.addWidget(title)
 
         layout.addStretch()
 
-        # User info
         self.user_label = QLabel("وارد نشده")
         self.user_label.setStyleSheet("color: #ecf0f1; font-size: 12px;")
         layout.addWidget(self.user_label)
@@ -148,7 +143,6 @@ class MainWindow(QMainWindow):
         return header
 
     def _build_courses_table(self) -> QTableWidget:
-        """جدول دروس."""
         table = QTableWidget()
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels(["#", "نام درس", "استاد", "کد", "دامنه"])
@@ -160,7 +154,6 @@ class MainWindow(QMainWindow):
         return table
 
     def _build_events_table(self) -> QTableWidget:
-        """جدول رویدادها."""
         table = QTableWidget()
         table.setColumnCount(4)
         table.setHorizontalHeaderLabels(["#", "عنوان", "ساعت", "لینک"])
@@ -171,7 +164,6 @@ class MainWindow(QMainWindow):
         return table
 
     def _build_changes_table(self) -> QTableWidget:
-        """جدول تغییرات."""
         table = QTableWidget()
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels(["#", "نوع", "موجودیت", "ID", "زمان"])
@@ -182,13 +174,9 @@ class MainWindow(QMainWindow):
         return table
 
     def _apply_rtl(self) -> None:
-        """اعمال راست‌چین."""
         self.setLayoutDirection(Qt.RightToLeft)
 
-    # === Data Loading ===
-
     def _load_initial_data(self) -> None:
-        """بارگذاری داده‌های اولیه از دیتابیس."""
         try:
             with Database(self.DB_PATH) as db:
                 db.init_schema()
@@ -241,42 +229,30 @@ class MainWindow(QMainWindow):
         event_count = EventRepository(db).count()
         setting_repo = SettingRepository(db)
         last_sync = setting_repo.get("last_sync_at", "—")
-
         if last_sync != "—":
             last_sync = last_sync[:19].replace("T", " ")
-
         self.status_bar.showMessage(
             f"📚 {course_count} درس  |  📅 {event_count} رویداد  |  🔄 آخرین Sync: {last_sync}"
         )
 
-    # === Sync ===
-
     def _on_update_clicked(self) -> None:
-        """دکمه بروزرسانی."""
-        # چک کردن اعتبارنامه
         if not settings.lms_username or not settings.lms_password:
-            QMessageBox.warning(
-                self,
-                "خطا",
-                "نام کاربری و رمز عبور در .env تنظیم نشده.",
-            )
+            QMessageBox.warning(self, "خطا", "نام کاربری و رمز عبور در .env تنظیم نشده.")
             return
 
-        # غیرفعال کردن دکمه
         self.update_btn.setEnabled(False)
         self.progress.setVisible(True)
         self.status_bar.showMessage("در حال Sync...")
 
-        # Thread + Worker
         self._thread = QThread()
         self._worker = SyncWorker(
             username=settings.lms_username,
             password=settings.lms_password,
             db_path=self.DB_PATH,
+            notify=self.notify_checkbox.isChecked(),
         )
         self._worker.moveToThread(self._thread)
 
-        # Signals
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(self._on_progress)
         self._worker.finished.connect(self._on_sync_finished)
@@ -293,17 +269,13 @@ class MainWindow(QMainWindow):
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.progress.setVisible(False)
         self.update_btn.setEnabled(True)
-
-        # Reload data
         self._load_initial_data()
 
-        # Show result
         if result.has_error:
             QMessageBox.critical(self, "خطا", f"خطا در Sync:\n{result.error}")
         elif result.is_first_sync:
             QMessageBox.information(
-                self,
-                "اولین Sync",
+                self, "اولین Sync",
                 f"🎉 اولین Sync موفق!\n\n"
                 f"📚 {result.courses_new} درس\n"
                 f"📄 {result.contents_new} فایل\n"
@@ -312,15 +284,13 @@ class MainWindow(QMainWindow):
             )
         elif result.total_new == 0:
             QMessageBox.information(
-                self,
-                "بدون تغییر",
+                self, "بدون تغییر",
                 f"✨ هیچ تغییر جدیدی نیست\n\n"
                 f"⏱️ {result.duration_seconds:.1f} ثانیه",
             )
         else:
             QMessageBox.information(
-                self,
-                "تغییرات جدید",
+                self, "تغییرات جدید",
                 f"📢 تغییرات جدید:\n\n"
                 f"📚 {result.courses_new} درس\n"
                 f"📄 {result.contents_new} فایل\n"
