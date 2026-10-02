@@ -30,7 +30,7 @@ class CalendarEventItem(QFrame):
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setContentsMargins(8, 5, 8, 5)
         layout.setSpacing(2)
 
         # === ساعت ===
@@ -41,7 +41,7 @@ class CalendarEventItem(QFrame):
             deadline_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             layout.addWidget(deadline_label)
 
-        # === عنوان (کامل) ===
+        # === عنوان ===
         title = QLabel(self._assignment.title)
         title.setObjectName("CalEventTitle")
         title.setWordWrap(True)
@@ -50,55 +50,55 @@ class CalendarEventItem(QFrame):
         title.setToolTip(self._assignment.title)
         layout.addWidget(title)
 
-    def _get_color(self) -> tuple[str, str, str]:
-        """رنگ (پس‌زمینه‌ی شفاف، متن، حاشیه) بر اساس وضعیت ددلاین."""
+    def _get_color(self) -> tuple[str, str, str, str]:
+        """رنگ‌ها: (پس‌زمینه، پس‌زمینه hover، متن، بردر)"""
         c = CurrentTheme.colors()
         is_dark = CurrentTheme.is_dark()
 
+        # رنگ بردر بر اساس وضعیت ددلاین
         if not self._assignment.deadline:
-            color = c.TEXT_MUTED
+            color_hex = c.TEXT_MUTED.lstrip("#")
         else:
             now = datetime.now()
             delta = self._assignment.deadline - now
 
             if delta.total_seconds() < 0:
-                color = c.TEXT_MUTED
+                color_hex = c.TEXT_MUTED.lstrip("#")
             elif delta.days == 0:
-                color = c.ERROR
+                color_hex = c.ERROR.lstrip("#")
             elif delta.days == 1:
-                color = c.ACCENT
+                color_hex = c.ACCENT.lstrip("#")
             elif delta.days <= 3:
-                color = c.WARNING
+                color_hex = c.WARNING.lstrip("#")
             else:
-                color = c.SUCCESS
+                color_hex = c.SUCCESS.lstrip("#")
 
-        # ⚠️ در dark، پس‌زمینه تیره‌تر با کمی رنگ
+        # ⚠️ در dark، پس‌زمینه تیره‌تر با alpha بالاتر
         if is_dark:
-            # alpha بالاتر برای شفافیت مناسب
-            bg = f"{color}30"  # 19% alpha
-            bg_hover = f"{color}55"
-            text_color = c.TEXT_PRIMARY  # ← روشن
-            border_color = color
+            bg = f"rgba({int(color_hex[0:2], 16)}, {int(color_hex[2:4], 16)}, {int(color_hex[4:6], 16)}, 0.12)"
+            bg_hover = f"rgba({int(color_hex[0:2], 16)}, {int(color_hex[2:4], 16)}, {int(color_hex[4:6], 16)}, 0.20)"
         else:
-            bg = f"{color}22"
-            bg_hover = f"{color}44"
-            text_color = c.TEXT_PRIMARY
-            border_color = color
+            bg = f"rgba({int(color_hex[0:2], 16)}, {int(color_hex[2:4], 16)}, {int(color_hex[4:6], 16)}, 0.08)"
+            bg_hover = f"rgba({int(color_hex[0:2], 16)}, {int(color_hex[2:4], 16)}, {int(color_hex[4:6], 16)}, 0.15)"
+
+        text_color = c.TEXT_PRIMARY
+        border_color = f"#{color_hex}"
 
         return bg, bg_hover, text_color, border_color
 
     def _apply_style(self) -> None:
-        c = CurrentTheme.colors()
         bg, bg_hover, text_color, border_color = self._get_color()
 
+        # ⚠️ border-right (در RTL به سمت راست بصری می‌ره)
         self.setStyleSheet(f"""
             QFrame#CalendarEventItem {{
                 background-color: {bg};
-                border-right: 3px solid {border_color};
+                border-right: 4px solid {border_color};
                 border-radius: 4px;
             }}
             QFrame#CalendarEventItem:hover {{
                 background-color: {bg_hover};
+                border-right: 6px solid {border_color};
             }}
             QLabel#CalEventTitle {{
                 color: {text_color};

@@ -591,6 +591,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     }}
     
     /* === Hero Card (بیشتر برای About) === */
+    
     QFrame#HeroCard {{
         background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
             stop:0 {c.PRIMARY}, stop:0.5 {c.PRIMARY_DARK}, stop:1 {c.SECONDARY});
@@ -601,5 +602,57 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QFrame#HeroCard QLabel {{
         background: transparent;
         color: white;
+    }}
+    
+        /* === Horizontal Timeline === */
+    QFrame#TimelineContainer {{
+        background: transparent;
+        border: none;
+    }}
+
+    QFrame#TimelineLine {{
+        background-color: {c.BORDER};
+        margin: 12px 60px 0 60px;
+        border-radius: 1px;
+    }}
+
+    /* === Hover Link (الگوی یونیکو با رنگ خودمون) === */
+    QPushButton#LinkButton {{
+        background: transparent;
+        color: {c.TEXT_PRIMARY};
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 8px 14px;
+        text-align: center;
+        font-weight: 500;
+        font-size: {f.SIZE_BASE}pt;
+    }}
+
+    QPushButton#LinkButton:hover {{
+        color: {c.PRIMARY};
+        border-bottom: 2px solid {c.PRIMARY};
+    }}
+
+    QPushButton#LinkButton:checked {{
+        color: {c.PRIMARY};
+        border-bottom: 3px solid {c.PRIMARY};
+        font-weight: bold;
+    }}
+
+    /* === Secondary Button با Hover Link === */
+    QPushButton#SecondaryButton {{
+        background-color: {c.GLASS_BG};
+        color: {c.TEXT_PRIMARY};
+        border: 1px solid {c.GLASS_BORDER};
+        border-bottom: 2px solid {c.GLASS_BORDER};
+        border-radius: 14px;
+        padding: 10px 20px;
+        text-align: center;
+    }}
+
+    QPushButton#SecondaryButton:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        border-bottom: 2px solid {c.PRIMARY};
+        color: {c.PRIMARY};
     }}
     """
