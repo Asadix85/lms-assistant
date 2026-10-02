@@ -83,6 +83,7 @@ class MainWindow(QMainWindow):
         from src.ui.pages.courses_page import CoursesPage
         from src.ui.pages.events_page import EventsPage
         from src.ui.pages.changes_page import ChangesPage
+        from src.ui.pages.settings_page import SettingsPage
 
         # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
@@ -105,11 +106,10 @@ class MainWindow(QMainWindow):
         self._pages["changes"] = self.changes_page
         self.stack.addWidget(self.changes_page)
 
-        # Settings placeholder
-        from src.ui.pages.base_page import BasePage
-        settings_page = BasePage(title="تنظیمات", subtitle="به‌زودی...")
-        self._pages["settings"] = settings_page
-        self.stack.addWidget(settings_page)
+        # Settings
+        self.settings_page = SettingsPage(self.DB_PATH)
+        self._pages["settings"] = self.settings_page
+        self.stack.addWidget(self.settings_page)
 
         self.stack.setCurrentWidget(self._pages["dashboard"])
 

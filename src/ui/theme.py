@@ -366,6 +366,13 @@ def get_global_qss() -> str:
         border-color: {c.PRIMARY};
         background-color: #FAFCFD;
     }}
+    
+    /* === Setting Card === */
+    QFrame#SettingCard {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 12px;
+    }}
 
     /* === Scroll === */
     QScrollArea {{
