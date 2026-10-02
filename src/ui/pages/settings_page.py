@@ -162,6 +162,7 @@ class SettingsPage(BasePage):
         """تغییر تم برنامه."""
         from PySide6.QtWidgets import QApplication
         from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
+        from src.ui.icons import Icons
         from src.ui.blur import enable_blur
 
         # toggle
@@ -170,6 +171,10 @@ class SettingsPage(BasePage):
         )
         CurrentTheme.set_mode(new_mode)
 
+        # ⚠️ پاک کردن کش آیکون‌ها
+        Icons.clear_cache()
+
+        # اعمال QSS جدید
         app = QApplication.instance()
         if app:
             app.setStyleSheet(get_global_qss(new_mode))
@@ -186,8 +191,17 @@ class SettingsPage(BasePage):
 
             enable_blur(main_window, color=color, enable=True)
 
+            # ⚠️ رفرش آیکون‌های Sidebar
+            if hasattr(main_window, "sidebar"):
+                main_window.sidebar.refresh_icons()
+
+            # ⚠️ رفرش صفحه‌ی فعلی
+            if hasattr(main_window, "stack"):
+                current = main_window.stack.currentWidget()
+                if hasattr(current, "refresh"):
+                    current.refresh()
+
         self.refresh()
-        self.theme_changed.emit()
 
     def _build_database_card(self) -> None:
         card = SettingCard(title="دیتابیس", icon="💾")

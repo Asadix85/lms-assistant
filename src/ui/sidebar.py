@@ -132,8 +132,6 @@ class Sidebar(QFrame):
 
     def refresh_icons(self) -> None:
         """رفرش آیکون‌ها (بعد از تغییر تم)."""
-        Icons.clear_cache()
-
         icon_map = {
             "dashboard": Icons.DASHBOARD,
             "calendar": Icons.CALENDAR,
@@ -151,3 +149,4 @@ class Sidebar(QFrame):
                 icon = Icons.get(icon_name, size=22)
                 if not icon.isNull():
                     btn.setIcon(icon)
+                    btn.setIconSize(QSize(22, 22))
