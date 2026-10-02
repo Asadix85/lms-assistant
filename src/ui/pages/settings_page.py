@@ -288,7 +288,7 @@ class SettingsPage(BasePage):
             shutil.copy2(src, dest)
             QMessageBox.information(
                 self,
-                "موفق",
+                "✅ موفق",
                 f"بکاپ ذخیره شد:\n{dest}",
             )
         except Exception as e:
@@ -298,10 +298,11 @@ class SettingsPage(BasePage):
         """پاک کردن دیتابیس."""
         reply = QMessageBox.question(
             self,
-            "پاک کردن دیتابیس",
-            "آیا مطمئنی؟ همه‌ی داده‌ها پاک می‌شوند.\n"
+            "🗑️ پاک کردن دیتابیس",
+            "آیا مطمئن هستی؟ همه‌ی داده‌ها پاک می‌شوند.\n"
             "(بعد از پاک کردن، باید دوباره Sync بزنی.)",
             QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,  # ⚠️ پیش‌فرض No
         )
         if reply != QMessageBox.Yes:
             return

@@ -32,6 +32,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
         self.resize(1300, 850)
+        from PySide6.QtGui import QIcon
+        from pathlib import Path
+
+        icon_path = Path("assets/icons/app.ico")
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        else:
+            from src.ui.icons import Icons
+            self.setWindowIcon(Icons.get("graduation-cap", size=256))
 
         # ⚠️ شفاف کردن پنجره اصلی برای Acrylic Blur
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -242,10 +251,10 @@ class MainWindow(QMainWindow):
             current.refresh()
 
         if result.has_error:
-            QMessageBox.critical(self, "خطا", f"خطا در Sync:\n{result.error}")
+            QMessageBox.critical(self, "❌ خطا", f"خطا در Sync:\n{result.error}")
         elif result.is_first_sync:
             QMessageBox.information(
-                self, "اولین Sync",
+                self, "🎉 اولین Sync",
                 f"🎉 اولین Sync موفق!\n\n"
                 f"📚 {result.courses_new} درس\n"
                 f"📄 {result.contents_new} فایل\n"
