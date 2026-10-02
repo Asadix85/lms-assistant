@@ -80,14 +80,21 @@ class MainWindow(QMainWindow):
 
     def _load_data(self) -> None:
         """بارگذاری صفحات."""
+        from src.ui.pages.courses_page import CoursesPage
+
         # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
         self._pages["dashboard"] = self.dashboard_page
         self.stack.addWidget(self.dashboard_page)
 
-        # Placeholder pages (بعداً پر می‌کنیم)
+        # Courses
+        self.courses_page = CoursesPage(self.DB_PATH)
+        self.courses_page.course_selected.connect(self._on_course_selected)
+        self._pages["courses"] = self.courses_page
+        self.stack.addWidget(self.courses_page)
+
+        # Placeholder pages
         for key, title in [
-            ("courses", "دروس"),
             ("events", "رویدادها"),
             ("changes", "تغییرات"),
             ("settings", "تنظیمات"),
@@ -97,13 +104,25 @@ class MainWindow(QMainWindow):
             self._pages[key] = page
             self.stack.addWidget(page)
 
-        # نمایش صفحه اول
         self.stack.setCurrentWidget(self._pages["dashboard"])
+
+    def _on_course_selected(self, course_id: str) -> None:
+        """کلیک روی یک درس."""
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self,
+            "درس انتخاب شد",
+            f"Course ID: {course_id}\n\n(جزئیات در Phase بعدی)",
+        )
 
     def _on_page_changed(self, key: str) -> None:
         """تغییر صفحه."""
         if key in self._pages:
             self.stack.setCurrentWidget(self._pages[key])
+            # رفرش صفحه
+            page = self._pages[key]
+            if hasattr(page, "refresh"):
+                page.refresh()
             self.status_bar.showMessage(f"صفحه: {key}")
 
     def _on_update_clicked(self) -> None:

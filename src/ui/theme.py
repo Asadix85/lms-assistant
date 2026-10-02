@@ -298,6 +298,37 @@ def get_global_qss() -> str:
         font-size: {f.SIZE_BASE}pt;
         color: {c.TEXT_SECONDARY};
     }}
+    
+    /* === Course Card === */
+    QFrame#CourseCard {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 12px;
+    }}
+
+    QFrame#CourseCard:hover {{
+        border: 2px solid {c.PRIMARY};
+    }}
+
+    /* === Filter Button === */
+    QPushButton#FilterButton {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 8px;
+        padding: 8px 16px;
+        color: {c.TEXT_PRIMARY};
+    }}
+
+    QPushButton#FilterButton:hover {{
+        border-color: {c.PRIMARY};
+        color: {c.PRIMARY};
+    }}
+
+    QPushButton#FilterButton:checked {{
+        background-color: {c.PRIMARY};
+        color: white;
+        border-color: {c.PRIMARY};
+    }}
 
     /* === Scroll === */
     QScrollArea {{
