@@ -5,14 +5,18 @@ from loguru import logger
 from src.collectors.contents import ContentsCollector
 from src.collectors.courses import CoursesCollector
 from src.collectors.events import EventsCollector
+from src.collectors.wall import WallCollector
 from src.core.auth import LMSAuth
 from src.core.http_client import LMSHttpClient
+from src.models.assignment import Assignment
 from src.models.content import Content
 from src.models.course import Course
 from src.models.event import Event
+from src.models.post import Post
 from src.parsers.contents import ContentParser
 from src.parsers.courses import CourseParser
 from src.parsers.events import EventParser
+from src.parsers.wall import WallParser
 
 
 class LMSAssistant:
@@ -52,7 +56,7 @@ class LMSAssistant:
     def user_id(self) -> str | None:
         return self.auth.user_id
 
-    # === Domain ===
+    # === Activate Domain ===
 
     def activate_domain(self, nodeg_url: str, domain: str) -> bool:
         if domain in self.active_domains:
@@ -123,10 +127,59 @@ class LMSAssistant:
     # === Events ===
 
     def get_all_events(self) -> list[Event]:
-        """دریافت همه‌ی رویدادها از تقویم lms4."""
         collector = EventsCollector(self.client)
         html = collector.collect()
         return self.event_parser.parse(html)
+
+    # === Wall (Posts + Assignments) ===
+
+    def get_course_wall(
+        self, course: Course
+    ) -> tuple[list[Post], list[Assignment]]:
+        """دریافت Postها و Assignmentهای یک درس.
+
+        Returns:
+            (posts, assignments)
+        """
+        # اطمینان از فعال بودن دامنه
+        if course.domain not in self.active_domains:
+            if course.nodeg_url:
+                self.activate_domain(course.nodeg_url, course.domain)
+            else:
+                logger.warning(f"دامنه {course.domain} فعال نیست")
+                return [], []
+
+        try:
+            collector = WallCollector(self.client, course=course)
+            html = collector.collect()
+
+            base_url = self.DOMAIN_URLS.get(course.domain, "https://lms4.ui.ac.ir")
+            parser = WallParser(course_id=course.group_id, base_url=base_url)
+            return parser.parse(html)
+        except Exception as e:
+            logger.error(f"خطا در wall {course.name}: {e}")
+            return [], []
+
+    def get_all_wall_data(
+        self,
+    ) -> tuple[dict[str, list[Post]], dict[str, list[Assignment]]]:
+        """دریافت wall همه دروس فعال.
+
+        Returns:
+            (posts_by_course, assignments_by_course)
+        """
+        courses = self.get_active_courses()
+        posts_by_course: dict[str, list[Post]] = {}
+        assignments_by_course: dict[str, list[Assignment]] = {}
+
+        for c in courses:
+            posts, assignments = self.get_course_wall(c)
+            if posts:
+                posts_by_course[c.id] = posts
+            if assignments:
+                assignments_by_course[c.id] = assignments
+
+        return posts_by_course, assignments_by_course
 
     # === Lifecycle ===
 

@@ -21,11 +21,11 @@ class LMSHttpClient:
     """
 
     def __init__(
-        self,
-        base_url: str,
-        timeout: int = 30,
-        max_retries: int = 3,
-        user_agent: str | None = None,
+            self,
+            base_url: str,
+            timeout: int = 30,
+            max_retries: int = 3,
+            user_agent: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -42,6 +42,18 @@ class LMSHttpClient:
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
         }
+
+        # ساخت httpx.Client
+        # ⚠️ trust_env=False → Proxy سیستمی را نادیده بگیر
+        self._client = httpx.Client(
+            base_url=self.base_url,
+            timeout=timeout,
+            headers=self._headers,
+            follow_redirects=True,
+            trust_env=False,  # ← حیاتی!
+        )
+
+        logger.info(f"LMSHttpClient ساخته شد: {self.base_url}")
 
         # ساخت httpx.Client
         self._client = httpx.Client(
