@@ -15,12 +15,10 @@ from src.parsers.base import BaseParser
 class WallParser(BaseParser):
     """استخراج Post و Assignment از wall درس."""
 
-    # الگوی تاریخ Assignment: "پایان تمرین : ۱۱ مهر ۱۴۰۵ - ۱۲:۰۰"
     ASSIGNMENT_DATE_PATTERN = re.compile(
         r"(\d{1,2})\s+(\S+)\s+(\d{4})\s*-\s*(\d{1,2}):(\d{2})"
     )
 
-    # الگوی تاریخ Post: "۱۰ مهر ۰۵, ۱۲:۰۰ عصر"
     POST_DATE_PATTERN = re.compile(
         r"(\d{1,2})\s+(\S+)\s+(\d{2,4}),\s+(\d{1,2}):(\d{2})\s*(عصر|صبح|بعدازظهر)?"
     )
@@ -29,7 +27,7 @@ class WallParser(BaseParser):
         "فروردین": 1, "اردیبهشت": 2, "خرداد": 3, "تیر": 4,
         "مرداد": 5, "شهریور": 6, "مهر": 7, "آبان": 8,
         "آذر": 9, "دی": 10, "بهمن": 11, "اسفند": 12,
-        "شهريور": 6,  # با ی عربی
+        "شهريور": 6,
     }
 
     def __init__(self, course_id: str, base_url: str = "https://lms4.ui.ac.ir") -> None:
@@ -77,7 +75,6 @@ class WallParser(BaseParser):
         if not text:
             return None
 
-        # Date
         posted_at = None
         posted_at_jalali = None
         date_el = body.find("span", class_="timestamp")
@@ -85,7 +82,6 @@ class WallParser(BaseParser):
             posted_at_jalali = date_el.get("title", "") or date_el.get_text(strip=True)
             posted_at = self._parse_post_date(posted_at_jalali)
 
-        # Post URL
         post_url = None
         for a in body.find_all("a", href=True):
             if a["href"].startswith("/posts/"):
@@ -127,16 +123,8 @@ class WallParser(BaseParser):
             return None
         assignment_id = match.group(1)
 
-        title = ""
-        title_span = attachments.find("span", string=re.compile(r"عنوان"))
-        if title_span:
-            b = title_span.find("b")
-            if b:
-                title = b.get_text(strip=True)
-
-        if not title and post:
-            title = post.text[:100]
-
+        # ⚠️ استخراج نام کامل
+        title = self._extract_full_title(attachments, post)
         if not title:
             return None
 
@@ -145,16 +133,16 @@ class WallParser(BaseParser):
         start_el = attachments.find("span", class_="ass_st_time")
         if start_el:
             start_text = start_el.get_text(strip=True)
-            start_at_jalali = start_text
             start_at = self._parse_assignment_date(start_text)
+            start_at_jalali = self._extract_jalali_date(start_text)
 
         deadline = None
         deadline_jalali = None
         deadline_el = attachments.find("div", class_="ass_en_time")
         if deadline_el:
             deadline_text = deadline_el.get_text(strip=True)
-            deadline_jalali = deadline_text
             deadline = self._parse_assignment_date(deadline_text)
+            deadline_jalali = self._extract_jalali_date(deadline_text)
 
         response_count = 0
         count_match = re.search(r"(\d+)\s*نفر", attachments.get_text())
@@ -176,8 +164,43 @@ class WallParser(BaseParser):
             response_count=response_count,
         )
 
+    def _extract_full_title(self, attachments: Tag, post: Post | None) -> str:
+        """استخراج نام کامل تکلیف.
+
+        از get_text(separator="", strip=True) استفاده می‌کنه و فاصله‌ها رو نرمال می‌کنه.
+        """
+        # روش ۱: از b داخل span "عنوان"
+        for span in attachments.find_all("span"):
+            if "عنوان" in span.get_text():
+                b = span.find("b")
+                if b:
+                    # ⚠️ separator="" → متن کامل
+                    title = b.get_text(separator="", strip=True)
+                    if title and len(title) > 5:
+                        # نرمال‌سازی فاصله‌ها (شامل \xa0)
+                        title = title.replace("\xa0", " ")
+                        title = re.sub(r"\s+", " ", title).strip()
+                        return title
+
+                # اگر b نبود
+                full_text = span.get_text(separator=" ", strip=True)
+                title = re.sub(r"^عنوان\s*:\s*", "", full_text).strip()
+                title = title.replace("\xa0", " ")
+                title = re.sub(r"\s+", " ", title).strip()
+                if title and len(title) > 5:
+                    return title
+
+        # روش ۲: از post.text
+        if post:
+            title = post.text.strip()
+            title = title.replace("\xa0", " ")
+            title = re.sub(r"\s+", " ", title).strip()
+            if title:
+                return title
+
+        return ""
+
     def _parse_assignment_date(self, text: str) -> datetime | None:
-        """Parse تاریخ Assignment: 'پایان تمرین : ۱۱ مهر ۱۴۰۵ - ۱۲:۰۰'"""
         if not text:
             return None
 
@@ -202,8 +225,20 @@ class WallParser(BaseParser):
             logger.warning(f"خطا در parse تاریخ '{text}': {e}")
             return None
 
+    def _extract_jalali_date(self, text: str) -> str | None:
+        if not text:
+            return None
+
+        pattern = re.compile(
+            r"(\d{1,2}\s+\S+\s+\d{4}\s*-\s*\d{1,2}:\d{2})"
+        )
+        match = pattern.search(text)
+        if match:
+            return match.group(1).strip()
+
+        return None
+
     def _parse_post_date(self, text: str) -> datetime | None:
-        """Parse تاریخ Post: '۱۰ مهر ۰۵, ۱۲:۰۰ عصر'"""
         if not text:
             return None
 
@@ -216,13 +251,11 @@ class WallParser(BaseParser):
         year = int(match.group(3))
         hour = int(match.group(4))
         minute = int(match.group(5))
-        period = match.group(6)  # عصر / صبح
+        period = match.group(6)
 
-        # سال دو رقمی → چهار رقمی (فرض: ۱۴۰۵)
         if year < 100:
             year = 1400 + year
 
-        # تبدیل عصر به ۲۴ ساعته
         if period == "عصر" and hour < 12:
             hour += 12
 

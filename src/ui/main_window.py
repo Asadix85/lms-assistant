@@ -28,14 +28,16 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
-        self.resize(1200, 800)
+        self.resize(1300, 850)
 
         self._thread: QThread | None = None
         self._worker: SyncWorker | None = None
         self._pages: dict[str, QWidget] = {}
 
+        # ⚠️ هیچ setLayoutDirection اینجا نذار
+        # QApplication سراسری این کار رو کرده
+
         self._build_ui()
-        self._apply_rtl()
         self._load_data()
 
     def _build_ui(self) -> None:
@@ -45,14 +47,18 @@ class MainWindow(QMainWindow):
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
+        # ⚠️ در RTL سراسری، QHBoxLayout خودکار معکوس می‌شه
+        # پس اولین widget → سمت راست
+        # ⚠️ اما باید widget اول = Sidebar باشه (تا راست بشینه)
 
-        # Sidebar
+        # Sidebar (اول از راست در RTL)
         self.sidebar = Sidebar()
         self.sidebar.page_changed.connect(self._on_page_changed)
         main_layout.addWidget(self.sidebar)
 
         # Content
         content = QWidget()
+
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
@@ -73,9 +79,6 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("آماده")
 
-    def _apply_rtl(self) -> None:
-        self.setLayoutDirection(Qt.RightToLeft)
-
     def _load_data(self) -> None:
         """بارگذاری صفحات."""
         from src.ui.pages.dashboard_page import DashboardPage
@@ -85,11 +88,17 @@ class MainWindow(QMainWindow):
         from src.ui.pages.settings_page import SettingsPage
         from src.ui.pages.assignments_page import AssignmentsPage
         from src.ui.pages.course_detail_page import CourseDetailPage
+        from src.ui.pages.calendar_page import CalendarPage
 
         # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
         self._pages["dashboard"] = self.dashboard_page
         self.stack.addWidget(self.dashboard_page)
+
+        # Calendar
+        self.calendar_page = CalendarPage(self.DB_PATH)
+        self._pages["calendar"] = self.calendar_page
+        self.stack.addWidget(self.calendar_page)
 
         # Courses
         self.courses_page = CoursesPage(self.DB_PATH)
@@ -97,7 +106,7 @@ class MainWindow(QMainWindow):
         self._pages["courses"] = self.courses_page
         self.stack.addWidget(self.courses_page)
 
-        # Course Detail (hidden, opened by click)
+        # Course Detail
         self.course_detail_page = CourseDetailPage(self.DB_PATH)
         self.course_detail_page.back_clicked.connect(
             lambda: self._on_page_changed("courses")
@@ -128,7 +137,6 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self._pages["dashboard"])
 
     def _on_course_selected(self, course_id: str) -> None:
-        """کلیک روی یک درس → باز کردن صفحه‌ی جزئیات."""
         try:
             with Database(self.DB_PATH) as db:
                 course = CourseRepository(db).get_by_id(course_id)
@@ -141,7 +149,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "خطا", f"خطا در بارگذاری درس:\n{e}")
 
     def _on_page_changed(self, key: str) -> None:
-        """تغییر صفحه."""
         if key in self._pages:
             self.stack.setCurrentWidget(self._pages[key])
             page = self._pages[key]
@@ -150,7 +157,6 @@ class MainWindow(QMainWindow):
             self.status_bar.showMessage(f"صفحه: {key}")
 
     def _on_update_clicked(self) -> None:
-        """دکمه Update."""
         if not settings.lms_username or not settings.lms_password:
             QMessageBox.warning(
                 self, "خطا",
@@ -188,12 +194,10 @@ class MainWindow(QMainWindow):
         self.header.set_busy(False, "آماده")
         self.status_bar.showMessage("✅ Sync تمام شد")
 
-        # Refresh current page
         current = self.stack.currentWidget()
         if hasattr(current, "refresh"):
             current.refresh()
 
-        # Show result
         if result.has_error:
             QMessageBox.critical(self, "خطا", f"خطا در Sync:\n{result.error}")
         elif result.is_first_sync:

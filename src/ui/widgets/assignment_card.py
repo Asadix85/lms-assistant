@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QWidget,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -20,12 +21,13 @@ from src.ui.theme import Colors
 class AssignmentCard(QFrame):
     """کارت نمایش یک تکلیف."""
 
-    submit_clicked = Signal(str)  # assignment_id
+    submit_clicked = Signal(str)
 
     def __init__(self, assignment: Assignment, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._assignment = assignment
         self.setObjectName("AssignmentCard")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         self._build()
 
     def _build(self) -> None:
@@ -33,46 +35,63 @@ class AssignmentCard(QFrame):
         layout.setContentsMargins(18, 15, 18, 15)
         layout.setSpacing(10)
 
-        # === Header (title) ===
+        # === Title (کامل، بدون برش) ===
         title = QLabel(self._assignment.title)
         title.setObjectName("CardTitle")
         title.setWordWrap(True)
-        title.setAlignment(Qt.AlignRight)
+        title.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        # ⚠️ اجازه بده QLabel ارتفاع کامل بگیره
+        title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        title.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        title.setToolTip(self._assignment.title)
         layout.addWidget(title)
 
-        # === Deadline Row ===
-        deadline_row = QHBoxLayout()
-        deadline_row.setSpacing(8)
+        # === Time Box ===
+        time_box = QFrame()
+        time_box.setObjectName("AssignmentTimeBox")
 
-        # وضعیت ددلاین
-        deadline_icon, deadline_color, deadline_text = self._get_deadline_info()
+        time_layout = QVBoxLayout(time_box)
+        time_layout.setContentsMargins(12, 10, 12, 10)
+        time_layout.setSpacing(6)
 
-        icon_label = QLabel(deadline_icon)
-        icon_label.setStyleSheet("font-size: 12pt; background: transparent;")
-        deadline_row.addWidget(icon_label)
-
-        deadline_label = QLabel(deadline_text)
-        deadline_label.setStyleSheet(
-            f"color: {deadline_color}; font-weight: bold; "
-            "background: transparent;"
+        # Start
+        start_text = self._assignment.start_at_jalali or self._format_dt(
+            self._assignment.start_at
         )
-        deadline_label.setAlignment(Qt.AlignRight)
-        deadline_row.addWidget(deadline_label, stretch=1)
+        if start_text:
+            time_layout.addWidget(
+                self._build_time_row(
+                    icon="▶️",
+                    label="شروع تمرین:",
+                    value=start_text,
+                    color=Colors.SUCCESS,
+                )
+            )
 
-        # تعداد پاسخ
-        count_label = QLabel(f"👥  {self._assignment.response_count} پاسخ")
-        count_label.setStyleSheet(
-            f"color: {Colors.TEXT_SECONDARY}; background: transparent;"
+        # Deadline
+        end_text = self._assignment.deadline_jalali or self._format_dt(
+            self._assignment.deadline
         )
-        deadline_row.addWidget(count_label)
+        if end_text:
+            time_layout.addWidget(
+                self._build_time_row(
+                    icon="⏹️",
+                    label="پایان تمرین:",
+                    value=end_text,
+                    color=Colors.ERROR,
+                )
+            )
 
-        layout.addLayout(deadline_row)
+        # Status
+        time_layout.addWidget(self._build_status_row())
+
+        layout.addWidget(time_box)
 
         # === Actions ===
         actions = QHBoxLayout()
         actions.setSpacing(10)
+        actions.addStretch()
 
-        # دکمه ارسال پاسخ
         if self._assignment.submit_url:
             submit_btn = QPushButton("📤  ارسال پاسخ")
             submit_btn.setObjectName("PrimaryButton")
@@ -80,7 +99,6 @@ class AssignmentCard(QFrame):
             submit_btn.clicked.connect(self._on_submit)
             actions.addWidget(submit_btn)
 
-        # دکمه نظر استاد
         if self._assignment.view_url:
             view_btn = QPushButton("👁️  نظر استاد")
             view_btn.setObjectName("SecondaryButton")
@@ -88,32 +106,102 @@ class AssignmentCard(QFrame):
             view_btn.clicked.connect(self._on_view)
             actions.addWidget(view_btn)
 
-        actions.addStretch()
         layout.addLayout(actions)
 
-    def _get_deadline_info(self) -> tuple[str, str, str]:
-        """تشخیص وضعیت ددلاین."""
+        # ⚠️ اجبار به تنظیم اندازه
+        self.adjustSize()
+
+    def _build_time_row(self, icon, label, value, color) -> QWidget:
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+
+        icon_label = QLabel(icon)
+        icon_label.setStyleSheet("font-size: 10pt; background: transparent;")
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setFixedWidth(24)
+        row.addWidget(icon_label)
+
+        label_widget = QLabel(label)
+        label_widget.setStyleSheet(
+            f"color: {Colors.TEXT_SECONDARY}; font-size: 10pt; "
+            "background: transparent;"
+        )
+        label_widget.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        label_widget.setFixedWidth(90)
+        row.addWidget(label_widget)
+
+        value_widget = QLabel(value)
+        value_widget.setStyleSheet(
+            f"color: {color}; font-size: 10pt; font-weight: bold; "
+            "background: transparent;"
+        )
+        value_widget.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        value_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        row.addWidget(value_widget, stretch=1)
+
+        return container
+
+    def _build_status_row(self) -> QWidget:
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+
+        deadline_icon, deadline_color, deadline_text = self._get_deadline_info()
+
+        icon_label = QLabel(deadline_icon)
+        icon_label.setStyleSheet("font-size: 11pt; background: transparent;")
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setFixedWidth(24)
+        row.addWidget(icon_label)
+
+        status_label = QLabel(deadline_text)
+        status_label.setStyleSheet(
+            f"color: {deadline_color}; font-weight: bold; font-size: 10pt; "
+            "background: transparent;"
+        )
+        status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        row.addWidget(status_label, stretch=1)
+
+        if self._assignment.response_count > 0:
+            count_label = QLabel(f"👥  {self._assignment.response_count} پاسخ")
+            count_label.setStyleSheet(
+                f"color: {Colors.TEXT_SECONDARY}; font-size: 9pt; "
+                "background: transparent;"
+            )
+            count_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            row.addWidget(count_label)
+
+        return container
+
+    def _get_deadline_info(self):
         if not self._assignment.deadline:
             return "⏰", Colors.TEXT_MUTED, "بدون ددلاین"
 
         now = datetime.now()
-        deadline = self._assignment.deadline
-        delta = deadline - now
-
-        # ددلاین شمسی
-        jalali = self._assignment.deadline_jalali or deadline.strftime("%Y-%m-%d %H:%M")
+        delta = self._assignment.deadline - now
 
         if delta.total_seconds() < 0:
-            return "⏹️", Colors.ERROR, f"گذشته — {jalali}"
+            return "⏹️", Colors.TEXT_MUTED, "مهلت گذشته"
         elif delta.days == 0:
             hours = delta.seconds // 3600
-            return "🔥", Colors.ERROR, f"امروز! ({hours} ساعت مانده) — {jalali}"
+            minutes = (delta.seconds % 3600) // 60
+            return "🔥", Colors.ERROR, f"امروز! {hours} ساعت و {minutes} دقیقه مانده"
         elif delta.days == 1:
-            return "⚠️", Colors.WARNING, f"فردا — {jalali}"
+            hours = delta.seconds // 3600
+            return "⚠️", Colors.ACCENT, f"فردا! {hours} ساعت مانده"
         elif delta.days <= 3:
-            return "⏰", Colors.WARNING, f"{delta.days} روز مانده — {jalali}"
+            return "⏰", Colors.WARNING, f"{delta.days} روز مانده"
         else:
-            return "📅", Colors.SUCCESS, f"{delta.days} روز مانده — {jalali}"
+            return "📅", Colors.SUCCESS, f"{delta.days} روز مانده"
+
+    @staticmethod
+    def _format_dt(dt) -> str:
+        if not dt:
+            return ""
+        return dt.strftime("%Y-%m-%d %H:%M")
 
     def _on_submit(self) -> None:
         if self._assignment.submit_url:

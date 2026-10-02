@@ -19,6 +19,7 @@ class Sidebar(QFrame):
         super().__init__()
         self.setObjectName("Sidebar")
         self.setFixedWidth(220)
+        # ⚠️ هیچ setLayoutDirection اینجا نذار (QApplication سراسری)
 
         self._buttons: dict[str, QPushButton] = {}
         self._group = QButtonGroup(self)
@@ -55,9 +56,10 @@ class Sidebar(QFrame):
         # Menu Items
         menu_items = [
             ("dashboard", "📊", "داشبورد"),
+            ("calendar", "📅", "تقویم"),
             ("courses", "📚", "دروس"),
-            ("assignments", "📋", "تکالیف"),  # ← جدید
-            ("events", "📅", "رویدادها"),
+            ("assignments", "📋", "تکالیف"),
+            ("events", "🎥", "جلسات آنلاین"),
             ("changes", "🔔", "تغییرات"),
             ("settings", "⚙️", "تنظیمات"),
         ]

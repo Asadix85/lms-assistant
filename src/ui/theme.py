@@ -134,12 +134,62 @@ def get_global_qss() -> str:
 
     return f"""
     
+    /* === RTL Global === */
+    QWidget {{
+        font-family: "{f.FAMILY}", "{f.FALLBACK}", sans-serif;
+        font-size: {f.SIZE_BASE}pt;
+        color: {c.TEXT_PRIMARY};
+        background-color: {c.BG_MAIN};
+        text-align: right;
+    }}
+
+    /* دکمه‌ها: متن راست‌چین */
+    QPushButton {{
+        text-align: right;
+    }}
+    
+    QLabel#CardTitle {{
+        font-size: {f.SIZE_MD}pt;
+        font-weight: bold;
+        color: {c.TEXT_PRIMARY};
+        background: transparent;
+        padding: 2px 0;
+    }}
+    
     /* === Course Info Header === */
     QFrame#CourseInfoHeader {{
         background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
             stop:0 {c.PRIMARY_LIGHT}, stop:1 #FFFFFF);
         border: 1px solid {c.PRIMARY};
         border-radius: 12px;
+    }}
+    
+    /* === Calendar === */
+    QFrame#CalendarDayCell {{
+        min-height: 220px;
+    }}
+    /* === Calendar Grid === */
+    QFrame#CalendarGrid {{
+        background-color: transparent;
+        border: none;
+    }}
+    
+    /* === Assignment Time Box === */
+    QFrame#AssignmentTimeBox {{
+        background-color: {c.BG_HOVER};
+        border: 1px solid {c.BORDER_LIGHT};
+        border-radius: 8px;
+    }}
+
+    /* === Detail Panel === */
+    QFrame#DetailPanel {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 12px;
+    }}
+
+    QLabel#DetailHeader {{
+        background: transparent;
     }}
 
     /* === Content Row === */
@@ -249,6 +299,7 @@ def get_global_qss() -> str:
 
     /* === Buttons === */
     QPushButton#PrimaryButton {{
+        text-align: center;
         background-color: {c.PRIMARY};
         color: {c.TEXT_WHITE};
         border: none;
@@ -267,6 +318,7 @@ def get_global_qss() -> str:
     }}
 
     QPushButton#SecondaryButton {{
+        text-align: center;
         background-color: {c.BG_CARD};
         color: {c.TEXT_PRIMARY};
         border: 1px solid {c.BORDER};
