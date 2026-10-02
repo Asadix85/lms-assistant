@@ -259,7 +259,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
 
     QPushButton#SidebarButton {{
         text-align: right;
-        padding: 13px 18px;
+        padding: 12px 18px;
         border: 1px solid transparent;
         border-radius: 14px;
         background-color: transparent;
@@ -654,5 +654,20 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.GLASS_BG_HOVER};
         border-bottom: 2px solid {c.PRIMARY};
         color: {c.PRIMARY};
+    }}
+    
+    /* === Header Progress === */
+    QProgressBar#HeaderProgress {{
+        border: none;
+        border-radius: 2px;
+        background-color: {c.BORDER_LIGHT};
+        height: 4px;
+        text-align: center;
+    }}
+
+    QProgressBar#HeaderProgress::chunk {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 {c.PRIMARY}, stop:1 {c.SECONDARY});
+        border-radius: 2px;
     }}
     """

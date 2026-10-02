@@ -1,4 +1,4 @@
-"""Worker برای Sync در thread جداگانه (UI freeze نشود)."""
+"""Worker برای Sync در thread جداگانه."""
 
 from PySide6.QtCore import QObject, Signal
 
@@ -7,6 +7,7 @@ from src.services.notifier import Notifier
 from src.services.sync_result import SyncResult
 from src.services.sync_service import SyncService
 from src.storage.database import Database
+from src.storage.repositories import SettingRepository
 
 
 class SyncWorker(QObject):
@@ -31,7 +32,6 @@ class SyncWorker(QObject):
         self.notify = notify
 
     def run(self) -> None:
-        """اجرای Sync (در thread جداگانه)."""
         try:
             self.started.emit()
             self.progress.emit("اتصال به دیتابیس...")
@@ -45,11 +45,14 @@ class SyncWorker(QObject):
                         self.error.emit("ورود به LMS ناموفق بود")
                         return
 
+                    # ⚠️ ذخیره‌ی نام کاربر
+                    if assistant.full_name:
+                        SettingRepository(db).set("full_name", assistant.full_name)
+
                     self.progress.emit("هماهنگ‌سازی...")
                     sync = SyncService(assistant, db)
                     result = sync.sync()
 
-            # اعلان
             if self.notify and not result.has_error:
                 notifier = Notifier()
                 notifier.notify_sync_result(result)

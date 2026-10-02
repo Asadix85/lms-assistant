@@ -46,7 +46,31 @@ class LMSAssistant:
         if success:
             self.active_domains.add("lms4")
             logger.info("✅ Login به lms4 موفق")
+
+            # استخراج نام کاربر
+            self._fetch_full_name()
+
         return success
+
+    def _fetch_full_name(self) -> None:
+        """استخراج نام کامل کاربر از nodemain."""
+        try:
+            from src.parsers.user_parser import UserParser
+
+            r = self.client.get("/pages/nodemain")
+            if r.status_code == 200:
+                parser = UserParser()
+                name = parser.parse_full_name(r.text)
+                if name:
+                    self._full_name = name
+                    logger.info(f"نام کاربر: {name}")
+        except Exception as e:
+            logger.warning(f"خطا در استخراج نام: {e}")
+
+    @property
+    def full_name(self) -> str | None:
+        """نام کامل کاربر."""
+        return getattr(self, "_full_name", None)
 
     @property
     def is_authenticated(self) -> bool:

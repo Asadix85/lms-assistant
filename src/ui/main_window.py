@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._load_data()
+        self._update_user_name()
         self._enable_acrylic_blur()
 
     def _build_ui(self) -> None:
@@ -168,6 +169,8 @@ class MainWindow(QMainWindow):
         self._pages["about"] = self.about_page
         self.stack.addWidget(self.about_page)
 
+        self._update_user_name()
+
         self.stack.setCurrentWidget(self._pages["dashboard"])
 
     def _on_course_selected(self, course_id: str) -> None:
@@ -229,6 +232,7 @@ class MainWindow(QMainWindow):
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.header.set_busy(False, "آماده")
         self.status_bar.showMessage("✅ Sync تمام شد")
+        self._update_user_name()
 
         current = self.stack.currentWidget()
         if hasattr(current, "refresh"):
@@ -264,6 +268,17 @@ class MainWindow(QMainWindow):
                 f"📋 {result.assignments_new} تکلیف\n\n"
                 f"⏱️ {result.duration_seconds:.1f} ثانیه",
             )
+
+    def _update_user_name(self) -> None:
+        """به‌روزرسانی نام کاربر در header."""
+        try:
+            with Database(self.DB_PATH) as db:
+                from src.storage.repositories import SettingRepository
+                name = SettingRepository(db).get("full_name")
+                if name:
+                    self.header.set_user(name)
+        except Exception as e:
+            print(f"خطا در به‌روزرسانی نام: {e}")
 
     def _on_sync_error(self, message: str) -> None:
         self.header.set_busy(False, "خطا")
