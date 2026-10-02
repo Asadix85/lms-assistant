@@ -28,6 +28,7 @@ class AssignmentsPage(BasePage):
     """صفحه‌ی تکالیف."""
 
     assignment_clicked = Signal(str)  # course_id
+    sync_requested = Signal()
 
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
         self.db_path = db_path
@@ -128,9 +129,14 @@ class AssignmentsPage(BasePage):
                 item.widget().deleteLater()
 
         if not assignments:
-            empty = QLabel("📭  هیچ تکلیفی با این فیلتر نیست.")
-            empty.setObjectName("PageSubtitle")
-            empty.setAlignment(Qt.AlignCenter)
+            from src.ui.widgets.empty_state import EmptyState
+            empty = EmptyState(
+                icon_name="clipboard-list",
+                title="هیچ تکلیفی نیست",
+                description="هنوز تکلیفی برای این فیلتر پیدا نشده. یک Sync جدید بزنید.",
+                action_text="🔄  بروزرسانی",
+            )
+            empty.action_clicked.connect(self.sync_requested.emit)  # ← Signal جدید
             self.list_layout.addWidget(empty)
             return
 

@@ -247,6 +247,9 @@ class CalendarPage(BasePage):
             if item.widget():
                 item.widget().deleteLater()
 
+        # ⚠️ بازگشت به AlignTop برای محتوای عادی
+        self.detail_layout.setAlignment(Qt.AlignTop)
+
         if not self._selected_date:
             self.detail_header.setText("—")
             return
@@ -266,10 +269,17 @@ class CalendarPage(BasePage):
                 day_assignments.append(a)
 
         if not day_assignments:
-            empty = QLabel("📭  هیچ ددلاینی در این روز نیست.")
-            empty.setObjectName("PageSubtitle")
-            empty.setAlignment(Qt.AlignCenter)
-            empty.setStyleSheet("padding: 30px;")
+            # ⚠️ Empty State وسط‌چین
+            self.detail_layout.setAlignment(Qt.AlignCenter)
+
+            from src.ui.widgets.empty_state import EmptyState
+            empty = EmptyState(
+                icon_name="calendar-xmark",
+                title="هیچ ددلاینی در این روز نیست",
+                description="روز دیگری را انتخاب کنید.",
+                action_text="",
+                compact=True,
+            )
             self.detail_layout.addWidget(empty)
             return
 

@@ -53,6 +53,15 @@ class TimelineItem(QFrame):
         self.dot.setFixedSize(16, 16)
         self.dot.setAlignment(Qt.AlignCenter)
         dot_layout.addWidget(self.dot)
+        # ⚠️ Shadow روی dot
+        from src.ui.effects import add_shadow
+        if self._is_active:
+            add_shadow(
+                self.dot,
+                blur_radius=15,
+                offset_y=0,
+                color="#3B82F6AA",
+            )
 
         layout.addWidget(dot_container)
 

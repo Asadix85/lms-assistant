@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 from src.models.change import Change, ChangeType
 from src.storage.database import Database
@@ -23,6 +23,7 @@ from src.ui.widgets.change_card import ChangeCard
 
 
 class ChangesPage(BasePage):
+    sync_requested = Signal()
     """صفحه‌ی تغییرات."""
 
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
@@ -127,9 +128,14 @@ class ChangesPage(BasePage):
                 item.widget().deleteLater()
 
         if not changes:
-            empty = QLabel("📭  هیچ تغییری ثبت نشده. یک بار Sync بزن.")
-            empty.setObjectName("PageSubtitle")
-            empty.setAlignment(Qt.AlignCenter)
+            from src.ui.widgets.empty_state import EmptyState
+            empty = EmptyState(
+                icon_name="bell-slash",
+                title="هیچ تغییری نیست",
+                description="از آخرین Sync، تغییری در LMS رخ نداده است.",
+                action_text="🔄  بروزرسانی",
+            )
+            empty.action_clicked.connect(self.sync_requested.emit)
             self.list_layout.addWidget(empty)
             return
 

@@ -135,6 +135,7 @@ class MainWindow(QMainWindow):
         self.courses_page.course_selected.connect(self._on_course_selected)
         self._pages["courses"] = self.courses_page
         self.stack.addWidget(self.courses_page)
+        self.courses_page.sync_requested.connect(self._on_update_clicked)
 
         # Course Detail
         self.course_detail_page = CourseDetailPage(self.DB_PATH)
@@ -148,6 +149,7 @@ class MainWindow(QMainWindow):
         self.assignments_page = AssignmentsPage(self.DB_PATH)
         self._pages["assignments"] = self.assignments_page
         self.stack.addWidget(self.assignments_page)
+        self.assignments_page.sync_requested.connect(self._on_update_clicked)
 
         # Events
         self.events_page = EventsPage(self.DB_PATH)
@@ -158,6 +160,7 @@ class MainWindow(QMainWindow):
         self.changes_page = ChangesPage(self.DB_PATH)
         self._pages["changes"] = self.changes_page
         self.stack.addWidget(self.changes_page)
+        self.changes_page.sync_requested.connect(self._on_update_clicked)
 
         # Settings
         self.settings_page = SettingsPage(self.DB_PATH)

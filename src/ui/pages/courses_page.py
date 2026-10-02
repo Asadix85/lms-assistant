@@ -29,6 +29,7 @@ class CoursesPage(BasePage):
     """صفحه‌ی دروس."""
 
     course_selected = Signal(str)  # course_id
+    sync_requested = Signal()
 
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
         self.db_path = db_path
@@ -150,10 +151,15 @@ class CoursesPage(BasePage):
 
         # رندر
         if not courses:
-            empty = QLabel("هیچ درسی با این فیلتر پیدا نشد.")
-            empty.setObjectName("PageSubtitle")
-            empty.setAlignment(Qt.AlignCenter)
-            self.grid_layout.addWidget(empty, 0, 0)
+            from src.ui.widgets.empty_state import EmptyState
+            empty = EmptyState(
+                icon_name="magnifying-glass",
+                title="هیچ درسی پیدا نشد",
+                description="فیلترها را تغییر دهید یا یک Sync جدید بزنید.",
+                action_text="🔄  بروزرسانی",
+            )
+            empty.action_clicked.connect(self._on_sync_requested)
+            self.grid_layout.addWidget(empty, 0, 0, 1, 3)
             return
 
         columns = 3
@@ -163,6 +169,9 @@ class CoursesPage(BasePage):
             card = CourseCard(c)
             card.clicked.connect(self.course_selected.emit)
             self.grid_layout.addWidget(card, row, col)
+
+    def _on_sync_requested(self) -> None:
+        self.sync_requested.emit()
 
     # === Events ===
 

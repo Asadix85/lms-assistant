@@ -37,6 +37,11 @@ class Icons:
     GRADUATION = "graduation-cap"
     FIRE = "fire"
     STAR = "star"
+    SEARCH = "magnifying-glass"
+    CALENDAR_X = "calendar-xmark"
+    BELL_SLASH = "bell-slash"
+    INBOX = "inbox"
+    FILE = "file"
 
     _cache: dict = {}
 

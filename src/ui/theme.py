@@ -298,7 +298,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background: transparent;
     }}
 
-    /* === Cards === */
+    /* === Cards (با Border و tint برای عمق) === */
     QFrame#Card,
     QFrame#StatCard,
     QFrame#CourseCard,
@@ -310,12 +310,11 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QFrame#CourseInfoHeader,
     QFrame#AssignmentTimeBox,
     QFrame#DetailPanel,
-    QFrame#CalendarDayCell,
-    QFrame#CalendarEventItem,
     QFrame#ContentRow,
     QFrame#TimeBox {{
         background-color: {c.GLASS_BG};
         border: 1px solid {c.GLASS_BORDER};
+        border-bottom: 2px solid {c.BORDER};
         border-radius: 18px;
     }}
 
@@ -327,18 +326,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QFrame#ContentRow:hover {{
         background-color: {c.GLASS_BG_HOVER};
         border: 1px solid {c.GLASS_BORDER_HOVER};
-    }}
-
-    QFrame#HeroCard {{
-        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-            stop:0 {c.PRIMARY}, stop:1 {c.SECONDARY});
-        border: 1px solid {c.GLASS_BORDER};
-        border-radius: 22px;
-    }}
-
-    QFrame#HeroCard QLabel {{
-        background: transparent;
-        color: white;
+        border-bottom: 2px solid {c.PRIMARY};
     }}
 
     /* === Buttons === */
