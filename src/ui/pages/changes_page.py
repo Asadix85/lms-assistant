@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QFrame,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt
 
@@ -63,7 +64,6 @@ class ChangesPage(BasePage):
 
         toolbar.addStretch()
 
-        # === Clear Button ===
         self.btn_clear = QPushButton("🗑️ پاک کردن همه")
         self.btn_clear.setObjectName("FilterButton")
         self.btn_clear.clicked.connect(self._clear_all)
@@ -81,11 +81,18 @@ class ChangesPage(BasePage):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.list_widget = QWidget()
+        self.list_widget.setSizePolicy(
+            QSizePolicy.Preferred,
+            QSizePolicy.Minimum,
+        )
+
         self.list_layout = QVBoxLayout(self.list_widget)
         self.list_layout.setSpacing(8)
-        self.list_layout.setContentsMargins(0, 0, 0, 0)
+        self.list_layout.setContentsMargins(5, 5, 5, 5)
         self.list_layout.setAlignment(Qt.AlignTop)
 
         scroll.setWidget(self.list_widget)
@@ -109,7 +116,9 @@ class ChangesPage(BasePage):
         elif self._filter == "removed":
             changes = [c for c in changes if c.type == ChangeType.REMOVED]
 
-        self.counter_label.setText(f"نمایش {len(changes)} از {len(self._all_changes)} تغییر")
+        self.counter_label.setText(
+            f"نمایش {len(changes)} از {len(self._all_changes)} تغییر"
+        )
 
         # پاک کردن
         while self.list_layout.count():
@@ -118,7 +127,7 @@ class ChangesPage(BasePage):
                 item.widget().deleteLater()
 
         if not changes:
-            empty = QLabel("هیچ تغییری ثبت نشده. یک بار Sync بزن.")
+            empty = QLabel("📭  هیچ تغییری ثبت نشده. یک بار Sync بزن.")
             empty.setObjectName("PageSubtitle")
             empty.setAlignment(Qt.AlignCenter)
             self.list_layout.addWidget(empty)
@@ -127,6 +136,9 @@ class ChangesPage(BasePage):
         for c in changes:
             card = ChangeCard(c)
             self.list_layout.addWidget(card)
+
+        # تنظیم ارتفاع نهایی
+        self.list_widget.adjustSize()
 
     def _set_filter(self, f: str) -> None:
         self._filter = f

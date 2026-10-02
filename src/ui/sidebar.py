@@ -13,7 +13,7 @@ from PySide6.QtCore import Signal, Qt
 class Sidebar(QFrame):
     """منوی کنار راست."""
 
-    page_changed = Signal(str)  # نام صفحه
+    page_changed = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
@@ -31,7 +31,7 @@ class Sidebar(QFrame):
         layout.setContentsMargins(10, 20, 10, 20)
         layout.setSpacing(5)
 
-        # === Logo ===
+        # Logo
         logo = QLabel("🎓  LMS Assistant")
         logo.setStyleSheet(
             "font-size: 14pt; font-weight: bold; color: #00C4C4; "
@@ -40,7 +40,6 @@ class Sidebar(QFrame):
         logo.setAlignment(Qt.AlignCenter)
         layout.addWidget(logo)
 
-        # === Subtitle ===
         subtitle = QLabel("دانشگاه اصفهان")
         subtitle.setStyleSheet(
             "font-size: 9pt; color: #7F8C8D; padding: 0 10px 15px 10px;"
@@ -48,16 +47,16 @@ class Sidebar(QFrame):
         subtitle.setAlignment(Qt.AlignCenter)
         layout.addWidget(subtitle)
 
-        # === Separator ===
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
         sep.setStyleSheet("background-color: #E1E4E8; max-height: 1px; margin: 10px;")
         layout.addWidget(sep)
 
-        # === Menu Items ===
+        # Menu Items
         menu_items = [
             ("dashboard", "📊", "داشبورد"),
             ("courses", "📚", "دروس"),
+            ("assignments", "📋", "تکالیف"),  # ← جدید
             ("events", "📅", "رویدادها"),
             ("changes", "🔔", "تغییرات"),
             ("settings", "⚙️", "تنظیمات"),
@@ -74,13 +73,10 @@ class Sidebar(QFrame):
             self._group.addButton(btn)
             layout.addWidget(btn)
 
-        # انتخاب پیش‌فرض
         self._buttons["dashboard"].setChecked(True)
 
-        # === Stretch ===
         layout.addStretch()
 
-        # === Version ===
         version = QLabel("نسخه 0.1.0")
         version.setStyleSheet("color: #BDC3C7; font-size: 8pt; padding: 10px;")
         version.setAlignment(Qt.AlignCenter)
@@ -90,6 +86,5 @@ class Sidebar(QFrame):
         self.page_changed.emit(key)
 
     def set_active(self, key: str) -> None:
-        """فعال کردن یک آیتم."""
         if key in self._buttons:
             self._buttons[key].setChecked(True)

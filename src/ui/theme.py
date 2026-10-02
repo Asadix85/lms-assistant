@@ -133,6 +133,32 @@ def get_global_qss() -> str:
     f = Fonts
 
     return f"""
+    
+    /* === Course Info Header === */
+    QFrame#CourseInfoHeader {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 {c.PRIMARY_LIGHT}, stop:1 #FFFFFF);
+        border: 1px solid {c.PRIMARY};
+        border-radius: 12px;
+    }}
+
+    /* === Content Row === */
+    QFrame#ContentRow {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 10px;
+    }}
+
+    QFrame#ContentRow:hover {{
+        border-color: {c.PRIMARY};
+    }}
+
+    /* === Assignment Container === */
+    QFrame#AssignmentContainer {{
+        background-color: transparent;
+        border: none;
+    }}
+    
     /* === Base === */
     QWidget {{
         font-family: "{f.FAMILY}", "{f.FALLBACK}", sans-serif;
@@ -372,6 +398,46 @@ def get_global_qss() -> str:
         background-color: {c.BG_CARD};
         border: 1px solid {c.BORDER};
         border-radius: 12px;
+    }}
+    
+        /* === Post Card === */
+    QFrame#PostCard {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-radius: 12px;
+    }}
+
+    QLabel#PostAuthor {{
+        font-weight: bold;
+        color: {c.TEXT_PRIMARY};
+        font-size: {f.SIZE_MD}pt;
+        background: transparent;
+    }}
+
+    QLabel#PostDate {{
+        color: {c.TEXT_MUTED};
+        font-size: {f.SIZE_SM}pt;
+        background: transparent;
+    }}
+
+    QLabel#PostText {{
+        color: {c.TEXT_PRIMARY};
+        font-size: {f.SIZE_BASE}pt;
+        line-height: 160%;
+        background: transparent;
+    }}
+
+    /* === Assignment Card === */
+    QFrame#AssignmentCard {{
+        background-color: {c.BG_CARD};
+        border: 1px solid {c.BORDER};
+        border-left: 4px solid {c.ACCENT};
+        border-radius: 12px;
+    }}
+
+    QFrame#AssignmentCard:hover {{
+        border-color: {c.ACCENT};
+        background-color: #FFFBF0;
     }}
 
     /* === Scroll === */
