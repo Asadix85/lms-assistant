@@ -1,4 +1,4 @@
-"""پنجره اصلی LMS Assistant."""
+"""پنجره اصلی LMS Assistant با Liquid Glass."""
 
 from PySide6.QtCore import Qt, QThread
 from PySide6.QtWidgets import (
@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QMessageBox,
     QStatusBar,
+    QApplication,
 )
 
 from config.settings import settings
@@ -17,7 +18,9 @@ from src.storage.database import Database
 from src.storage.repositories import CourseRepository
 from src.ui.header import Header
 from src.ui.sidebar import Sidebar
+from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
 from src.ui.worker import SyncWorker
+from src.ui.pages.about_page import AboutPage
 
 
 class MainWindow(QMainWindow):
@@ -30,34 +33,42 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
         self.resize(1300, 850)
 
+        # ⚠️ شفاف کردن پنجره اصلی برای Acrylic Blur
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setAutoFillBackground(False)
+
         self._thread: QThread | None = None
         self._worker: SyncWorker | None = None
         self._pages: dict[str, QWidget] = {}
 
-        # ⚠️ هیچ setLayoutDirection اینجا نذار
-        # QApplication سراسری این کار رو کرده
-
         self._build_ui()
         self._load_data()
+        self._enable_acrylic_blur()
 
     def _build_ui(self) -> None:
         central = QWidget()
+        central.setObjectName("CentralWidget")
+        central.setAttribute(Qt.WA_TranslucentBackground, True)
+        central.setAttribute(Qt.WA_NoSystemBackground, True)
+        central.setAutoFillBackground(False)
         self.setCentralWidget(central)
 
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-        # ⚠️ در RTL سراسری، QHBoxLayout خودکار معکوس می‌شه
-        # پس اولین widget → سمت راست
-        # ⚠️ اما باید widget اول = Sidebar باشه (تا راست بشینه)
 
-        # Sidebar (اول از راست در RTL)
+        # Sidebar
         self.sidebar = Sidebar()
         self.sidebar.page_changed.connect(self._on_page_changed)
+        # ⚠️ theme_toggled حذف شد (به Settings منتقل شد)
         main_layout.addWidget(self.sidebar)
 
         # Content
         content = QWidget()
+        content.setAttribute(Qt.WA_TranslucentBackground, True)
+        content.setAttribute(Qt.WA_NoSystemBackground, True)
+        content.setAutoFillBackground(False)
 
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
@@ -70,6 +81,8 @@ class MainWindow(QMainWindow):
 
         # Stack
         self.stack = QStackedWidget()
+        self.stack.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.stack.setAutoFillBackground(False)
         content_layout.addWidget(self.stack)
 
         main_layout.addWidget(content, stretch=1)
@@ -78,6 +91,22 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("آماده")
+
+    def _enable_acrylic_blur(self) -> None:
+        """فعال‌سازی Acrylic Blur."""
+        from src.ui.blur import enable_blur
+        from src.ui.theme import CurrentTheme
+
+        if CurrentTheme.is_dark():
+            color = 0xFA0A0A0F
+        else:
+            color = 0xFAF8FAFC
+
+        success = enable_blur(self, color=color, enable=True)
+        if success:
+            print(f"✅ Acrylic Blur فعال شد (tint: {hex(color)})")
+        else:
+            print("⚠️ Acrylic Blur پشتیبانی نمی‌شه")
 
     def _load_data(self) -> None:
         """بارگذاری صفحات."""
@@ -134,6 +163,11 @@ class MainWindow(QMainWindow):
         self._pages["settings"] = self.settings_page
         self.stack.addWidget(self.settings_page)
 
+        # About
+        self.about_page = AboutPage()
+        self._pages["about"] = self.about_page
+        self.stack.addWidget(self.about_page)
+
         self.stack.setCurrentWidget(self._pages["dashboard"])
 
     def _on_course_selected(self, course_id: str) -> None:
@@ -155,6 +189,8 @@ class MainWindow(QMainWindow):
             if hasattr(page, "refresh"):
                 page.refresh()
             self.status_bar.showMessage(f"صفحه: {key}")
+
+    # === Update ===
 
     def _on_update_clicked(self) -> None:
         if not settings.lms_username or not settings.lms_password:

@@ -27,7 +27,7 @@ from src.storage.repositories import (
     SettingRepository,
 )
 from src.ui.pages.base_page import BasePage
-from src.ui.theme import Colors
+from src.ui.theme import Colors, CurrentTheme
 from src.ui.widgets.setting_card import SettingCard
 
 
@@ -35,6 +35,7 @@ class SettingsPage(BasePage):
     """صفحه‌ی تنظیمات."""
 
     settings_changed = Signal()
+    theme_changed = Signal()
 
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
         self.db_path = db_path
@@ -125,23 +126,68 @@ class SettingsPage(BasePage):
     def _build_display_card(self) -> None:
         card = SettingCard(title="نمایش", icon="🎨")
 
-        # انتخاب تم
+        # === Theme toggle ===
+        c = CurrentTheme.colors()
+
         theme_row = QHBoxLayout()
+        theme_row.setSpacing(10)
+
         theme_label = QLabel("تم برنامه:")
-        theme_label.setStyleSheet(f"color: {Colors.TEXT_SECONDARY};")
+        theme_label.setStyleSheet(
+            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
+            "background: transparent;"
+        )
         theme_row.addWidget(theme_label)
 
-        self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["روشن (پیش‌فرض)", "تیره (به‌زودی)"])
-        self.theme_combo.setEnabled(True)
-        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
-        theme_row.addWidget(self.theme_combo, stretch=1)
+        theme_row.addStretch()
+
+        # ⚠️ دکمه‌ی تغییر تم
+        from PySide6.QtWidgets import QPushButton
+        self.theme_btn = QPushButton(
+            "☀️  تم روشن" if CurrentTheme.is_dark() else "🌙  تم تیره"
+        )
+        self.theme_btn.setObjectName("SecondaryButton")
+        self.theme_btn.setCursor(Qt.PointingHandCursor)
+        self.theme_btn.setMinimumWidth(160)
+        self.theme_btn.clicked.connect(self._on_theme_toggle)
+        theme_row.addWidget(self.theme_btn)
 
         container = QWidget()
         container.setLayout(theme_row)
         card.add_widget(container)
 
         self.scroll_layout.addWidget(card)
+
+    def _on_theme_toggle(self) -> None:
+        """تغییر تم برنامه."""
+        from PySide6.QtWidgets import QApplication
+        from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
+        from src.ui.blur import enable_blur
+
+        # toggle
+        new_mode = (
+            ThemeMode.DARK if not CurrentTheme.is_dark() else ThemeMode.LIGHT
+        )
+        CurrentTheme.set_mode(new_mode)
+
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(get_global_qss(new_mode))
+
+        # رنگ Acrylic
+        main_window = self.window()
+        if main_window:
+            if CurrentTheme.is_dark():
+                color = 0xFA0A0A0F
+                self.theme_btn.setText("☀️  تم روشن")
+            else:
+                color = 0xFAF8FAFC
+                self.theme_btn.setText("🌙  تم تیره")
+
+            enable_blur(main_window, color=color, enable=True)
+
+        self.refresh()
+        self.theme_changed.emit()
 
     def _build_database_card(self) -> None:
         card = SettingCard(title="دیتابیس", icon="💾")

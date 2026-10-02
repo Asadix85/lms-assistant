@@ -23,9 +23,9 @@ from src.storage.repositories import (
     CourseRepository,
 )
 from src.ui.pages.base_page import BasePage
-from src.ui.theme import Colors
 from src.ui.widgets.calendar_day_cell import CalendarDayCell
 from src.ui.widgets.assignment_card import AssignmentCard
+from src.ui.theme import Colors, CurrentTheme
 
 
 class CalendarPage(BasePage):
@@ -86,7 +86,8 @@ class CalendarPage(BasePage):
         self.week_label = QLabel("—")
         self.week_label.setAlignment(Qt.AlignCenter)
         self.week_label.setStyleSheet(
-            f"color: {Colors.TEXT_PRIMARY}; font-weight: bold; font-size: 12pt;"
+            f"color: {CurrentTheme.colors().TEXT_PRIMARY}; "
+            "font-weight: bold; font-size: 12pt; background: transparent;"
         )
         toolbar.addWidget(self.week_label, stretch=1)
 
@@ -199,6 +200,10 @@ class CalendarPage(BasePage):
 
         self.week_label.setText(
             f"📅  {self._format_jalali_short(week_start)} تا {self._format_jalali_short(week_end)}"
+        )
+        self.week_label.setStyleSheet(
+            f"color: {CurrentTheme.colors().TEXT_PRIMARY}; "
+            "font-weight: bold; font-size: 12pt; background: transparent;"
         )
 
         by_day: dict[str, list[Assignment]] = defaultdict(list)

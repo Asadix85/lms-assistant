@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from src.models.assignment import Assignment
-from src.ui.theme import Colors
+from src.ui.theme import CurrentTheme
 
 
 class CalendarEventItem(QFrame):
@@ -41,59 +41,78 @@ class CalendarEventItem(QFrame):
             deadline_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             layout.addWidget(deadline_label)
 
-        # === عنوان (کامل، با wordWrap) ===
+        # === عنوان (کامل) ===
         title = QLabel(self._assignment.title)
         title.setObjectName("CalEventTitle")
         title.setWordWrap(True)
         title.setAlignment(Qt.AlignRight | Qt.AlignTop)
-        # ⚠️ اجازه بده QLabel ارتفاع کامل بگیره
         title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         title.setToolTip(self._assignment.title)
         layout.addWidget(title)
 
+    def _get_color(self) -> tuple[str, str, str]:
+        """رنگ (پس‌زمینه‌ی شفاف، متن، حاشیه) بر اساس وضعیت ددلاین."""
+        c = CurrentTheme.colors()
+        is_dark = CurrentTheme.is_dark()
+
+        if not self._assignment.deadline:
+            color = c.TEXT_MUTED
+        else:
+            now = datetime.now()
+            delta = self._assignment.deadline - now
+
+            if delta.total_seconds() < 0:
+                color = c.TEXT_MUTED
+            elif delta.days == 0:
+                color = c.ERROR
+            elif delta.days == 1:
+                color = c.ACCENT
+            elif delta.days <= 3:
+                color = c.WARNING
+            else:
+                color = c.SUCCESS
+
+        # ⚠️ در dark، پس‌زمینه تیره‌تر با کمی رنگ
+        if is_dark:
+            # alpha بالاتر برای شفافیت مناسب
+            bg = f"{color}30"  # 19% alpha
+            bg_hover = f"{color}55"
+            text_color = c.TEXT_PRIMARY  # ← روشن
+            border_color = color
+        else:
+            bg = f"{color}22"
+            bg_hover = f"{color}44"
+            text_color = c.TEXT_PRIMARY
+            border_color = color
+
+        return bg, bg_hover, text_color, border_color
+
     def _apply_style(self) -> None:
-        color = self._get_color()
+        c = CurrentTheme.colors()
+        bg, bg_hover, text_color, border_color = self._get_color()
 
         self.setStyleSheet(f"""
             QFrame#CalendarEventItem {{
-                background-color: {color}22;
-                border-right: 3px solid {color};
+                background-color: {bg};
+                border-right: 3px solid {border_color};
                 border-radius: 4px;
             }}
             QFrame#CalendarEventItem:hover {{
-                background-color: {color}44;
+                background-color: {bg_hover};
             }}
             QLabel#CalEventTitle {{
-                color: {Colors.TEXT_PRIMARY};
+                color: {text_color};
                 font-size: 8pt;
                 font-weight: bold;
                 background: transparent;
             }}
             QLabel#CalEventDeadline {{
-                color: {color};
+                color: {border_color};
                 font-size: 7pt;
                 font-weight: bold;
                 background: transparent;
             }}
         """)
-
-    def _get_color(self) -> str:
-        if not self._assignment.deadline:
-            return Colors.TEXT_MUTED
-
-        now = datetime.now()
-        delta = self._assignment.deadline - now
-
-        if delta.total_seconds() < 0:
-            return Colors.TEXT_MUTED
-        elif delta.days == 0:
-            return Colors.ERROR
-        elif delta.days == 1:
-            return Colors.ACCENT
-        elif delta.days <= 3:
-            return Colors.WARNING
-        else:
-            return Colors.SUCCESS
 
     def mousePressEvent(self, event) -> None:
         self.clicked.emit(self._assignment.id)

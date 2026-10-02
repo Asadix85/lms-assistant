@@ -12,16 +12,14 @@ from PySide6.QtCore import Qt
 class BasePage(QWidget):
     """کلاس پایه برای صفحات."""
 
-    def __init__(
-        self,
-        title: str,
-        subtitle: str = "",
-        parent: QWidget | None = None,
-    ) -> None:
+    def __init__(self, title, subtitle="", parent=None):
         super().__init__(parent)
         self._title = title
         self._subtitle = subtitle
-        # ⚠️ هیچ setLayoutDirection اینجا نذار (QApplication سراسری)
+
+        # ⚠️ شفافیت
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
 
         self._build()
 

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from src.models.assignment import Assignment
-from src.ui.theme import Colors
+from src.ui.theme import CurrentTheme
 from src.ui.widgets.calendar_event_item import CalendarEventItem
 
 
@@ -21,14 +21,7 @@ class CalendarDayCell(QFrame):
     day_clicked = Signal(object)
     event_clicked = Signal(str)
 
-    def __init__(
-        self,
-        jalali_date,
-        assignments: list[Assignment],
-        is_today: bool = False,
-        is_selected: bool = False,
-        parent=None,
-    ) -> None:
+    def __init__(self, jalali_date, assignments, is_today=False, is_selected=False, parent=None):
         super().__init__(parent)
         self._jalali_date = jalali_date
         self._assignments = assignments
@@ -37,43 +30,34 @@ class CalendarDayCell(QFrame):
         self.setObjectName("CalendarDayCell")
         self.setCursor(Qt.PointingHandCursor)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setLayoutDirection(Qt.RightToLeft)
         self._build()
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(3)
-        layout.setDirection(QVBoxLayout.TopToBottom)
 
-        # === Header ===
         weekday = self._jalali_date.strftime("%A")
         day_num = self._jalali_date.day
 
         header = QLabel(f"{weekday} {day_num}")
         header.setObjectName("DayLabel")
         header.setAlignment(Qt.AlignCenter)
-        header.setLayoutDirection(Qt.RightToLeft)
         header.setFixedHeight(24)
         layout.addWidget(header)
 
-        # === Items ===
         if self._assignments:
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setFrameShape(QFrame.NoFrame)
             scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-            scroll.setLayoutDirection(Qt.RightToLeft)
 
             container = QWidget()
-            container.setLayoutDirection(Qt.RightToLeft)
-
             container_layout = QVBoxLayout(container)
             container_layout.setSpacing(3)
             container_layout.setContentsMargins(0, 0, 0, 0)
             container_layout.setAlignment(Qt.AlignTop)
-            container_layout.setDirection(QVBoxLayout.TopToBottom)
 
             for a in self._assignments:
                 item = CalendarEventItem(a)
@@ -91,18 +75,29 @@ class CalendarDayCell(QFrame):
         self._apply_style()
 
     def _apply_style(self) -> None:
+        c = CurrentTheme.colors()
+        is_dark = CurrentTheme.is_dark()
+
         if self._is_today:
-            border_color = Colors.PRIMARY
+            border_color = c.PRIMARY
             border_width = 3
-            bg = "#F0FCFC"
+            bg = "rgba(96, 165, 250, 0.15)" if is_dark else "rgba(59, 130, 246, 0.08)"
         elif self._is_selected:
-            border_color = Colors.PRIMARY
+            border_color = c.PRIMARY
             border_width = 3
-            bg = "#E8F8F8"
+            bg = "rgba(96, 165, 250, 0.18)" if is_dark else "rgba(59, 130, 246, 0.1)"
         else:
-            border_color = Colors.BORDER
+            border_color = c.GLASS_BORDER
             border_width = 1
-            bg = Colors.BG_CARD
+            bg = c.GLASS_BG
+
+        # رنگ متن روز
+        if self._is_today or self._is_selected:
+            day_text_color = c.PRIMARY
+            day_bg = "rgba(96, 165, 250, 0.25)" if is_dark else "rgba(59, 130, 246, 0.12)"
+        else:
+            day_text_color = c.TEXT_PRIMARY
+            day_bg = c.GLASS_BG_HOVER
 
         self.setStyleSheet(f"""
             QFrame#CalendarDayCell {{
@@ -111,18 +106,18 @@ class CalendarDayCell(QFrame):
                 border-radius: 8px;
             }}
             QFrame#CalendarDayCell:hover {{
-                border-color: {Colors.PRIMARY};
+                border-color: {c.PRIMARY};
             }}
             QLabel#DayLabel {{
-                color: {Colors.PRIMARY if self._is_today else Colors.TEXT_PRIMARY};
+                color: {day_text_color};
                 font-weight: bold;
                 font-size: 10pt;
-                background-color: {Colors.PRIMARY_LIGHT if self._is_today else Colors.BG_HOVER};
-                border-radius: 4px;
-                padding: 2px;
+                background-color: {day_bg};
+                border-radius: 6px;
+                padding: 3px;
             }}
             QLabel#DayEmpty {{
-                color: {Colors.TEXT_MUTED};
+                color: {c.TEXT_MUTED};
                 font-size: 12pt;
                 background: transparent;
             }}

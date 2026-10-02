@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from src.ui.theme import Colors
+from src.ui.theme import CurrentTheme
 
 
 class SettingCard(QFrame):
@@ -28,20 +28,25 @@ class SettingCard(QFrame):
         self._build()
 
     def _build(self) -> None:
+        c = CurrentTheme.colors()
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 15, 20, 15)
-        layout.setSpacing(12)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(14)
 
         # === Header ===
         header = QHBoxLayout()
-        header.setSpacing(8)
+        header.setSpacing(10)
 
         icon_label = QLabel(self._icon)
         icon_label.setStyleSheet("font-size: 16pt; background: transparent;")
         header.addWidget(icon_label)
 
         title_label = QLabel(self._title)
-        title_label.setObjectName("CardTitle")
+        title_label.setStyleSheet(
+            f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
+            "font-size: 12pt; background: transparent;"
+        )
         title_label.setAlignment(Qt.AlignRight)
         header.addWidget(title_label, stretch=1)
 
@@ -50,40 +55,44 @@ class SettingCard(QFrame):
         # === Separator ===
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
+        sep.setFixedHeight(1)
         sep.setStyleSheet(
-            f"background-color: {Colors.BORDER_LIGHT}; max-height: 1px;"
+            f"background-color: {c.BORDER_LIGHT}; max-height: 1px;"
         )
         layout.addWidget(sep)
 
         # === Content ===
         self.content_layout = QVBoxLayout()
-        self.content_layout.setSpacing(8)
+        self.content_layout.setSpacing(10)
         layout.addLayout(self.content_layout)
 
     def add_row(self, label: str, value: str) -> None:
         """اضافه کردن یک ردیف label-value."""
+        c = CurrentTheme.colors()
+
         row = QHBoxLayout()
         row.setSpacing(10)
 
         label_widget = QLabel(label)
         label_widget.setStyleSheet(
-            f"color: {Colors.TEXT_SECONDARY}; background: transparent;"
+            f"color: {c.TEXT_SECONDARY}; background: transparent; "
+            "font-size: 10pt;"
         )
-        label_widget.setAlignment(Qt.AlignRight)
+        label_widget.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         row.addWidget(label_widget)
 
         row.addStretch()
 
         value_widget = QLabel(value)
         value_widget.setStyleSheet(
-            f"color: {Colors.TEXT_PRIMARY}; font-weight: bold; "
-            "background: transparent;"
+            f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
+            "font-size: 11pt; background: transparent;"
         )
-        value_widget.setAlignment(Qt.AlignLeft)
+        value_widget.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        value_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
         row.addWidget(value_widget)
 
         self.content_layout.addLayout(row)
 
     def add_widget(self, widget: QWidget) -> None:
-        """اضافه کردن یک widget دلخواه."""
         self.content_layout.addWidget(widget)
