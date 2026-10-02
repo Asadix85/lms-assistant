@@ -14,7 +14,6 @@ class Icons:
 
     ICONS_DIR = Path("assets/icons")
 
-    # نام آیکون‌ها
     DASHBOARD = "chart-pie"
     CALENDAR = "calendar-days"
     COURSES = "book"
@@ -49,26 +48,20 @@ class Icons:
     def get(cls, name: str, size: int = 24, color: str | None = None) -> QIcon:
         """دریافت آیکون به عنوان QIcon.
 
-        Args:
-            name: نام آیکون (بدون .svg)
-            size: اندازه به پیکسل
-            color: رنگ (اگر None، از تم فعلی استفاده می‌شه)
+        اگر color=None باشد، از TEXT_PRIMARY تم فعلی استفاده می‌شود.
         """
         key = f"{name}_{size}_{color}"
         if key in cls._cache:
             return cls._cache[key]
 
-        # مسیر فایل
         icon_path = cls.ICONS_DIR / f"{name}.svg"
         if not icon_path.exists():
             print(f"⚠️ آیکون پیدا نشد: {icon_path}")
             return QIcon()
 
-        # رنگ پیش‌فرض
         if color is None:
             color = CurrentTheme.colors().TEXT_PRIMARY
 
-        # رندر SVG
         pixmap = cls._render_svg(icon_path, size, color)
         icon = QIcon(pixmap)
 
@@ -87,7 +80,7 @@ class Icons:
         painter.setRenderHint(QPainter.Antialiasing)
         renderer.render(painter)
 
-        # اعمال رنگ
+        # اعمال رنگ (کل SVG با رنگ یگانه)
         if color:
             painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
             painter.fillRect(pixmap.rect(), QColor(color))
@@ -97,5 +90,5 @@ class Icons:
 
     @classmethod
     def clear_cache(cls) -> None:
-        """پاک کردن cache (برای تغییر تم)."""
+        """پاک کردن cache."""
         cls._cache.clear()

@@ -133,4 +133,21 @@ class Sidebar(QFrame):
     def refresh_icons(self) -> None:
         """رفرش آیکون‌ها (بعد از تغییر تم)."""
         Icons.clear_cache()
-        # (باید دکمه‌ها رو دوباره بسازیم — یا از QIcon refresh استفاده کنیم)
+
+        icon_map = {
+            "dashboard": Icons.DASHBOARD,
+            "calendar": Icons.CALENDAR,
+            "courses": Icons.COURSES,
+            "assignments": Icons.ASSIGNMENTS,
+            "events": Icons.EVENTS,
+            "changes": Icons.CHANGES,
+            "settings": Icons.SETTINGS,
+            "about": Icons.ABOUT,
+        }
+
+        for key, btn in self._buttons.items():
+            icon_name = icon_map.get(key)
+            if icon_name:
+                icon = Icons.get(icon_name, size=22)
+                if not icon.isNull():
+                    btn.setIcon(icon)

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS courses (
     domain TEXT NOT NULL,
     nodeg_url TEXT,
     teacher TEXT,
+    teacher_photo_url TEXT,
     code TEXT,
     term TEXT,
     status TEXT NOT NULL DEFAULT 'unknown',
