@@ -6,16 +6,22 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-# اضافه کردن ریشه پروژه به sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.ui.main_window import MainWindow
+from src.ui.theme import Fonts, get_global_qss
 
 
 def main() -> int:
     """اجرای برنامه."""
     app = QApplication(sys.argv)
     app.setApplicationName("LMS Assistant")
+
+    # بارگذاری فونت
+    Fonts.load()
+
+    # اعمال QSS سراسری
+    app.setStyleSheet(get_global_qss())
 
     window = MainWindow()
     window.show()
