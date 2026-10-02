@@ -68,7 +68,7 @@ class ChangeCard(QFrame):
         content = QVBoxLayout()
         content.setSpacing(3)
 
-        # Title (from data)
+        # Title
         title = self._get_title()
         title_label = QLabel(title)
         title_label.setObjectName("CardTitle")
@@ -101,7 +101,6 @@ class ChangeCard(QFrame):
     def _get_title(self) -> str:
         """گرفتن عنوان از data."""
         data = self._change.data or {}
-        # عنوان از data
         if "name" in data:
             return data["name"]
         if "title" in data:

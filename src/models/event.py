@@ -8,10 +8,10 @@ from enum import Enum
 
 class EventType(str, Enum):
     """نوع رویداد."""
-    LIVE_SESSION = "live_session"    # جلسه آنلاین (jaam)
-    EXAM = "exam"                    # آزمون
-    DEADLINE = "deadline"            # مهلت
-    ANNOUNCEMENT = "announcement"    # اطلاعیه
+    LIVE_SESSION = "live_session"
+    EXAM = "exam"
+    DEADLINE = "deadline"
+    ANNOUNCEMENT = "announcement"
     UNKNOWN = "unknown"
 
 
@@ -20,11 +20,11 @@ class Event:
     """یک رویداد LMS."""
 
     id: str
-    course_id: str | None            # می‌تواند None باشد (اگر درس مشخص نیست)
-    title: str
-    event_type: EventType
+    course_id: str | None = None
+    title: str = ""
+    event_type: EventType = EventType.UNKNOWN
     url: str | None = None
-    room_token: str | None = None    # توکن jaam/joinfast
+    room_token: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
     description: str | None = None
@@ -33,6 +33,8 @@ class Event:
     last_seen_at: datetime = field(default_factory=datetime.now)
 
     def __post_init__(self) -> None:
+        if not self.id:
+            raise ValueError("Event.id نمی‌تواند خالی باشد")
         if not self.title:
             raise ValueError("Event.title نمی‌تواند خالی باشد")
 
@@ -46,22 +48,26 @@ class Event:
     ) -> "Event":
         """ساخت Event از لینک joinfast.
 
-        Args:
-            url: /jaam/joinfast/{token}/{id}
-            title: متن لینک (مثل "ساختمان داده 03-جلسه 3")
-            start_hour: مثل "11:00"
-            course_id: شناسه درس (اگر می‌دانیم)
+        ID پایدار: از آخرین بخش URL (room_id) استفاده می‌کنیم.
+        مثال: /jaam/joinfast/{token}/{room_id} → id = "room_id"
         """
-        # استخراج توکن از URL
+        # استخراج توکن و room_id
         token = None
-        parts = url.split("/")
+        room_id = None
+        parts = url.rstrip("/").split("/")
         if "joinfast" in parts:
             idx = parts.index("joinfast")
             if idx + 1 < len(parts):
                 token = parts[idx + 1]
+            if idx + 2 < len(parts):
+                room_id = parts[idx + 2]
 
-        # ID از URL
-        event_id = hashlib.sha256(url.encode()).hexdigest()[:16]
+        # ID پایدار: بر اساس room_id (نه URL که توکن داره)
+        if room_id:
+            event_id = f"jaam_{room_id}"
+        else:
+            # fallback: hash کل URL
+            event_id = hashlib.sha256(url.encode()).hexdigest()[:16]
 
         # شروع
         start_at = None
@@ -69,7 +75,9 @@ class Event:
             try:
                 h, m = start_hour.split(":")
                 today = datetime.now()
-                start_at = today.replace(hour=int(h), minute=int(m), second=0, microsecond=0)
+                start_at = today.replace(
+                    hour=int(h), minute=int(m), second=0, microsecond=0
+                )
             except (ValueError, AttributeError):
                 pass
 
