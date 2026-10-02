@@ -1,109 +1,165 @@
-"""Event Card: کارت نمایش یک رویداد (جلسه آنلاین)."""
+"""Events Page: نمایش رویدادها (جلسات آنلاین) گروه‌بندی‌شده بر اساس روز."""
+
+from collections import defaultdict
+from datetime import datetime
 
 from PySide6.QtWidgets import (
-    QFrame,
+    QWidget,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QWidget,
+    QScrollArea,
+    QFrame,
 )
-from PySide6.QtCore import Qt, Signal, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import Qt, Signal
 
-from src.models.event import Event, EventType
+from src.models.event import Event
+from src.storage.database import Database
+from src.storage.repositories import EventRepository
+from src.ui.pages.base_page import BasePage
 from src.ui.theme import Colors
+from src.ui.widgets.event_card import EventCard
 
 
-class EventCard(QFrame):
-    """کارت رویداد (جلسه آنلاین)."""
+class EventsPage(BasePage):
+    """صفحه‌ی رویدادها."""
 
-    join_clicked = Signal(str)  # event_id
+    event_selected = Signal(str)
 
-    def __init__(self, event_data: Event, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        # ⚠️ اسم attribute رو از self.event به self._event_data عوض کردیم
-        self._event_data = event_data
-        self.setObjectName("EventCard")
-        self.setMinimumHeight(100)
-        self._build()
+    def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
+        self.db_path = db_path
+        self._all_events: list[Event] = []
+        self._filter: str = "all"
+        super().__init__(
+            title="رویدادها",
+            subtitle="جلسات آنلاین و رویدادهای مهم",
+            parent=parent,
+        )
+        self.refresh()
 
     def _build(self) -> None:
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(18, 15, 18, 15)
-        layout.setSpacing(15)
+        super()._build()
 
-        # === Time Box (Left) ===
-        time_box = QFrame()
-        time_box.setObjectName("TimeBox")
-        time_box.setFixedSize(80, 70)
+        # === Toolbar ===
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(10)
 
-        time_layout = QVBoxLayout(time_box)
-        time_layout.setAlignment(Qt.AlignCenter)
-        time_layout.setSpacing(2)
+        self.btn_all = QPushButton("همه")
+        self.btn_all.setObjectName("FilterButton")
+        self.btn_all.setCheckable(True)
+        self.btn_all.setChecked(True)
+        self.btn_all.clicked.connect(lambda: self._set_filter("all"))
+        toolbar.addWidget(self.btn_all)
 
-        icon = QLabel("🕐")
-        icon.setStyleSheet("font-size: 14pt; background: transparent;")
-        icon.setAlignment(Qt.AlignCenter)
-        time_layout.addWidget(icon)
+        self.btn_upcoming = QPushButton("📅 آینده")
+        self.btn_upcoming.setObjectName("FilterButton")
+        self.btn_upcoming.setCheckable(True)
+        self.btn_upcoming.clicked.connect(lambda: self._set_filter("upcoming"))
+        toolbar.addWidget(self.btn_upcoming)
 
-        time_str = (
-            self._event_data.start_at.strftime("%H:%M")
-            if self._event_data.start_at
-            else "—"
-        )
-        time_label = QLabel(time_str)
-        time_label.setStyleSheet(
-            f"font-size: 14pt; font-weight: bold; color: {Colors.PRIMARY}; "
-            "background: transparent;"
-        )
-        time_label.setAlignment(Qt.AlignCenter)
-        time_layout.addWidget(time_label)
+        self.btn_today = QPushButton("⏰ امروز")
+        self.btn_today.setObjectName("FilterButton")
+        self.btn_today.setCheckable(True)
+        self.btn_today.clicked.connect(lambda: self._set_filter("today"))
+        toolbar.addWidget(self.btn_today)
 
-        layout.addWidget(time_box)
+        toolbar.addStretch()
+        self.content_layout.addLayout(toolbar)
 
-        # === Content (Middle) ===
-        content_layout = QVBoxLayout()
-        content_layout.setSpacing(5)
+        # === Counter ===
+        self.counter_label = QLabel("")
+        self.counter_label.setObjectName("PageSubtitle")
+        self.counter_label.setAlignment(Qt.AlignRight)
+        self.content_layout.addWidget(self.counter_label)
 
-        title = QLabel(self._event_data.title)
-        title.setObjectName("CardTitle")
-        title.setWordWrap(True)
-        title.setAlignment(Qt.AlignRight)
-        content_layout.addWidget(title)
+        # === Scroll ===
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
 
-        # Event type badge
-        type_meta = {
-            EventType.LIVE_SESSION: ("🎥", "جلسه آنلاین", Colors.PRIMARY),
-            EventType.EXAM: ("📝", "آزمون", Colors.WARNING),
-            EventType.DEADLINE: ("⏰", "مهلت", Colors.ERROR),
-        }
-        icon_text, type_text, color = type_meta.get(
-            self._event_data.event_type,
-            ("📌", "رویداد", Colors.TEXT_SECONDARY),
-        )
+        self.list_widget = QWidget()
+        self.list_layout = QVBoxLayout(self.list_widget)
+        self.list_layout.setSpacing(8)
+        self.list_layout.setContentsMargins(0, 0, 0, 0)
+        self.list_layout.setAlignment(Qt.AlignTop)
 
-        badge = QLabel(f"{icon_text}  {type_text}")
-        badge.setStyleSheet(
-            f"background-color: {color}22; color: {color}; "
-            "padding: 3px 10px; border-radius: 10px; font-size: 9pt;"
-        )
-        badge.setAlignment(Qt.AlignRight)
-        badge.setMaximumWidth(150)
-        content_layout.addWidget(badge)
+        scroll.setWidget(self.list_widget)
+        self.content_layout.addWidget(scroll, stretch=1)
 
-        layout.addLayout(content_layout, stretch=1)
+    def refresh(self) -> None:
+        try:
+            with Database(self.db_path) as db:
+                repo = EventRepository(db)
+                self._all_events = repo.get_all()
+        except Exception as e:
+            self.counter_label.setText(f"خطا: {e}")
+            return
+        self._apply_filters()
 
-        # === Action (Right) ===
-        self.join_btn = QPushButton("🚪  ورود به جلسه")
-        self.join_btn.setObjectName("PrimaryButton")
-        self.join_btn.setMinimumWidth(140)
-        self.join_btn.setCursor(Qt.PointingHandCursor)
-        self.join_btn.clicked.connect(self._on_join)
-        layout.addWidget(self.join_btn)
+    def _apply_filters(self) -> None:
+        events = list(self._all_events)
+        now = datetime.now()
 
-    def _on_join(self) -> None:
-        """کلیک روی ورود."""
-        if self._event_data.url:
-            QDesktopServices.openUrl(QUrl(self._event_data.url))
-        self.join_clicked.emit(self._event_data.id)
+        if self._filter == "upcoming":
+            events = [e for e in events if e.start_at and e.start_at >= now]
+        elif self._filter == "today":
+            events = [
+                e for e in events
+                if e.start_at and e.start_at.date() == now.date()
+            ]
+
+        self.counter_label.setText(f"نمایش {len(events)} از {len(self._all_events)} رویداد")
+
+        # پاک کردن
+        while self.list_layout.count():
+            item = self.list_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not events:
+            empty = QLabel("هیچ رویدادی با این فیلتر نیست.")
+            empty.setObjectName("PageSubtitle")
+            empty.setAlignment(Qt.AlignCenter)
+            self.list_layout.addWidget(empty)
+            return
+
+        # گروه‌بندی بر اساس روز
+        groups: dict = defaultdict(list)
+        for e in events:
+            if e.start_at:
+                day = e.start_at.strftime("%Y-%m-%d")
+            else:
+                day = "unknown"
+            groups[day].append(e)
+
+        # رندر
+        for day in sorted(groups.keys()):
+            day_events = groups[day]
+
+            # Day header
+            header = QLabel(f"──  {self._format_day(day)}  ──")
+            header.setObjectName("DayHeader")
+            header.setAlignment(Qt.AlignRight)
+            self.list_layout.addWidget(header)
+
+            for e in day_events:
+                card = EventCard(event_data=e)
+                card.join_clicked.connect(self.event_selected.emit)
+                self.list_layout.addWidget(card)
+
+    def _format_day(self, day: str) -> str:
+        if day == "unknown":
+            return "بدون تاریخ"
+        try:
+            dt = datetime.strptime(day, "%Y-%m-%d")
+            return dt.strftime("%A, %d %B %Y")
+        except Exception:
+            return day
+
+    def _set_filter(self, f: str) -> None:
+        self._filter = f
+        self.btn_all.setChecked(f == "all")
+        self.btn_upcoming.setChecked(f == "upcoming")
+        self.btn_today.setChecked(f == "today")
+        self._apply_filters()
