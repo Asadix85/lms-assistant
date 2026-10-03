@@ -109,19 +109,123 @@ class SettingsPage(BasePage):
         self.scroll_layout.addWidget(card)
 
     def _build_sync_card(self) -> None:
+        from src.services.settings_manager import SettingsManager
+        from PySide6.QtWidgets import QCheckBox, QLabel, QVBoxLayout, QWidget
+
         card = SettingCard(title="تنظیمات Sync", icon="🔄")
 
-        # چک‌باکس اعلان
-        self.notify_checkbox = QCheckBox("نمایش اعلان پس از Sync")
-        self.notify_checkbox.setChecked(True)
-        card.add_widget(self.notify_checkbox)
+        c = CurrentTheme.colors()
 
-        # چک‌باکس Sync خودکار
-        self.auto_sync_checkbox = QCheckBox("Sync خودکار (در نسخه بعدی)")
-        self.auto_sync_checkbox.setEnabled(False)
-        card.add_widget(self.auto_sync_checkbox)
+        # === عنوان توضیحی ===
+        info = QLabel(
+            "انتخاب کنید چه چیزهایی از LMS دریافت شوند.\n"
+            "کمتر انتخاب کنید → سریع‌تر Sync می‌شه."
+        )
+        info.setStyleSheet(
+            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
+            "background: transparent; padding: 5px 0;"
+        )
+        info.setWordWrap(True)
+        card.add_widget(info)
+
+        # === چک‌باکس‌ها ===
+        settings = SettingsManager.get_sync_settings()
+
+        self.sync_checkboxes = {}
+
+        # دروس (اجباری)
+        cb_courses = QCheckBox("📚  دروس (اجباری)")
+        cb_courses.setChecked(True)
+        cb_courses.setEnabled(False)
+        card.add_widget(cb_courses)
+
+        # محتوا
+        cb_contents = QCheckBox("📄  فایل‌ها و محتوای دروس")
+        cb_contents.setChecked(settings["contents"])
+        self.sync_checkboxes["contents"] = cb_contents
+        card.add_widget(cb_contents)
+
+        # رویدادها
+        cb_events = QCheckBox("📅  رویدادها (جلسات آنلاین)")
+        cb_events.setChecked(settings["events"])
+        self.sync_checkboxes["events"] = cb_events
+        card.add_widget(cb_events)
+
+        # پیام‌ها
+        cb_posts = QCheckBox("📢  پیام‌های استاد (wall)")
+        cb_posts.setChecked(settings["posts"])
+        self.sync_checkboxes["posts"] = cb_posts
+        card.add_widget(cb_posts)
+
+        # تکالیف
+        cb_assignments = QCheckBox("📋  تکالیف")
+        cb_assignments.setChecked(settings["assignments"])
+        self.sync_checkboxes["assignments"] = cb_assignments
+        card.add_widget(cb_assignments)
+
+        # همکلاسی‌ها (کند)
+        cb_members = QCheckBox("👥  همکلاسی‌ها (کند)")
+        cb_members.setChecked(settings["members"])
+        self.sync_checkboxes["members"] = cb_members
+        card.add_widget(cb_members)
+
+        # === زمان تقریبی ===
+        self.time_label = QLabel("")
+        self.time_label.setStyleSheet(
+            f"color: {c.PRIMARY}; font-weight: bold; font-size: 11pt; "
+            "background: transparent; padding: 10px 0;"
+        )
+        self.time_label.setAlignment(Qt.AlignRight)
+        card.add_widget(self.time_label)
+
+        self._update_time_estimate()
+
+        # وصل کردن تغییرات
+        for cb in self.sync_checkboxes.values():
+            cb.stateChanged.connect(self._on_sync_option_changed)
 
         self.scroll_layout.addWidget(card)
+
+    def _on_sync_option_changed(self) -> None:
+        """ذخیره‌ی تنظیمات جدید + آپدیت زمان."""
+        from src.services.settings_manager import SettingsManager
+
+        settings = {
+            key: cb.isChecked()
+            for key, cb in self.sync_checkboxes.items()
+        }
+        SettingsManager.save_sync_settings(settings)
+        self._update_time_estimate()
+
+    def _update_time_estimate(self) -> None:
+        """محاسبه‌ی زمان تقریبی Sync."""
+        settings = {
+            key: cb.isChecked()
+            for key, cb in self.sync_checkboxes.items()
+        }
+
+        # ⚠️ زمان‌بندی دقیق‌تر بر اساس تجربه
+        time = 15  # دروس (اجباری)
+        if settings.get("contents"):
+            time += 40
+        if settings.get("events"):
+            time += 5
+        if settings.get("posts"):
+            time += 15
+        if settings.get("assignments"):
+            time += 5
+        if settings.get("members"):
+            time += 120  # ⚠️ همکلاسی‌ها: ۱۲ درس × ۱۰s
+
+        # نمایش دقیق‌تر (دقیقه اگه > ۶۰s)
+        if time > 90:
+            minutes = time // 60
+            seconds = time % 60
+            text = f"~{minutes} دقیقه و {seconds} ثانیه"
+        else:
+            text = f"~{time} ثانیه"
+
+        self.time_label.setText(f"⏱️  زمان تقریبی: {text}")
 
     def _build_display_card(self) -> None:
         card = SettingCard(title="نمایش", icon="🎨")

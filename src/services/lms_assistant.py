@@ -17,6 +17,7 @@ from src.parsers.contents import ContentParser
 from src.parsers.courses import CourseParser
 from src.parsers.events import EventParser
 from src.parsers.wall import WallParser
+from src.models.member import Member
 
 
 class LMSAssistant:
@@ -220,3 +221,29 @@ class LMSAssistant:
         status = "authenticated" if self.is_authenticated else "not authenticated"
         domains = ", ".join(sorted(self.active_domains)) or "none"
         return f"LMSAssistant({status}, domains=[{domains}])"
+
+    def get_course_members(self, course: Course) -> list["Member"]:
+        """دریافت اعضای درس از wall."""
+        from src.parsers.members import MemberParser
+
+        if course.domain not in self.active_domains:
+            if course.nodeg_url:
+                self.activate_domain(course.nodeg_url, course.domain)
+            else:
+                logger.warning(f"دامنه {course.domain} فعال نیست")
+                return []
+
+        try:
+            collector = WallCollector(self.client, course=course)
+            html = collector.collect()
+
+            base_url = self.DOMAIN_URLS.get(course.domain, "https://lms4.ui.ac.ir")
+            parser = MemberParser(
+                course_id=course.group_id,
+                teacher_name=course.teacher,
+                base_url=base_url,
+            )
+            return parser.parse(html)
+        except Exception as e:
+            logger.error(f"خطا در اعضای {course.name}: {e}")
+            return []

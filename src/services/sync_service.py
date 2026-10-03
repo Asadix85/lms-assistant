@@ -5,8 +5,12 @@ from datetime import datetime
 
 from loguru import logger
 
+from src.collectors.members import MembersCollector
 from src.models.change import Change, ChangeType, EntityType
+from src.models.member import Member, MemberType
+from src.parsers.members import MemberParser
 from src.services.lms_assistant import LMSAssistant
+from src.services.settings_manager import SettingsManager
 from src.services.sync_result import SyncResult
 from src.storage.database import Database
 from src.storage.repositories import (
@@ -15,6 +19,7 @@ from src.storage.repositories import (
     ContentRepository,
     CourseRepository,
     EventRepository,
+    MemberRepository,
     PostRepository,
     SettingRepository,
 )
@@ -35,6 +40,7 @@ class SyncService:
         self.event_repo = EventRepository(db)
         self.post_repo = PostRepository(db)
         self.assignment_repo = AssignmentRepository(db)
+        self.member_repo = MemberRepository(db)
         self.setting_repo = SettingRepository(db)
         self.change_repo = ChangeRepository(db)
 
@@ -47,11 +53,32 @@ class SyncService:
             result.is_first_sync = first_sync
             logger.info(f"شروع Sync (اولین بار: {first_sync})")
 
-            self._sync_courses(result, first_sync)
-            self._sync_contents(result, first_sync)
-            self._sync_events(result, first_sync)
-            self._sync_wall(result, first_sync)
+            # ⚠️ خواندن تنظیمات Sync
+            sync_settings = SettingsManager.get_sync_settings()
+            logger.info(f"تنظیمات Sync: {sync_settings}")
 
+            # === دروس (همیشه) ===
+            self._sync_courses(result, first_sync)
+
+            # === اختیاری ===
+            if sync_settings["contents"]:
+                self._sync_contents(result, first_sync)
+
+            if sync_settings["events"]:
+                self._sync_events(result, first_sync)
+
+            if sync_settings["posts"] or sync_settings["assignments"]:
+                self._sync_wall(
+                    result,
+                    first_sync,
+                    sync_posts=sync_settings["posts"],
+                    sync_assignments=sync_settings["assignments"],
+                )
+
+            if sync_settings["members"]:
+                self._sync_members(result, first_sync)
+
+            # === ذخیره ===
             if result.changes and not first_sync:
                 self.change_repo.save_many(result.changes)
 
@@ -198,16 +225,44 @@ class SyncService:
 
     # === Wall (Posts + Assignments) ===
 
-    def _sync_wall(self, result: SyncResult, first_sync: bool) -> None:
-        logger.debug("Sync wall (پست‌ها و تکالیف)...")
+    def _sync_wall(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        sync_posts: bool = True,
+        sync_assignments: bool = True,
+    ) -> None:
+        """Sync wall با پارامترهای اختیاری."""
+        logger.debug(f"Sync wall (posts={sync_posts}, assignments={sync_assignments})")
 
-        posts_by_course, assignments_by_course = self.assistant.get_all_wall_data()
+        courses = self.assistant.get_active_courses()
+
+        all_posts = []
+        all_assignments = []
+
+        for course in courses:
+            try:
+                posts, assignments = self.assistant.get_course_wall(course)
+
+                if sync_posts:
+                    all_posts.extend(posts)
+
+                if sync_assignments:
+                    all_assignments.extend(assignments)
+
+            except Exception as e:
+                logger.error(f"خطا در wall {course.name}: {e}")
 
         # === Posts ===
-        all_posts = []
-        for posts in posts_by_course.values():
-            all_posts.extend(posts)
+        if sync_posts:
+            self._sync_posts(result, all_posts, first_sync)
 
+        # === Assignments ===
+        if sync_assignments:
+            self._sync_assignments(result, all_assignments, first_sync)
+
+    def _sync_posts(self, result: SyncResult, all_posts: list, first_sync: bool) -> None:
+        """Sync پست‌ها."""
         lms_post_ids = {p.id for p in all_posts}
         db_post_ids = {p.id for p in self.post_repo.get_all()}
 
@@ -221,7 +276,7 @@ class SyncService:
                 result.posts_new += 1
                 result.changes.append(Change(
                     type=ChangeType.NEW,
-                    entity_type=EntityType.COURSE,  # Post رو Event/Course در نظر می‌گیریم
+                    entity_type=EntityType.COURSE,
                     entity_id=p.id,
                     course_id=p.course_id,
                     data={"author": p.author, "text": p.text[:100]},
@@ -234,29 +289,21 @@ class SyncService:
 
         for pid in removed_post_ids:
             result.posts_removed += 1
-            result.changes.append(Change(
-                type=ChangeType.REMOVED,
-                entity_type=EntityType.COURSE,
-                entity_id=pid,
-            ))
 
         if first_sync:
             self.post_repo.mark_all_seen()
 
-        # === Assignments ===
-        all_assignments = []
-        for assigns in assignments_by_course.values():
-            all_assignments.extend(assigns)
+    def _sync_assignments(self, result: SyncResult, all_assignments: list, first_sync: bool) -> None:
+        """Sync تکالیف."""
+        lms_ids = {a.id for a in all_assignments}
+        db_ids = {a.id for a in self.assignment_repo.get_all()}
 
-        lms_a_ids = {a.id for a in all_assignments}
-        db_a_ids = {a.id for a in self.assignment_repo.get_all()}
-
-        new_a_ids = lms_a_ids - db_a_ids
-        removed_a_ids = db_a_ids - lms_a_ids
-        common_a_ids = lms_a_ids & db_a_ids
+        new_ids = lms_ids - db_ids
+        removed_ids = db_ids - lms_ids
+        common_ids = lms_ids & db_ids
 
         for a in all_assignments:
-            if a.id in new_a_ids:
+            if a.id in new_ids:
                 self.assignment_repo.save(a)
                 result.assignments_new += 1
                 result.changes.append(Change(
@@ -264,21 +311,55 @@ class SyncService:
                     entity_type=EntityType.COURSE,
                     entity_id=a.id,
                     course_id=a.course_id,
-                    data={"title": a.title, "deadline": a.deadline.isoformat() if a.deadline else None},
+                    data={
+                        "title": a.title,
+                        "deadline": a.deadline.isoformat() if a.deadline else None,
+                    },
                 ))
                 if not first_sync:
                     logger.info(f"🆕 تکلیف جدید: {a.title[:50]}")
-            elif a.id in common_a_ids:
+            elif a.id in common_ids:
                 self.assignment_repo.save(a)
                 result.assignments_updated += 1
 
-        for aid in removed_a_ids:
+        for aid in removed_ids:
             result.assignments_removed += 1
-            result.changes.append(Change(
-                type=ChangeType.REMOVED,
-                entity_type=EntityType.COURSE,
-                entity_id=aid,
-            ))
 
         if first_sync:
             self.assignment_repo.mark_all_seen()
+
+    # === Members (اختیاری - کند) ===
+
+    def _sync_members(self, result: SyncResult, first_sync: bool) -> None:
+        """Sync همکلاسی‌ها (کند)."""
+        logger.debug("Sync اعضا...")
+
+        courses = self.assistant.get_active_courses()
+        total_members = 0
+
+        for course in courses:
+            try:
+                collector = MembersCollector(self.assistant.client, course)
+                parser = MemberParser(
+                    course_id=course.group_id,
+                    teacher_name=course.teacher,
+                )
+
+                # همه‌ی صفحات دانشجویان
+                for html in collector.collect_all_students():
+                    members = parser.parse(html, is_admin_page=False)
+                    for m in members:
+                        self.member_repo.save(m)
+                        total_members += 1
+
+                # استادان
+                admin_html = collector.collect_admins(page=1)
+                teachers = parser.parse(admin_html, is_admin_page=True)
+                for t in teachers:
+                    self.member_repo.save(t)
+                    total_members += 1
+
+            except Exception as e:
+                logger.error(f"خطا در اعضای {course.name}: {e}")
+
+        logger.info(f"✅ {total_members} عضو Sync شد")

@@ -18,6 +18,30 @@ class SettingsManager:
     KEY_WINDOW_GEOMETRY = "window_geometry"
     KEY_WINDOW_STATE = "window_state"
     KEY_LAST_PAGE = "last_page"
+    KEY_SYNC_COURSES = "sync_courses"
+    KEY_SYNC_CONTENTS = "sync_contents"
+    KEY_SYNC_EVENTS = "sync_events"
+    KEY_SYNC_POSTS = "sync_posts"
+    KEY_SYNC_ASSIGNMENTS = "sync_assignments"
+    KEY_SYNC_MEMBERS = "sync_members"
+
+    @classmethod
+    def get_sync_settings(cls) -> dict:
+        """خواندن همه‌ی تنظیمات Sync."""
+        return {
+            "courses": cls.load(cls.KEY_SYNC_COURSES, "true") == "true",
+            "contents": cls.load(cls.KEY_SYNC_CONTENTS, "true") == "true",
+            "events": cls.load(cls.KEY_SYNC_EVENTS, "true") == "true",
+            "posts": cls.load(cls.KEY_SYNC_POSTS, "true") == "true",
+            "assignments": cls.load(cls.KEY_SYNC_ASSIGNMENTS, "true") == "true",
+            "members": cls.load(cls.KEY_SYNC_MEMBERS, "false") == "false",  # پیش‌فرض: خاموش
+        }
+
+    @classmethod
+    def save_sync_settings(cls, settings: dict) -> None:
+        """ذخیره‌ی تنظیمات Sync."""
+        for key, value in settings.items():
+            cls.save(f"sync_{key}", "true" if value else "false")
 
     @classmethod
     def save(cls, key: str, value: str) -> None:

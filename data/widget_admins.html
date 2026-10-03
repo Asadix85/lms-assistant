@@ -1,0 +1,340 @@
+
+<div class="generic_layout_container  layout_group_profile_members_separate">﻿
+<style>
+
+.group_members_icon>item_photo_user{
+
+    width: 40px!important;
+	height: 40px!important;
+
+}
+
+</style>
+<script type="text/javascript">
+    jQuery(function() {
+        jQuery("#admin_member_div").css( 'cursor', 'pointer' );
+        jQuery("#student_member_div").css( 'cursor', 'pointer' );
+        jQuery("#admin_member").hide();
+        jQuery("#admin_member_div").click(function() {
+            jQuery("#admin_member").toggle();
+            jQuery("#student_member").hide();
+        });
+        jQuery("#student_member").hide();
+        jQuery("#student_member_div").click(function() {
+            jQuery("#student_member").toggle();
+            jQuery("#admin_member").hide();
+        });
+    });
+</script>
+<script type="text/javascript">
+    var groupMemberAdminSearch = '';
+    var groupMemberPage = Number(1);
+    en4.core.runonce.add(function() {
+        var urlAdmin = en4.core.baseUrl + 'widget/index/content_id/' + 1517;
+        $('group_members_admin_search_input').addEvent('keypress', function(e) {
+            if (e.key != 'enter')
+                return;
+
+            en4.core.request.send(new Request.HTML({
+                'url': urlAdmin,
+                'data': {
+                    'format': 'html',
+                    'page_type': 'admin',
+                    'subject': en4.core.subject.guid,
+                    'searchAdmin': this.value
+                }
+            }), {
+                'element': $('group_profile_members_admin')
+            });
+        });
+    });
+
+    var paginateGroupMembersAdmin = function(groupMemberPage) {
+        var urlAdmin = en4.core.baseUrl + 'widget/index/content_id/' + 1517;
+        en4.core.request.send(new Request.HTML({
+            'url': urlAdmin,
+            'data': {
+                'format': 'html',
+                'subject': en4.core.subject.guid,
+                'page_type': 'admin',
+                'pageAdmin': groupMemberPage,
+                'searchAdmin': groupMemberAdminSearch
+
+            }
+        }), {
+            'element': $('group_profile_members_admin')
+        });
+    }
+</script>
+
+<script type="text/javascript">
+    var groupMemberStudentSearch = '';
+    var groupMemberPageStudent = Number(1);
+    en4.core.runonce.add(function() {
+        var urlstudent = en4.core.baseUrl + 'widget/index/content_id/' + 1517;
+        $('group_members_student_search_input').addEvent('keypress', function(e) {
+            if (e.key != 'enter')
+                return;
+
+            en4.core.request.send(new Request.HTML({
+                'url': urlstudent,
+                'data': {
+                    'format': 'html',
+                    'subject': en4.core.subject.guid,
+                    'page_type': 'student',
+                    'searchstudent': this.value
+                }
+            }), {
+                'element': $('group_profile_members_student')
+            });
+        });
+    });
+
+    var paginateGroupMembersStudent = function(groupMemberPageStudent) {
+        var urlstudent = en4.core.baseUrl + 'widget/index/content_id/' + 1517;
+        en4.core.request.send(new Request.HTML({
+            'url': urlstudent,
+            'data': {
+                'format': 'html',
+                'subject': en4.core.subject.guid,
+                'pageStudent': groupMemberPageStudent,
+                'page_type': 'student',
+                'searchstudent': groupMemberStudentSearch
+            }
+        }), {
+            'element': $('group_profile_members_student')
+        });
+    }
+</script>
+
+
+
+    
+<div id="admin_member_div" >
+    <b >
+        <div style="font-size:11pt;-webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;padding:10px;color:#3498db;border:2px solid #3498db!important;background:#fefefe;">لیست مدیران ( ۷) 
+		
+		<span style="float:left;font-size:12pt;">+</span>
+	</div>
+    </b>
+</div>
+<ul class='group_members' id="admin_member">
+    <div class="group_members_admin_search">
+	
+        <input style="margin-top:5px;margin-bottom:5px;width:98%;font-size:8pt;" id="group_members_admin_search_input" type="text" value="جستجوی اعضا" onfocus="$(this).store('over', this.value);
+                this.value = '';" onblur="this.value = $(this).retrieve('over');">
+				
+				
+    </div>
+
+
+
+        <li  id="group_member_1" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/public/user/50/eb/13/13c478_e7a8.png?c=585d" alt="" class="thumb_icon item_photo_user  thumb_icon" style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+پشتیبانی سامانه
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/1" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+
+
+        <li  id="group_member_10" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/public/user/e2/53/14/142ba3_571b.jpg?c=3f5f" alt="" class="thumb_icon item_photo_user  thumb_icon" style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+یاوری کارشناس آموزش الکترونیکی
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/10" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+
+
+        <li  id="group_member_19119" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/public/user/73/c7/07/7b8b3_1843.jpg?c=6a75" alt="" class="thumb_icon item_photo_user  thumb_icon" style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+کمال جمشیدی
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/19119" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+
+
+        <li  id="group_member_20399" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/application/modules/User/externals/images/nophoto_user_thumb_icon.png" alt="" class="thumb_icon item_photo_user item_nophoto " style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+اسماعیلی کارشناس آموزش الکترونیکی
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/20399" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+
+
+        <li  id="group_member_24794" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/public/user/0a/29/14/1400f5_1fee.jpg?c=8962" alt="" class="thumb_icon item_photo_user  thumb_icon" style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+پاسخگوی هوشمند سامانه
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/24794" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+
+
+        <li  id="group_member_34399" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/public/user/53/b3/14/148ab4_e872.jpg?c=b91a" alt="" class="thumb_icon item_photo_user  thumb_icon" style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+مدیر مرکز-دکتر ملک پور
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/34399" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+
+
+        <li  id="group_member_49873" style="padding:5px!important;border:2px solid #eee;background:#fcfcfc;" class="col-lg-12 col-md-12 col-sm-6 col-xs-12">
+		
+		
+<table width="100%">
+<tr>
+<td>
+<img src="/public/user/70/1f/07/71158_eb3d.jpg?c=e6d3" alt="" class="thumb_icon item_photo_user  thumb_icon" style="-moz-border-radius: 50%;-webkit-border-radius: 50%;border-radius: 50%;border:3px solid #eee;" dis="user" /></td>
+
+<td width="70%" style="font-size:9pt;">
+
+آزاده صالحی همیار فنی دانشکده
+<td>
+<td>		<a style="float;left;" href="../messages/compose/to/49873" target="_blank" class="wp_init"><i title="ارسال پیام" class="fa fa-envelope-o" style="font-family: FontAwesome!important;font-size:12pt;color:#16a085;"></i></a>
+<td>
+<td>
+
+<td>
+<tr>
+</table>
+        </li>
+
+		
+		
+    
+                <div>
+                                				
+								
+				<div id="user_group_members_admin_next" class="paginator_next" style="font-size:16pt;background:#eee;width:48%;text-align:center;">
+				<a  href="javascript:void(0);" onclick="paginateGroupMembersAdmin(groupMemberPage + 1)" class="">»</a>			  </div>
+				
+				
+    	<br>
+        </div>
+</ul>
+
+
+
+
+
+<script>
+//$$('.layout_group_profile_members_separate').hide();
+</script>
+
+
+<!--<div id="upp" style="background: #fcfcfc;width:98%;text-align:center;cursor:pointer;" onclick="$$('#muteachersbox').setStyle('height','12vh');$$('.layout_group_profile_members_separate').hide();$$(this).hide();$$('#ddw').show();">
+<i class="fa fa-angle-double-up" style="    font-family: FontAwesome!important;
+    font-size: 16pt;
+    color: #00C4C4;"></i>
+</div>-->
+
+</div>

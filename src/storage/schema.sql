@@ -18,6 +18,21 @@ CREATE TABLE IF NOT EXISTS courses (
     last_seen_at TEXT NOT NULL
 );
 
+-- جدول اعضای درس
+CREATE TABLE IF NOT EXISTS members (
+    id TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    profile_url TEXT NOT NULL,
+    member_type TEXT NOT NULL DEFAULT 'unknown',
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY (id, course_id),
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_members_course ON members(course_id);
+CREATE INDEX IF NOT EXISTS idx_members_type ON members(member_type);
 -- جدول محتوا (PDF, ZIP, ...)
 CREATE TABLE IF NOT EXISTS contents (
     id TEXT PRIMARY KEY,

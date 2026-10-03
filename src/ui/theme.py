@@ -658,4 +658,85 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
             stop:0 {c.PRIMARY}, stop:1 {c.SECONDARY});
         border-radius: 2px;
     }}
+    
+        /* === QCheckBox === */
+    QCheckBox {{
+        color: {c.TEXT_PRIMARY};
+        font-size: {f.SIZE_BASE}pt;
+        spacing: 10px;
+        background: transparent;
+        padding: 6px 0;
+    }}
+
+    QCheckBox::indicator {{
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        border: 2px solid {c.BORDER};
+        background-color: {c.GLASS_BG};
+    }}
+
+    QCheckBox::indicator:hover {{
+        border-color: {c.PRIMARY};
+        background-color: {c.GLASS_BG_HOVER};
+    }}
+
+    QCheckBox::indicator:checked {{
+        background-color: {c.PRIMARY};
+        border-color: {c.PRIMARY};
+        image: none;
+    }}
+
+    QCheckBox::indicator:checked:hover {{
+        background-color: {c.PRIMARY_DARK};
+        border-color: {c.PRIMARY_DARK};
+    }}
+
+    QCheckBox::indicator:disabled {{
+        background-color: {c.BORDER_LIGHT};
+        border-color: {c.BORDER_LIGHT};
+    }}
+    
+    QCheckBox::indicator:checked {{
+        background-color: {c.PRIMARY};
+        border-color: {c.PRIMARY};
+        image: url(assets/icons/check.svg);
+    }}
+    
+        /* === QMessageBox === */
+    QMessageBox {{
+        background-color: {c.BG_CARD};
+        color: {c.TEXT_PRIMARY};
+    }}
+
+    QMessageBox QLabel {{
+        color: {c.TEXT_PRIMARY};
+        font-size: {f.SIZE_BASE}pt;
+        background: transparent;
+    }}
+
+    QMessageBox QPushButton {{
+        background-color: {c.PRIMARY};
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 8px 20px;
+        min-width: 80px;
+        font-weight: 500;
+    }}
+
+    QMessageBox QPushButton:hover {{
+        background-color: {c.PRIMARY_DARK};
+    }}
+
+    /* === QDialog (برای همه دیالوگ‌ها) === */
+    QDialog {{
+        background-color: {c.BG_CARD};
+        color: {c.TEXT_PRIMARY};
+    }}
+
+    QDialog QLabel {{
+        color: {c.TEXT_PRIMARY};
+        background: transparent;
+    }}
     """

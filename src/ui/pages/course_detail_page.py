@@ -11,9 +11,8 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtCore import QUrl
 
 from src.models.course import Course
 from src.storage.database import Database
@@ -69,7 +68,7 @@ class CourseDetailPage(QWidget):
 
         layout.addLayout(header_row)
 
-        # === Hero Section (عنوان درس) ===
+        # === Hero Section ===
         self.hero = QFrame()
         self.hero.setObjectName("HeroCard")
         self.hero.setMinimumHeight(120)
@@ -105,14 +104,14 @@ class CourseDetailPage(QWidget):
         self.info_card_container.setAttribute(Qt.WA_TranslucentBackground, True)
         info_layout = QVBoxLayout(self.info_card_container)
         info_layout.setContentsMargins(0, 0, 0, 0)
-        self.info_card = None  # بعداً پر می‌شه
+        self.info_card = None
 
         # کارت‌های آمار
         self.stats_container = QWidget()
         self.stats_container.setAttribute(Qt.WA_TranslucentBackground, True)
         stats_layout = QVBoxLayout(self.stats_container)
         stats_layout.setContentsMargins(0, 0, 0, 0)
-        self.stats = None  # بعداً پر می‌شه
+        self.stats = None
 
         cards_row.addWidget(self.info_card_container, stretch=1)
         cards_row.addWidget(self.stats_container, stretch=2)
@@ -130,6 +129,10 @@ class CourseDetailPage(QWidget):
         # Assignments Tab
         self.assignments_container = self._build_tab_container()
         self.tabs.addTab(self.assignments_container, "📋 تکالیف")
+
+        # Members Tab
+        self.members_container = self._build_tab_container()
+        self.tabs.addTab(self.members_container, "👥 همکلاسی‌ها")
 
         # Contents Tab
         self.contents_container = self._build_tab_container()
@@ -193,6 +196,7 @@ class CourseDetailPage(QWidget):
         self._load_posts()
         self._load_assignments()
         self._load_contents()
+        self._load_members()
 
         self.tabs.setCurrentIndex(0)
 
@@ -283,7 +287,7 @@ class CourseDetailPage(QWidget):
                 compact=True,
             )
             layout.addWidget(empty)
-            self.tabs.setTabText(2, "📄 فایل‌ها")
+            self.tabs.setTabText(3, "📄 فایل‌ها")
             return
 
         c = CurrentTheme.colors()
@@ -337,4 +341,134 @@ class CourseDetailPage(QWidget):
 
             layout.addWidget(frame)
 
-        self.tabs.setTabText(2, f"📄 فایل‌ها ({len(contents)})")
+        self.tabs.setTabText(3, f"📄 فایل‌ها ({len(contents)})")
+
+    # ⚠️ متدهای جدید - با تورفتگی درست (۴ فاصله)
+
+    def _load_members(self) -> None:
+        """بارگذاری همکلاسی‌ها."""
+        if not self._course:
+            return
+
+        layout = self.members_container._content_layout
+        self._clear_layout(layout)
+
+        try:
+            with Database(self.db_path) as db:
+                from src.storage.repositories import MemberRepository
+                from src.models.member import MemberType
+
+                repo = MemberRepository(db)
+                members = repo.get_by_course(self._course.group_id)
+        except Exception as e:
+            layout.addWidget(QLabel(f"خطا: {e}"))
+            return
+
+        # ⚠️ فیلتر بر اساس member_type
+        students = [m for m in members if m.member_type == MemberType.STUDENT]
+        teachers = [m for m in members if m.member_type == MemberType.TEACHER]
+        support = [m for m in members if m.member_type == MemberType.SUPPORT]
+
+        if not members:
+            empty = EmptyState(
+                icon_name="user",
+                title="هنوز عضوی در این درس نیست",
+                description="در Settings، گزینه‌ی «همکلاسی‌ها» رو روشن کن و Sync بزن.",
+                compact=True,
+            )
+            layout.addWidget(empty)
+            self.tabs.setTabText(2, "👥 همکلاسی‌ها")
+            return
+
+        c = CurrentTheme.colors()
+
+        # === استادان ===
+        if teachers:
+            teacher_section = QLabel(f"👨‍🏫 استاد ({len(teachers)})")
+            teacher_section.setStyleSheet(
+                f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
+                "font-size: 12pt; padding: 10px 0;"
+            )
+            teacher_section.setAlignment(Qt.AlignRight)
+            layout.addWidget(teacher_section)
+
+            for t in teachers:
+                layout.addWidget(self._make_member_row(t))
+
+        # === همکلاسی‌ها ===
+        if students:
+            student_section = QLabel(f"👥 همکلاسی‌ها ({len(students)})")
+            student_section.setStyleSheet(
+                f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
+                "font-size: 12pt; padding: 10px 0;"
+            )
+            student_section.setAlignment(Qt.AlignRight)
+            layout.addWidget(student_section)
+
+            for s in students:
+                layout.addWidget(self._make_member_row(s))
+
+        self.tabs.setTabText(2, f"👥 همکلاسی‌ها ({len(students)})")
+
+    def _make_member_row(self, member) -> QFrame:
+        """ساخت ردیف یک عضو."""
+        from src.models.member import MemberType
+
+        c = CurrentTheme.colors()
+        is_dark = CurrentTheme.is_dark()
+
+        frame = QFrame()
+        frame.setObjectName("ContentRow")
+        frame.setLayoutDirection(Qt.RightToLeft)
+
+        row = QHBoxLayout(frame)
+        row.setContentsMargins(15, 10, 15, 10)
+        row.setSpacing(12)
+
+        # Avatar
+        avatar = QLabel(member.name[0] if member.name else "?")
+        avatar.setFixedSize(40, 40)
+        avatar.setAlignment(Qt.AlignCenter)
+
+        # رنگ بر اساس نوع
+        if member.member_type == MemberType.TEACHER:
+            bg = "rgba(96, 165, 250, 0.25)" if is_dark else "rgba(59, 130, 246, 0.15)"
+            color = c.PRIMARY
+        elif member.member_type == MemberType.SUPPORT:
+            bg = "rgba(251, 191, 36, 0.2)" if is_dark else "rgba(245, 158, 11, 0.1)"
+            color = c.ACCENT
+        else:  # STUDENT
+            bg = "rgba(148, 163, 184, 0.2)" if is_dark else "rgba(100, 116, 139, 0.1)"
+            color = c.TEXT_SECONDARY
+
+        avatar.setStyleSheet(f"""
+            QLabel {{
+                background-color: {bg};
+                color: {color};
+                border-radius: 20px;
+                font-size: 14pt;
+                font-weight: bold;
+            }}
+        """)
+        row.addWidget(avatar)
+
+        # نام
+        name_label = QLabel(member.name)
+        name_label.setStyleSheet(
+            f"color: {c.TEXT_PRIMARY}; font-weight: 500; "
+            "font-size: 11pt; background: transparent;"
+        )
+        name_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        row.addWidget(name_label, stretch=1)
+
+        # دکمه‌ی مشاهده
+        profile_btn = QPushButton("مشاهده")
+        profile_btn.setObjectName("SecondaryButton")
+        profile_btn.setCursor(Qt.PointingHandCursor)
+        profile_btn.setFixedWidth(90)
+        profile_btn.clicked.connect(
+            lambda checked, u=member.profile_url: QDesktopServices.openUrl(QUrl(u))
+        )
+        row.addWidget(profile_btn)
+
+        return frame
