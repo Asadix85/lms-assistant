@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QMessageBox,
     QStatusBar,
-    QApplication,
+    QApplication, QBoxLayout,
 )
 
 from config.settings import settings
@@ -47,9 +47,16 @@ class MainWindow(QMainWindow):
         self._pages: dict[str, QWidget] = {}
         self._current_page_key: str = "dashboard"
 
+        # ساخت UI
         self._build_ui()
+
+        # بارگذاری صفحات
         self._load_data()
+
+        # بازیابی geometry
         self._restore_geometry()
+
+        # Acrylic blur
         self._enable_acrylic_blur()
 
     def _build_ui(self) -> None:
@@ -58,26 +65,26 @@ class MainWindow(QMainWindow):
         central.setAttribute(Qt.WA_TranslucentBackground, True)
         central.setAttribute(Qt.WA_NoSystemBackground, True)
         central.setAutoFillBackground(False)
+        central.setLayoutDirection(Qt.RightToLeft)
         self.setCentralWidget(central)
 
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
+        # ⚠️ مهم: جهت رو LeftToRight بذار و ترتیب اضافه کردن ویجت‌ها رو عوض کن
+        main_layout.setDirection(QBoxLayout.LeftToRight)
 
-        # Sidebar
-        self.sidebar = Sidebar()
-        self.sidebar.page_changed.connect(self._on_page_changed)
-        main_layout.addWidget(self.sidebar)
-
-        # Content
+        # اول Content رو اضافه کن
         content = QWidget()
         content.setAttribute(Qt.WA_TranslucentBackground, True)
         content.setAttribute(Qt.WA_NoSystemBackground, True)
         content.setAutoFillBackground(False)
+        content.setLayoutDirection(Qt.RightToLeft)
 
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
+        content_layout.setDirection(QBoxLayout.TopToBottom)
 
         # Header
         self.header = Header()
@@ -88,9 +95,15 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.stack.setAttribute(Qt.WA_TranslucentBackground, True)
         self.stack.setAutoFillBackground(False)
+        self.stack.setLayoutDirection(Qt.RightToLeft)
         content_layout.addWidget(self.stack)
 
-        main_layout.addWidget(content, stretch=1)
+        main_layout.addWidget(content, stretch=1)  # اول content
+
+        # بعد Sidebar رو اضافه کن → می‌ره سمت راست
+        self.sidebar = Sidebar()
+        self.sidebar.page_changed.connect(self._on_page_changed)
+        main_layout.addWidget(self.sidebar)
 
         # Status bar
         self.status_bar = QStatusBar()
@@ -100,7 +113,6 @@ class MainWindow(QMainWindow):
     def _enable_acrylic_blur(self) -> None:
         """فعال‌سازی Acrylic Blur."""
         from src.ui.blur import enable_blur
-        from src.ui.theme import CurrentTheme
 
         if CurrentTheme.is_dark():
             color = 0xFA0A0A0F
@@ -173,7 +185,7 @@ class MainWindow(QMainWindow):
         self._pages["about"] = self.about_page
         self.stack.addWidget(self.about_page)
 
-        # ⚠️ بازیابی آخرین صفحه
+        # بازیابی آخرین صفحه
         last_page = SettingsManager.load_last_page(default="dashboard")
         if last_page in self._pages:
             self._current_page_key = last_page
@@ -195,15 +207,9 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         """ذخیره‌ی تنظیمات هنگام بستن پنجره."""
         try:
-            # ذخیره‌ی geometry
             SettingsManager.save_geometry(self.saveGeometry().data())
-
-            # ذخیره‌ی تم
             SettingsManager.save_theme(CurrentTheme.mode)
-
-            # ذخیره‌ی آخرین صفحه
             SettingsManager.save_last_page(self._current_page_key)
-
             print("💾 تنظیمات ذخیره شد")
         except Exception as e:
             print(f"⚠️ خطا در ذخیره تنظیمات: {e}")
@@ -217,7 +223,7 @@ class MainWindow(QMainWindow):
                 if course:
                     self.course_detail_page.load_course(course)
                     self.stack.setCurrentWidget(self.course_detail_page)
-                    self._current_page_key = "courses"  # ⚠️ حفظ کن
+                    self._current_page_key = "courses"
                     self.sidebar.set_active("courses")
                     self.status_bar.showMessage(f"درس: {course.name}")
         except Exception as e:
@@ -226,7 +232,7 @@ class MainWindow(QMainWindow):
     def _on_page_changed(self, key: str) -> None:
         if key in self._pages:
             self.stack.setCurrentWidget(self._pages[key])
-            self._current_page_key = key  # ⚠️ ذخیره کن
+            self._current_page_key = key
             page = self._pages[key]
             if hasattr(page, "refresh"):
                 page.refresh()

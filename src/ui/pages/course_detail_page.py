@@ -422,6 +422,7 @@ class CourseDetailPage(QWidget):
         frame.setLayoutDirection(Qt.RightToLeft)
 
         row = QHBoxLayout(frame)
+        row.setDirection(QHBoxLayout.RightToLeft)
         row.setContentsMargins(15, 10, 15, 10)
         row.setSpacing(12)
 

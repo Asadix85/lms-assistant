@@ -5,10 +5,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
-    QWidget,
+    QWidget, QBoxLayout,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QPainter, QPainterPath
 
 from src.models.course import Course
 from src.ui.theme import CurrentTheme
@@ -25,15 +24,15 @@ class CourseInfoCard(QFrame):
 
     def _build(self) -> None:
         c = CurrentTheme.colors()
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
+        layout.setDirection(QBoxLayout.RightToLeft)  # مهم
 
-        # === Header (آیکون + عنوان) ===
+        # === Header ===
         header = QHBoxLayout()
         header.setSpacing(10)
-        header.setDirection(QHBoxLayout.RightToLeft)
+        layout.setDirection(QBoxLayout.RightToLeft)
 
         title = QLabel("استاد درس")
         title.setStyleSheet(
@@ -49,26 +48,24 @@ class CourseInfoCard(QFrame):
 
         layout.addLayout(header)
 
-        # === Avatar + Name Row ===
+        # === Avatar + Name ===
         avatar_row = QHBoxLayout()
         avatar_row.setSpacing(14)
-        avatar_row.setDirection(QHBoxLayout.RightToLeft)
+        layout.setDirection(QBoxLayout.RightToLeft)
 
-        # === Avatar ===
+        # آواتار (فقط یک بار)
         self.avatar_label = QLabel()
         self.avatar_label.setFixedSize(64, 64)
         self.avatar_label.setAlignment(Qt.AlignCenter)
         self._set_initial_avatar()
-
         avatar_row.addWidget(self.avatar_label)
 
-        # === Name + Code ===
+        # اطلاعات
         info_layout = QVBoxLayout()
         info_layout.setSpacing(4)
         info_layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         teacher_name = (self._course.teacher or "نامشخص").replace("استاد ", "").strip()
-
         name = QLabel(teacher_name)
         name.setStyleSheet(
             f"color: {c.TEXT_PRIMARY}; font-weight: bold; "

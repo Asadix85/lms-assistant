@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QProgressBar,
 )
-from PySide6.QtCore import Signal, Qt, QTimer
+from PySide6.QtCore import Signal, Qt
 
 
 class Header(QFrame):
@@ -20,7 +20,7 @@ class Header(QFrame):
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("Header")
-        self.setFixedHeight(80)
+        self.setFixedHeight(90)
 
         self._build()
 
@@ -32,41 +32,49 @@ class Header(QFrame):
         # === Main Row ===
         main_row = QWidget()
         main_layout = QHBoxLayout(main_row)
-        main_layout.setContentsMargins(20, 10, 20, 10)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(24, 12, 24, 12)
+        main_layout.setSpacing(20)
 
-        # === Left: User Info ===
+        # ⚠️ در RTL سراسری:
+        # - اولین widget = راست‌ترین
+        # - آخرین widget = چپ‌ترین
+
+        # === ۱. اطلاعات کاربر (اول = راست‌ترین) ===
         user_layout = QVBoxLayout()
         user_layout.setSpacing(2)
+        user_layout.setContentsMargins(0, 0, 0, 0)
 
         self.user_name = QLabel("خوش آمدید")
         self.user_name.setObjectName("HeaderTitle")
+        self.user_name.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         user_layout.addWidget(self.user_name)
 
         self.user_status = QLabel("آماده")
         self.user_status.setObjectName("HeaderSubtitle")
+        self.user_status.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         user_layout.addWidget(self.user_status)
 
         main_layout.addLayout(user_layout)
-        main_layout.addStretch()
 
-        # === Right: Update Button + Progress ===
+        # === ۲. فاصله (stretch) ===
+        main_layout.addStretch(1)
+
+        # === ۳. دکمه‌ی Update + Progress (آخر = چپ‌ترین) ===
         right_layout = QVBoxLayout()
         right_layout.setSpacing(4)
+        right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Loading Progress Bar (بالای دکمه، اول مخفی)
         self.progress = QProgressBar()
         self.progress.setObjectName("HeaderProgress")
-        self.progress.setRange(0, 0)  # indeterminate
+        self.progress.setRange(0, 0)
         self.progress.setFixedHeight(4)
         self.progress.setVisible(False)
         self.progress.setTextVisible(False)
 
-        # Update Button
         self.update_btn = QPushButton("📡  بروزرسانی از LMS")
         self.update_btn.setObjectName("PrimaryButton")
         self.update_btn.setMinimumWidth(220)
-        self.update_btn.setMinimumHeight(40)
+        self.update_btn.setMinimumHeight(44)
         self.update_btn.setCursor(Qt.PointingHandCursor)
         self.update_btn.clicked.connect(self.update_clicked.emit)
 
@@ -103,7 +111,6 @@ class Header(QFrame):
     def set_progress(self, value: int) -> None:
         """تنظیم مقدار پیشرفت (0-100)."""
         if value < 0:
-            # نامعین
             self.progress.setRange(0, 0)
         else:
             self.progress.setRange(0, 100)

@@ -140,12 +140,33 @@ class SyncService:
     # === Contents ===
 
     def _sync_contents(self, result: SyncResult, first_sync: bool) -> None:
-        logger.debug("Sync محتوا...")
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        lms_by_course = self.assistant.get_all_contents()
+        logger.debug("Sync محتوا (موازی)...")
+
+        courses = self.assistant.get_active_courses()
+
+        def fetch_course_contents(course):
+            try:
+                contents = self.assistant.get_course_contents(course)
+                return course.name, contents, None
+            except Exception as e:
+                return course.name, [], str(e)
+
         all_lms = []
-        for contents in lms_by_course.values():
-            all_lms.extend(contents)
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(fetch_course_contents, c): c
+                for c in courses
+            }
+
+            for future in as_completed(futures):
+                course_name, contents, error = future.result()
+                if error:
+                    logger.error(f"خطا در محتوای {course_name}: {error}")
+                else:
+                    all_lms.extend(contents)
 
         lms_ids = {c.id for c in all_lms}
         db_ids = {c.id for c in self.content_repo.get_all()}
@@ -173,11 +194,6 @@ class SyncService:
 
         for cid in removed_ids:
             result.contents_removed += 1
-            result.changes.append(Change(
-                type=ChangeType.REMOVED,
-                entity_type=EntityType.CONTENT,
-                entity_id=cid,
-            ))
 
         if first_sync:
             self.content_repo.mark_all_seen()
@@ -226,38 +242,47 @@ class SyncService:
     # === Wall (Posts + Assignments) ===
 
     def _sync_wall(
-        self,
-        result: SyncResult,
-        first_sync: bool,
-        sync_posts: bool = True,
-        sync_assignments: bool = True,
+            self,
+            result: SyncResult,
+            first_sync: bool,
+            sync_posts: bool = True,
+            sync_assignments: bool = True,
     ) -> None:
-        """Sync wall با پارامترهای اختیاری."""
+        """Sync wall (موازی)."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         logger.debug(f"Sync wall (posts={sync_posts}, assignments={sync_assignments})")
 
         courses = self.assistant.get_active_courses()
 
+        def fetch_course_wall(course):
+            try:
+                posts, assignments = self.assistant.get_course_wall(course)
+                return course.name, posts, assignments, None
+            except Exception as e:
+                return course.name, [], [], str(e)
+
         all_posts = []
         all_assignments = []
 
-        for course in courses:
-            try:
-                posts, assignments = self.assistant.get_course_wall(course)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(fetch_course_wall, c): c
+                for c in courses
+            }
 
-                if sync_posts:
-                    all_posts.extend(posts)
+            for future in as_completed(futures):
+                course_name, posts, assignments, error = future.result()
+                if error:
+                    logger.error(f"خطا در wall {course_name}: {error}")
+                else:
+                    if sync_posts:
+                        all_posts.extend(posts)
+                    if sync_assignments:
+                        all_assignments.extend(assignments)
 
-                if sync_assignments:
-                    all_assignments.extend(assignments)
-
-            except Exception as e:
-                logger.error(f"خطا در wall {course.name}: {e}")
-
-        # === Posts ===
         if sync_posts:
             self._sync_posts(result, all_posts, first_sync)
-
-        # === Assignments ===
         if sync_assignments:
             self._sync_assignments(result, all_assignments, first_sync)
 
@@ -331,35 +356,52 @@ class SyncService:
     # === Members (اختیاری - کند) ===
 
     def _sync_members(self, result: SyncResult, first_sync: bool) -> None:
-        """Sync همکلاسی‌ها (کند)."""
-        logger.debug("Sync اعضا...")
+        """Sync همکلاسی‌ها (موازی)."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from src.collectors.members import MembersCollector
+        from src.parsers.members import MemberParser
+
+        logger.debug("Sync اعضا (موازی)...")
 
         courses = self.assistant.get_active_courses()
         total_members = 0
 
-        for course in courses:
+        def fetch_course_members(course):
             try:
                 collector = MembersCollector(self.assistant.client, course)
                 parser = MemberParser(
                     course_id=course.group_id,
                     teacher_name=course.teacher,
                 )
+                members = []
 
-                # همه‌ی صفحات دانشجویان
+                # دانشجویان
                 for html in collector.collect_all_students():
-                    members = parser.parse(html, is_admin_page=False)
-                    for m in members:
-                        self.member_repo.save(m)
-                        total_members += 1
+                    members.extend(parser.parse(html, is_admin_page=False))
 
                 # استادان
                 admin_html = collector.collect_admins(page=1)
-                teachers = parser.parse(admin_html, is_admin_page=True)
-                for t in teachers:
-                    self.member_repo.save(t)
-                    total_members += 1
+                members.extend(parser.parse(admin_html, is_admin_page=True))
 
+                return course.name, members, None
             except Exception as e:
-                logger.error(f"خطا در اعضای {course.name}: {e}")
+                return course.name, [], str(e)
 
-        logger.info(f"✅ {total_members} عضو Sync شد")
+        # ⚠️ موازی‌سازی با ۵ worker
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(fetch_course_members, c): c
+                for c in courses
+            }
+
+            for future in as_completed(futures):
+                course_name, members, error = future.result()
+                if error:
+                    logger.error(f"خطا در اعضای {course_name}: {error}")
+                else:
+                    for m in members:
+                        self.member_repo.save(m)
+                    total_members += len(members)
+                    logger.debug(f"  ✅ {course_name}: {len(members)} عضو")
+
+        logger.info(f"✅ {total_members} عضو Sync شد (موازی)")

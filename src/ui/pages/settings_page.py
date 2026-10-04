@@ -309,6 +309,11 @@ class SettingsPage(BasePage):
                 if hasattr(current, "refresh"):
                     current.refresh()
 
+        main_window = self.window()
+        if main_window:
+            from src.ui.theme import apply_rtl_recursive
+            apply_rtl_recursive(main_window)
+
         # رفرش خود Settings
         self.refresh()
 

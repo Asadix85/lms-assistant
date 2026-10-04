@@ -1,4 +1,4 @@
-"""Sidebar: منوی کنار با آیکون‌های SVG."""
+"""Sidebar: منوی کنار با دو تیکه‌ی گرد (سبک مدرن)."""
 
 from PySide6.QtWidgets import (
     QFrame,
@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QLabel,
     QButtonGroup,
+    QSizePolicy,
 )
 from PySide6.QtCore import Signal, Qt, QSize
 
@@ -14,14 +15,16 @@ from src.ui.theme import CurrentTheme
 
 
 class Sidebar(QFrame):
-    """منوی کنار راست."""
+    """منوی کنار راست با دو تیکه‌ی گرد."""
 
     page_changed = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("Sidebar")
-        self.setFixedWidth(230)
+        self.setFixedWidth(240)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
 
         self._buttons: dict[str, QPushButton] = {}
         self._group = QButtonGroup(self)
@@ -30,36 +33,47 @@ class Sidebar(QFrame):
         self._build()
 
     def _build(self) -> None:
-        c = CurrentTheme.colors()
+        # === Outer layout ===
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(10, 14, 10, 14)
+        outer.setSpacing(12)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 20, 8, 20)
-        layout.setSpacing(4)
+        # === Separator ===
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.HLine)
+        sep2.setFixedHeight(1)
+        sep2.setObjectName("SidebarSeparator")
+        # ============================================
+        # تیکه‌ی اول: کارت اصلی
+        # ============================================
+        top_card = QFrame()
+        top_card.setObjectName("SidebarTopCard")
+        top_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+
+        top_layout = QVBoxLayout(top_card)
+        top_layout.setContentsMargins(8, 14, 8, 14)
+        top_layout.setSpacing(4)
 
         # === Logo ===
         logo = QLabel("🎓  LMS Assistant")
-        logo.setStyleSheet(
-            f"font-size: 15pt; font-weight: bold; "
-            f"color: {c.PRIMARY}; padding: 8px 0; background: transparent;"
-        )
+        logo.setObjectName("SidebarLogo")
         logo.setAlignment(Qt.AlignCenter)
-        layout.addWidget(logo)
+        top_layout.addWidget(logo)
 
+        # === Subtitle ===
         subtitle = QLabel("دانشگاه اصفهان")
-        subtitle.setStyleSheet(
-            f"font-size: 9pt; color: {c.TEXT_MUTED}; padding: 0 0 8px 0; "
-            "background: transparent;"
-        )
+        subtitle.setObjectName("SidebarSubtitle")
         subtitle.setAlignment(Qt.AlignCenter)
-        layout.addWidget(subtitle)
+        top_layout.addWidget(subtitle)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setFixedHeight(1)
-        sep.setStyleSheet(
-            f"background-color: {c.BORDER_LIGHT}; margin: 8px 10px;"
-        )
-        layout.addWidget(sep)
+        # === Separator ===
+        sep1 = QFrame()
+        sep1.setFrameShape(QFrame.HLine)
+        sep1.setFixedHeight(1)
+        sep1.setObjectName("SidebarSeparator")
+        top_layout.addWidget(sep1)
+
+        top_layout.addSpacing(6)
 
         # === Menu Items ===
         menu_items = [
@@ -69,7 +83,6 @@ class Sidebar(QFrame):
             ("assignments", Icons.ASSIGNMENTS, "تکالیف"),
             ("events", Icons.EVENTS, "جلسات آنلاین"),
             ("changes", Icons.CHANGES, "تغییرات"),
-            ("settings", Icons.SETTINGS, "تنظیمات"),
         ]
 
         for key, icon_name, label in menu_items:
@@ -77,45 +90,64 @@ class Sidebar(QFrame):
             btn.clicked.connect(lambda checked, k=key: self._on_click(k))
             self._buttons[key] = btn
             self._group.addButton(btn)
-            layout.addWidget(btn)
+            top_layout.addWidget(btn)
 
-        self._buttons["dashboard"].setChecked(True)
+        # === Stretch (پایین کارت اول) ===
+        top_layout.addStretch()
 
-        layout.addStretch()
+        outer.addWidget(top_card, stretch=1)
+
+        # ============================================
+        # تیکه‌ی دوم: کارت پایین
+        # ============================================
+        bottom_card = QFrame()
+        bottom_card.setObjectName("SidebarBottomCard")
+        bottom_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+
+        bottom_layout = QVBoxLayout(bottom_card)
+        bottom_layout.setContentsMargins(8, 8, 8, 8)
+        bottom_layout.setSpacing(4)
+
+        # === Settings Button ===
+        settings_btn = self._make_button(Icons.SETTINGS, "تنظیمات")
+        settings_btn.clicked.connect(lambda checked: self._on_click("settings"))
+        self._buttons["settings"] = settings_btn
+        self._group.addButton(settings_btn)
+        bottom_layout.addWidget(settings_btn)
 
         # === Separator ===
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.HLine)
         sep2.setFixedHeight(1)
-        sep2.setStyleSheet(
-            f"background-color: {c.BORDER_LIGHT}; margin: 8px 10px;"
-        )
-        layout.addWidget(sep2)
+        sep2.setObjectName("SidebarSeparator")
+        bottom_layout.addWidget(sep2)
 
-        # === About ===
-        self.about_btn = self._make_button(Icons.ABOUT, "درباره من")
-        self.about_btn.clicked.connect(lambda checked: self._on_click("about"))
-        self._buttons["about"] = self.about_btn
-        self._group.addButton(self.about_btn)
-        layout.addWidget(self.about_btn)
+        # === About Button ===
+        about_btn = self._make_button(Icons.ABOUT, "درباره من")
+        about_btn.clicked.connect(lambda checked: self._on_click("about"))
+        self._buttons["about"] = about_btn
+        self._group.addButton(about_btn)
+        bottom_layout.addWidget(about_btn)
 
         # === Version ===
         version = QLabel("نسخه 0.1.0")
-        version.setStyleSheet(
-            f"color: {c.TEXT_MUTED}; font-size: 8pt; padding: 8px; "
-            "background: transparent;"
-        )
+        version.setObjectName("SidebarVersion")
         version.setAlignment(Qt.AlignCenter)
-        layout.addWidget(version)
+        bottom_layout.addWidget(version)
+
+        outer.addWidget(bottom_card)
+
+        # === Set Active Default ===
+        self._buttons["dashboard"].setChecked(True)
 
     def _make_button(self, icon_name: str, label: str) -> QPushButton:
-        """ساخت یک دکمه‌ی Sidebar با آیکون SVG."""
-        btn = QPushButton(f"  {label}")
+        btn = QPushButton(f"{label}")
         btn.setObjectName("SidebarButton")
         btn.setCheckable(True)
         btn.setCursor(Qt.PointingHandCursor)
+        btn.setMinimumHeight(42)
+        btn.setLayoutDirection(Qt.LeftToRight)  # ⚠️ برای مرکز
 
-        # آیکون SVG
         icon = Icons.get(icon_name, size=22)
         if not icon.isNull():
             btn.setIcon(icon)
