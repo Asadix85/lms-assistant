@@ -1,18 +1,20 @@
-"""Sync Service: هماهنگ‌سازی LMS و Database."""
+"""سرویس اصلی Sync بین LMS و دیتابیس."""
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 from loguru import logger
 
 from src.collectors.members import MembersCollector
 from src.models.change import Change, ChangeType, EntityType
-from src.models.member import Member, MemberType
 from src.parsers.members import MemberParser
-from src.services.lms_assistant import LMSAssistant
-from src.services.settings_manager import SettingsManager
+from src.services.sync_progress import (
+    PHASE_WEIGHTS,
+    ProgressCallback,
+    SyncProgress,
+)
 from src.services.sync_result import SyncResult
-from src.storage.database import Database
 from src.storage.repositories import (
     AssignmentRepository,
     ChangeRepository,
@@ -26,12 +28,24 @@ from src.storage.repositories import (
 
 
 class SyncService:
-    """هماهنگ‌سازی کامل LMS با Database."""
+    """هماهنگ‌سازی اطلاعات LMS با دیتابیس محلی."""
 
-    FIRST_SYNC_KEY = "first_sync_done"
-    LAST_SYNC_KEY = "last_sync_at"
+    PHASE_ORDER = [
+        "login",
+        "courses",
+        "contents",
+        "events",
+        "wall",
+        "members",
+    ]
 
-    def __init__(self, assistant: LMSAssistant, db: Database) -> None:
+    DOMAIN_URLS = {
+        "lms3": "https://lms3.ui.ac.ir",
+        "lms4": "https://lms4.ui.ac.ir",
+        "lms5": "https://lms5.ui.ac.ir",
+    }
+
+    def __init__(self, assistant, db) -> None:
         self.assistant = assistant
         self.db = db
 
@@ -41,367 +55,607 @@ class SyncService:
         self.post_repo = PostRepository(db)
         self.assignment_repo = AssignmentRepository(db)
         self.member_repo = MemberRepository(db)
-        self.setting_repo = SettingRepository(db)
         self.change_repo = ChangeRepository(db)
+        self.setting_repo = SettingRepository(db)
 
-    def sync(self) -> SyncResult:
-        start = time.time()
+        self._on_progress: ProgressCallback = lambda p: None
+        self._start_time: float = 0.0
+        self._enabled_phases: list[str] = []
+
+    # =============================================================
+    # Progress helpers
+    # =============================================================
+
+    def _notify(
+        self,
+        phase: str,
+        message: str = "",
+        current: int = 0,
+        total: int = 0,
+        changes: dict[str, int] | None = None,
+    ) -> None:
+        """ارسال وضعیت progress به callback."""
+        phase_index = 0
+        if phase in self._enabled_phases:
+            phase_index = self._enabled_phases.index(phase)
+
+        progress = SyncProgress(
+            phase=phase,
+            phase_index=phase_index,
+            total_phases=len(self._enabled_phases),
+            current=current,
+            total=total,
+            message=message,
+            changes=changes or {},
+            elapsed=time.perf_counter() - self._start_time,
+        )
+        self._on_progress(progress)
+
+    def _result_changes(self, result: SyncResult) -> dict[str, int]:
+        """تغییرات زنده از SyncResult."""
+        return {
+            "courses": result.courses_new,
+            "contents": result.contents_new,
+            "events": result.events_new,
+            "posts": result.posts_new,
+            "assignments": result.assignments_new,
+            "members": result.members_new,
+        }
+
+    # =============================================================
+    # Main sync
+    # =============================================================
+
+    def sync(
+        self,
+        on_progress: ProgressCallback | None = None,
+    ) -> SyncResult:
+        """اجرای کامل Sync."""
+        start_time = time.perf_counter()
+        self._start_time = start_time
+
+        if on_progress is not None:
+            self._on_progress = on_progress
+
         result = SyncResult()
 
         try:
-            first_sync = self.setting_repo.get(self.FIRST_SYNC_KEY) != "true"
+            # =====================================================
+            # Settings
+            # =====================================================
+
+            first_sync = (
+                self.setting_repo.get("first_sync", "pending") != "done"
+            )
             result.is_first_sync = first_sync
-            logger.info(f"شروع Sync (اولین بار: {first_sync})")
 
-            # ⚠️ خواندن تنظیمات Sync
-            sync_settings = SettingsManager.get_sync_settings()
-            logger.info(f"تنظیمات Sync: {sync_settings}")
+            sync_contents = (
+                self.setting_repo.get("sync_contents", "true") == "true"
+            )
+            sync_events = (
+                self.setting_repo.get("sync_events", "true") == "true"
+            )
+            sync_wall = (
+                self.setting_repo.get("sync_wall", "true") == "true"
+            )
+            sync_members = (
+                self.setting_repo.get("sync_members", "false") == "true"
+            )
 
-            # === دروس (همیشه) ===
-            self._sync_courses(result, first_sync)
+            # === ساخت لیست فازهای فعال ===
+            self._enabled_phases = ["login", "courses"]
+            if sync_contents:
+                self._enabled_phases.append("contents")
+            if sync_events:
+                self._enabled_phases.append("events")
+            if sync_wall:
+                self._enabled_phases.append("wall")
+            if sync_members:
+                self._enabled_phases.append("members")
 
-            # === اختیاری ===
-            if sync_settings["contents"]:
-                self._sync_contents(result, first_sync)
+            # =====================================================
+            # Login
+            # =====================================================
 
-            if sync_settings["events"]:
-                self._sync_events(result, first_sync)
+            self._notify(
+                phase="login",
+                message="ورود به LMS...",
+                current=1,
+                total=1,
+            )
 
-            if sync_settings["posts"] or sync_settings["assignments"]:
-                self._sync_wall(
-                    result,
-                    first_sync,
-                    sync_posts=sync_settings["posts"],
-                    sync_assignments=sync_settings["assignments"],
+            # =====================================================
+            # Courses
+            # =====================================================
+
+            self._notify(
+                phase="courses",
+                message="دریافت لیست درس‌ها...",
+                current=0,
+                total=1,
+            )
+
+            phase_start = time.perf_counter()
+
+            courses = self.assistant.get_all_courses()
+            active_courses = [c for c in courses if c.is_active]
+
+            self._sync_courses(result, first_sync, courses)
+
+            self._notify(
+                phase="courses",
+                message="درس‌ها دریافت شد",
+                current=1,
+                total=1,
+                changes=self._result_changes(result),
+            )
+
+            logger.info(
+                "Sync phase 'courses' completed in {:.2f}s",
+                time.perf_counter() - phase_start,
+            )
+
+            # =====================================================
+            # Contents
+            # =====================================================
+
+            if sync_contents:
+                phase_start = time.perf_counter()
+
+                self._notify(
+                    phase="contents",
+                    message="دریافت محتوای درس‌ها...",
+                    current=0,
+                    total=len(active_courses),
+                    changes=self._result_changes(result),
                 )
 
-            if sync_settings["members"]:
-                self._sync_members(result, first_sync)
+                self._sync_contents(result, first_sync, active_courses)
 
-            # === ذخیره ===
-            if result.changes and not first_sync:
-                self.change_repo.save_many(result.changes)
+                self._notify(
+                    phase="contents",
+                    message="محتوای درس‌ها دریافت شد",
+                    current=len(active_courses),
+                    total=len(active_courses),
+                    changes=self._result_changes(result),
+                )
+
+                logger.info(
+                    "Sync phase 'contents' completed in {:.2f}s",
+                    time.perf_counter() - phase_start,
+                )
+
+            # =====================================================
+            # Events
+            # =====================================================
+
+            if sync_events:
+                phase_start = time.perf_counter()
+
+                self._notify(
+                    phase="events",
+                    message="دریافت رویدادها...",
+                    current=0,
+                    total=1,
+                    changes=self._result_changes(result),
+                )
+
+                self._sync_events(result, first_sync)
+
+                self._notify(
+                    phase="events",
+                    message="رویدادها دریافت شد",
+                    current=1,
+                    total=1,
+                    changes=self._result_changes(result),
+                )
+
+                logger.info(
+                    "Sync phase 'events' completed in {:.2f}s",
+                    time.perf_counter() - phase_start,
+                )
+
+            # =====================================================
+            # Wall
+            # =====================================================
+
+            if sync_wall:
+                phase_start = time.perf_counter()
+
+                self._notify(
+                    phase="wall",
+                    message="دریافت wall درس‌ها...",
+                    current=0,
+                    total=len(active_courses),
+                    changes=self._result_changes(result),
+                )
+
+                self._sync_wall(result, first_sync, active_courses)
+
+                self._notify(
+                    phase="wall",
+                    message="wall درس‌ها دریافت شد",
+                    current=len(active_courses),
+                    total=len(active_courses),
+                    changes=self._result_changes(result),
+                )
+
+                logger.info(
+                    "Sync phase 'wall' completed in {:.2f}s",
+                    time.perf_counter() - phase_start,
+                )
+
+            # =====================================================
+            # Members
+            # =====================================================
+
+            if sync_members:
+                phase_start = time.perf_counter()
+
+                self._notify(
+                    phase="members",
+                    message="دریافت اعضای درس‌ها...",
+                    current=0,
+                    total=len(active_courses),
+                    changes=self._result_changes(result),
+                )
+
+                self._sync_members(result, first_sync, active_courses)
+
+                self._notify(
+                    phase="members",
+                    message="اعضای درس‌ها دریافت شد",
+                    current=len(active_courses),
+                    total=len(active_courses),
+                    changes=self._result_changes(result),
+                )
+
+                logger.info(
+                    "Sync phase 'members' completed in {:.2f}s",
+                    time.perf_counter() - phase_start,
+                )
+
+            # =====================================================
+            # Finish
+            # =====================================================
+
+            self.setting_repo.set(
+                "last_sync",
+                datetime.now().isoformat(),
+            )
 
             if first_sync:
-                self.setting_repo.set(self.FIRST_SYNC_KEY, "true")
-                logger.info("✅ اولین Sync تمام شد")
+                self.setting_repo.set("first_sync", "done")
 
-            self.setting_repo.set(self.LAST_SYNC_KEY, datetime.now().isoformat())
+            result.duration_seconds = time.perf_counter() - start_time
 
-            result.duration_seconds = time.time() - start
-            logger.info(f"✅ Sync تمام شد در {result.duration_seconds:.1f} ثانیه")
+            self._notify(
+                phase="done",
+                message="Sync کامل شد",
+                current=1,
+                total=1,
+                changes=self._result_changes(result),
+            )
 
-        except Exception as e:
-            logger.exception(f"❌ خطا در Sync: {e}")
-            result.error = str(e)
+            logger.info(
+                "Sync completed in {:.2f}s",
+                result.duration_seconds,
+            )
 
-        return result
+            return result
 
-    # === Courses ===
+        except Exception as exc:
+            result.error = str(exc)
+            result.duration_seconds = time.perf_counter() - start_time
 
-    def _sync_courses(self, result: SyncResult, first_sync: bool) -> None:
-        logger.debug("Sync دروس...")
+            logger.exception("Sync failed")
 
-        lms_courses = self.assistant.get_all_courses()
-        lms_ids = {c.id for c in lms_courses}
-        db_ids = {c.id for c in self.course_repo.get_all()}
+            self._notify(
+                phase="error",
+                message=f"خطا: {exc}",
+                changes=self._result_changes(result),
+            )
 
-        new_ids = lms_ids - db_ids
-        removed_ids = db_ids - lms_ids
-        common_ids = lms_ids & db_ids
+            return result
 
-        for c in lms_courses:
-            if c.id in new_ids:
-                self.course_repo.save(c)
+    # =============================================================
+    # Courses
+    # =============================================================
+
+    def _sync_courses(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        courses,
+    ) -> None:
+        for course in courses:
+            old_course = self.course_repo.get_by_id(course.id)
+            self.course_repo.save(course)
+
+            if old_course is None:
                 result.courses_new += 1
-                result.changes.append(Change(
-                    type=ChangeType.NEW,
-                    entity_type=EntityType.COURSE,
-                    entity_id=c.id,
-                    data={"name": c.name, "domain": c.domain},
-                ))
+
                 if not first_sync:
-                    logger.info(f"🆕 درس جدید: {c.name}")
-            elif c.id in common_ids:
-                self.course_repo.save(c)
+                    self._save_change(
+                        change_type=ChangeType.NEW,
+                        entity_type=EntityType.COURSE,
+                        entity_id=course.id,
+                        course_id=course.id,
+                        data={"title": course.title},
+                    )
+            else:
                 result.courses_updated += 1
 
-        for cid in removed_ids:
-            result.courses_removed += 1
-            result.changes.append(Change(
-                type=ChangeType.REMOVED,
-                entity_type=EntityType.COURSE,
-                entity_id=cid,
-            ))
+    # =============================================================
+    # Contents
+    # =============================================================
 
-        if first_sync:
-            self.course_repo.mark_all_seen()
-
-    # === Contents ===
-
-    def _sync_contents(self, result: SyncResult, first_sync: bool) -> None:
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        logger.debug("Sync محتوا (موازی)...")
-
-        courses = self.assistant.get_active_courses()
-
-        def fetch_course_contents(course):
+    def _sync_contents(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        courses,
+    ) -> None:
+        def fetch(course):
             try:
                 contents = self.assistant.get_course_contents(course)
-                return course.name, contents, None
-            except Exception as e:
-                return course.name, [], str(e)
+                return course, contents
+            except Exception:
+                logger.exception(
+                    "Failed to sync contents for course {}", course.id
+                )
+                return course, []
 
-        all_lms = []
+        completed = 0
+        total = len(courses)
 
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(fetch_course_contents, c): c
-                for c in courses
-            }
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [
+                executor.submit(fetch, course) for course in courses
+            ]
 
             for future in as_completed(futures):
-                course_name, contents, error = future.result()
-                if error:
-                    logger.error(f"خطا در محتوای {course_name}: {error}")
-                else:
-                    all_lms.extend(contents)
+                course, contents = future.result()
+                completed += 1
 
-        lms_ids = {c.id for c in all_lms}
-        db_ids = {c.id for c in self.content_repo.get_all()}
+                for content in contents:
+                    old_content = self.content_repo.get_by_id(content.id)
+                    self.content_repo.save(content)
 
-        new_ids = lms_ids - db_ids
-        removed_ids = db_ids - lms_ids
-        common_ids = lms_ids & db_ids
+                    if old_content is None:
+                        result.contents_new += 1
 
-        for c in all_lms:
-            if c.id in new_ids:
-                self.content_repo.save(c)
-                result.contents_new += 1
-                result.changes.append(Change(
-                    type=ChangeType.NEW,
-                    entity_type=EntityType.CONTENT,
-                    entity_id=c.id,
-                    course_id=c.course_id,
-                    data={"title": c.title, "type": c.content_type},
-                ))
-                if not first_sync:
-                    logger.info(f"🆕 فایل جدید: {c.title}")
-            elif c.id in common_ids:
-                self.content_repo.save(c)
-                result.contents_updated += 1
+                        if not first_sync:
+                            self._save_change(
+                                change_type=ChangeType.NEW,
+                                entity_type=EntityType.CONTENT,
+                                entity_id=content.id,
+                                course_id=course.id,
+                                data={"title": content.title},
+                            )
+                    else:
+                        result.contents_updated += 1
 
-        for cid in removed_ids:
-            result.contents_removed += 1
+                self._notify(
+                    phase="contents",
+                    message=f"محتوای {completed} از {total} درس",
+                    current=completed,
+                    total=total,
+                    changes=self._result_changes(result),
+                )
 
-        if first_sync:
-            self.content_repo.mark_all_seen()
+    # =============================================================
+    # Events
+    # =============================================================
 
-    # === Events ===
+    def _sync_events(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+    ) -> None:
+        events = self.assistant.get_all_events()
 
-    def _sync_events(self, result: SyncResult, first_sync: bool) -> None:
-        logger.debug("Sync رویدادها...")
+        for event in events:
+            old_event = self.event_repo.get_by_id(event.id)
+            self.event_repo.save(event)
 
-        lms_events = self.assistant.get_all_events()
-        lms_ids = {e.id for e in lms_events}
-        db_ids = {e.id for e in self.event_repo.get_all()}
-
-        new_ids = lms_ids - db_ids
-        removed_ids = db_ids - lms_ids
-        common_ids = lms_ids & db_ids
-
-        for e in lms_events:
-            if e.id in new_ids:
-                self.event_repo.save(e)
+            if old_event is None:
                 result.events_new += 1
-                result.changes.append(Change(
-                    type=ChangeType.NEW,
-                    entity_type=EntityType.EVENT,
-                    entity_id=e.id,
-                    course_id=e.course_id,
-                    data={"title": e.title},
-                ))
+
                 if not first_sync:
-                    logger.info(f"🆕 رویداد جدید: {e.title}")
-            elif e.id in common_ids:
-                self.event_repo.save(e)
+                    self._save_change(
+                        change_type=ChangeType.NEW,
+                        entity_type=EntityType.EVENT,
+                        entity_id=event.id,
+                        data={"title": event.title},
+                    )
+            else:
                 result.events_updated += 1
 
-        for eid in removed_ids:
-            result.events_removed += 1
-            result.changes.append(Change(
-                type=ChangeType.REMOVED,
-                entity_type=EntityType.EVENT,
-                entity_id=eid,
-            ))
-
-        if first_sync:
-            self.event_repo.mark_all_seen()
-
-    # === Wall (Posts + Assignments) ===
+    # =============================================================
+    # Wall
+    # =============================================================
 
     def _sync_wall(
-            self,
-            result: SyncResult,
-            first_sync: bool,
-            sync_posts: bool = True,
-            sync_assignments: bool = True,
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        courses,
     ) -> None:
-        """Sync wall (موازی)."""
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        logger.debug(f"Sync wall (posts={sync_posts}, assignments={sync_assignments})")
-
-        courses = self.assistant.get_active_courses()
-
-        def fetch_course_wall(course):
+        def fetch(course):
             try:
                 posts, assignments = self.assistant.get_course_wall(course)
-                return course.name, posts, assignments, None
-            except Exception as e:
-                return course.name, [], [], str(e)
+                return course, posts, assignments
+            except Exception:
+                logger.exception(
+                    "Failed to sync wall for course {}", course.id
+                )
+                return course, [], []
 
-        all_posts = []
-        all_assignments = []
+        completed = 0
+        total = len(courses)
 
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(fetch_course_wall, c): c
-                for c in courses
-            }
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [
+                executor.submit(fetch, course) for course in courses
+            ]
 
             for future in as_completed(futures):
-                course_name, posts, assignments, error = future.result()
-                if error:
-                    logger.error(f"خطا در wall {course_name}: {error}")
-                else:
-                    if sync_posts:
-                        all_posts.extend(posts)
-                    if sync_assignments:
-                        all_assignments.extend(assignments)
+                course, posts, assignments = future.result()
+                completed += 1
 
-        if sync_posts:
-            self._sync_posts(result, all_posts, first_sync)
-        if sync_assignments:
-            self._sync_assignments(result, all_assignments, first_sync)
+                self._sync_posts(result, first_sync, course, posts)
+                self._sync_assignments(result, first_sync, course, assignments)
 
-    def _sync_posts(self, result: SyncResult, all_posts: list, first_sync: bool) -> None:
-        """Sync پست‌ها."""
-        lms_post_ids = {p.id for p in all_posts}
-        db_post_ids = {p.id for p in self.post_repo.get_all()}
+                self._notify(
+                    phase="wall",
+                    message=f"wall {completed} از {total} درس",
+                    current=completed,
+                    total=total,
+                    changes=self._result_changes(result),
+                )
 
-        new_post_ids = lms_post_ids - db_post_ids
-        removed_post_ids = db_post_ids - lms_post_ids
-        common_post_ids = lms_post_ids & db_post_ids
+    # =============================================================
+    # Posts
+    # =============================================================
 
-        for p in all_posts:
-            if p.id in new_post_ids:
-                self.post_repo.save(p)
+    def _sync_posts(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        course,
+        posts,
+    ) -> None:
+        for post in posts:
+            old_post = self.post_repo.get_by_id(post.id)
+            self.post_repo.save(post)
+
+            if old_post is None:
                 result.posts_new += 1
-                result.changes.append(Change(
-                    type=ChangeType.NEW,
-                    entity_type=EntityType.COURSE,
-                    entity_id=p.id,
-                    course_id=p.course_id,
-                    data={"author": p.author, "text": p.text[:100]},
-                ))
-                if not first_sync:
-                    logger.info(f"🆕 پست جدید از {p.author}: {p.text[:40]}")
-            elif p.id in common_post_ids:
-                self.post_repo.save(p)
+            else:
                 result.posts_updated += 1
 
-        for pid in removed_post_ids:
-            result.posts_removed += 1
+    # =============================================================
+    # Assignments
+    # =============================================================
 
-        if first_sync:
-            self.post_repo.mark_all_seen()
+    def _sync_assignments(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        course,
+        assignments,
+    ) -> None:
+        for assignment in assignments:
+            old_assignment = self.assignment_repo.get_by_id(assignment.id)
+            self.assignment_repo.save(assignment)
 
-    def _sync_assignments(self, result: SyncResult, all_assignments: list, first_sync: bool) -> None:
-        """Sync تکالیف."""
-        lms_ids = {a.id for a in all_assignments}
-        db_ids = {a.id for a in self.assignment_repo.get_all()}
-
-        new_ids = lms_ids - db_ids
-        removed_ids = db_ids - lms_ids
-        common_ids = lms_ids & db_ids
-
-        for a in all_assignments:
-            if a.id in new_ids:
-                self.assignment_repo.save(a)
+            if old_assignment is None:
                 result.assignments_new += 1
-                result.changes.append(Change(
-                    type=ChangeType.NEW,
-                    entity_type=EntityType.COURSE,
-                    entity_id=a.id,
-                    course_id=a.course_id,
-                    data={
-                        "title": a.title,
-                        "deadline": a.deadline.isoformat() if a.deadline else None,
-                    },
-                ))
-                if not first_sync:
-                    logger.info(f"🆕 تکلیف جدید: {a.title[:50]}")
-            elif a.id in common_ids:
-                self.assignment_repo.save(a)
+            else:
                 result.assignments_updated += 1
 
-        for aid in removed_ids:
-            result.assignments_removed += 1
+    # =============================================================
+    # Members
+    # =============================================================
 
-        if first_sync:
-            self.assignment_repo.mark_all_seen()
+    def _sync_members(
+        self,
+        result: SyncResult,
+        first_sync: bool,
+        courses,
+    ) -> None:
+        """Sync اعضای درس‌ها (دانشجو + استاد + پشتیبان)."""
 
-    # === Members (اختیاری - کند) ===
-
-    def _sync_members(self, result: SyncResult, first_sync: bool) -> None:
-        """Sync همکلاسی‌ها (موازی)."""
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        from src.collectors.members import MembersCollector
-        from src.parsers.members import MemberParser
-
-        logger.debug("Sync اعضا (موازی)...")
-
-        courses = self.assistant.get_active_courses()
-        total_members = 0
-
-        def fetch_course_members(course):
+        def fetch(course):
             try:
-                collector = MembersCollector(self.assistant.client, course)
+                collector = MembersCollector(
+                    self.assistant.client,
+                    course,
+                )
+
+                base_url = self.DOMAIN_URLS.get(
+                    course.domain,
+                    "https://lms4.ui.ac.ir",
+                )
+
                 parser = MemberParser(
                     course_id=course.group_id,
                     teacher_name=course.teacher,
+                    base_url=base_url,
                 )
+
                 members = []
 
-                # دانشجویان
-                for html in collector.collect_all_students():
-                    members.extend(parser.parse(html, is_admin_page=False))
+                # === دانشجوها (چند صفحه) ===
+                student_pages = collector.collect_all_students()
+                for html in student_pages:
+                    members.extend(
+                        parser.parse(html, is_admin_page=False)
+                    )
 
-                # استادان
-                admin_html = collector.collect_admins(page=1)
-                members.extend(parser.parse(admin_html, is_admin_page=True))
+                # === ادمین‌ها / استادها ===
+                admin_html = collector.collect_admins()
+                if admin_html:
+                    members.extend(
+                        parser.parse(admin_html, is_admin_page=True)
+                    )
 
-                return course.name, members, None
-            except Exception as e:
-                return course.name, [], str(e)
+                return course, members
 
-        # ⚠️ موازی‌سازی با ۵ worker
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {
-                executor.submit(fetch_course_members, c): c
-                for c in courses
-            }
+            except Exception:
+                logger.exception(
+                    "Failed to sync members for course {}", course.id
+                )
+                return course, []
+
+        completed = 0
+        total = len(courses)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [
+                executor.submit(fetch, course) for course in courses
+            ]
 
             for future in as_completed(futures):
-                course_name, members, error = future.result()
-                if error:
-                    logger.error(f"خطا در اعضای {course_name}: {error}")
-                else:
-                    for m in members:
-                        self.member_repo.save(m)
-                    total_members += len(members)
-                    logger.debug(f"  ✅ {course_name}: {len(members)} عضو")
+                course, members = future.result()
+                completed += 1
 
-        logger.info(f"✅ {total_members} عضو Sync شد (موازی)")
+                for member in members:
+                    old_member = self.member_repo.get_by_id(member.id)
+                    self.member_repo.save(member)
+
+                    if old_member is None:
+                        result.members_new += 1
+                    else:
+                        result.members_updated += 1
+
+                self._notify(
+                    phase="members",
+                    message=f"اعضای {completed} از {total} درس",
+                    current=completed,
+                    total=total,
+                    changes=self._result_changes(result),
+                )
+
+    # =============================================================
+    # Changes
+    # =============================================================
+
+    def _save_change(
+        self,
+        change_type: ChangeType,
+        entity_type: EntityType,
+        entity_id: str,
+        course_id: str | None = None,
+        data: dict | None = None,
+    ) -> None:
+        """ساخت و ذخیره یک Change با API واقعی Repository."""
+        change = Change(
+            type=change_type,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            course_id=course_id,
+            data=data or {},
+        )
+        self.change_repo.save(change)

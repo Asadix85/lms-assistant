@@ -29,6 +29,7 @@ from src.storage.repositories import (
 from src.ui.pages.base_page import BasePage
 from src.ui.theme import Colors, CurrentTheme
 from src.ui.widgets.setting_card import SettingCard
+from src.ui.widgets.check_box import CustomCheckBox
 
 
 class SettingsPage(BasePage):
@@ -110,10 +111,9 @@ class SettingsPage(BasePage):
 
     def _build_sync_card(self) -> None:
         from src.services.settings_manager import SettingsManager
-        from PySide6.QtWidgets import QCheckBox, QLabel, QVBoxLayout, QWidget
+        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
         card = SettingCard(title="تنظیمات Sync", icon="🔄")
-
         c = CurrentTheme.colors()
 
         # === عنوان توضیحی ===
@@ -134,46 +134,41 @@ class SettingsPage(BasePage):
         self.sync_checkboxes = {}
 
         # دروس (اجباری)
-        cb_courses = QCheckBox("📚  دروس (اجباری)")
+        cb_courses = CustomCheckBox("📚  دروس (اجباری)")
         cb_courses.setChecked(True)
         cb_courses.setEnabled(False)
+        self.sync_checkboxes["courses"] = cb_courses
         card.add_widget(cb_courses)
 
         # محتوا
-        cb_contents = QCheckBox("📄  فایل‌ها و محتوای دروس")
-        cb_contents.setChecked(settings["contents"])
+        cb_contents = CustomCheckBox("📄  فایل‌ها و محتوای دروس")
+        cb_contents.setChecked(settings.get("contents", True))
         self.sync_checkboxes["contents"] = cb_contents
         card.add_widget(cb_contents)
 
         # رویدادها
-        cb_events = QCheckBox("📅  رویدادها (جلسات آنلاین)")
-        cb_events.setChecked(settings["events"])
+        cb_events = CustomCheckBox("📅  رویدادها (جلسات آنلاین)")
+        cb_events.setChecked(settings.get("events", True))
         self.sync_checkboxes["events"] = cb_events
         card.add_widget(cb_events)
 
-        # پیام‌ها
-        cb_posts = QCheckBox("📢  پیام‌های استاد (wall)")
-        cb_posts.setChecked(settings["posts"])
-        self.sync_checkboxes["posts"] = cb_posts
-        card.add_widget(cb_posts)
+        # wall
+        cb_wall = CustomCheckBox("📢  پیام‌ها و تکالیف (wall)")
+        cb_wall.setChecked(settings.get("wall", True))
+        self.sync_checkboxes["wall"] = cb_wall
+        card.add_widget(cb_wall)
 
-        # تکالیف
-        cb_assignments = QCheckBox("📋  تکالیف")
-        cb_assignments.setChecked(settings["assignments"])
-        self.sync_checkboxes["assignments"] = cb_assignments
-        card.add_widget(cb_assignments)
-
-        # همکلاسی‌ها (کند)
-        cb_members = QCheckBox("👥  همکلاسی‌ها (کند)")
-        cb_members.setChecked(settings["members"])
+        # همکلاسی‌ها
+        cb_members = CustomCheckBox("👥  همکلاسی‌ها (کند)")
+        cb_members.setChecked(settings.get("members", False))
         self.sync_checkboxes["members"] = cb_members
         card.add_widget(cb_members)
 
         # === زمان تقریبی ===
         self.time_label = QLabel("")
         self.time_label.setStyleSheet(
-            f"color: {c.PRIMARY}; font-weight: bold; font-size: 11pt; "
-            "background: transparent; padding: 10px 0;"
+            f"color: {c.PRIMARY}; font-weight: bold; font-size: 12pt; "
+            "background: transparent; padding: 12px 0 4px 0;"
         )
         self.time_label.setAlignment(Qt.AlignRight)
         card.add_widget(self.time_label)
@@ -182,9 +177,38 @@ class SettingsPage(BasePage):
 
         # وصل کردن تغییرات
         for cb in self.sync_checkboxes.values():
-            cb.stateChanged.connect(self._on_sync_option_changed)
+            cb.toggled.connect(self._on_sync_option_changed)
 
         self.scroll_layout.addWidget(card)
+
+        # وصل کردن تغییرات
+        for cb in self.sync_checkboxes.values():
+            cb.toggled.connect(self._on_sync_option_changed)
+
+        self.scroll_layout.addWidget(card)
+
+    def _on_sync_option_changed(self, checked: bool = False) -> None:
+        """ذخیره‌ی تنظیمات جدید + آپدیت زمان."""
+        from src.services.settings_manager import SettingsManager
+
+        settings = {
+            key: cb.isChecked()
+            for key, cb in self.sync_checkboxes.items()
+        }
+        SettingsManager.save_sync_settings(settings)
+        self._update_time_estimate()
+
+    def _add_separator(self, layout) -> None:
+        from PySide6.QtWidgets import QFrame
+        from src.ui.theme import CurrentTheme
+        c = CurrentTheme.colors()
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet(
+            f"background-color: {c.BORDER_LIGHT}; max-height: 1px;"
+        )
+        layout.addWidget(sep)
 
     def _on_sync_option_changed(self) -> None:
         """ذخیره‌ی تنظیمات جدید + آپدیت زمان."""
@@ -198,32 +222,40 @@ class SettingsPage(BasePage):
         self._update_time_estimate()
 
     def _update_time_estimate(self) -> None:
-        """محاسبه‌ی زمان تقریبی Sync."""
+        """محاسبه‌ی زمان تقریبی Sync (بر اساس لاگ‌های واقعی)."""
         settings = {
             key: cb.isChecked()
             for key, cb in self.sync_checkboxes.items()
         }
 
-        # ⚠️ زمان‌بندی دقیق‌تر بر اساس تجربه
-        time = 15  # دروس (اجباری)
-        if settings.get("contents"):
-            time += 40
-        if settings.get("events"):
-            time += 5
-        if settings.get("posts"):
-            time += 15
-        if settings.get("assignments"):
-            time += 5
-        if settings.get("members"):
-            time += 120  # ⚠️ همکلاسی‌ها: ۱۲ درس × ۱۰s
+        # ⚠️ زمان‌های واقعی (از لاگ‌های اخیر):
+        # login + courses = 8s
+        # contents = 7s
+        # events = 0.8s
+        # wall = 6.5s
+        # members = 19s (متوسط)
 
-        # نمایش دقیق‌تر (دقیقه اگه > ۶۰s)
+        time = 8  # login + courses (اجباری)
+        if settings.get("contents"):
+            time += 7
+        if settings.get("events"):
+            time += 1
+        if settings.get("wall"):
+            time += 7
+        if settings.get("members"):
+            time += 19  # ← دقیق‌تر شد (قبلاً 25 بود)
+
+        # نمایش
         if time > 90:
             minutes = time // 60
             seconds = time % 60
             text = f"~{minutes} دقیقه و {seconds} ثانیه"
         else:
             text = f"~{time} ثانیه"
+
+        # ⚠️ اگه فقط دروس → سریع
+        if time == 8:
+            text = "~8 ثانیه (سریع‌ترین)"
 
         self.time_label.setText(f"⏱️  زمان تقریبی: {text}")
 
@@ -265,29 +297,30 @@ class SettingsPage(BasePage):
     def _on_theme_toggle(self) -> None:
         """تغییر تم برنامه."""
         from PySide6.QtWidgets import QApplication
-        from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
+        from PySide6.QtCore import QTimer
+        from src.ui.theme import (
+            CurrentTheme, ThemeMode, get_global_qss, apply_rtl_recursive,
+        )
         from src.ui.icons import Icons
         from src.ui.blur import enable_blur
         from src.services.settings_manager import SettingsManager
 
-        # toggle
+        # ۱. تغییر تم
         new_mode = (
             ThemeMode.DARK if not CurrentTheme.is_dark() else ThemeMode.LIGHT
         )
         CurrentTheme.set_mode(new_mode)
-
-        # ⚠️ ذخیره‌ی تم
         SettingsManager.save_theme(new_mode)
 
-        # پاک کردن کش آیکون‌ها
+        # ۲. پاک کردن کش آیکون‌ها
         Icons.clear_cache()
 
-        # اعمال QSS جدید
+        # ۳. اعمال QSS جدید
         app = QApplication.instance()
         if app:
             app.setStyleSheet(get_global_qss(new_mode))
 
-        # رنگ Acrylic
+        # ۴. رنگ Acrylic
         main_window = self.window()
         if main_window:
             if CurrentTheme.is_dark():
@@ -299,23 +332,31 @@ class SettingsPage(BasePage):
 
             enable_blur(main_window, color=color, enable=True)
 
-            # رفرش Sidebar
+            # ۵. رفرش Sidebar (آیکون‌ها)
             if hasattr(main_window, "sidebar"):
                 main_window.sidebar.refresh_icons()
 
-            # رفرش صفحه‌ی فعلی
-            if hasattr(main_window, "stack"):
-                current = main_window.stack.currentWidget()
-                if hasattr(current, "refresh"):
-                    current.refresh()
-
-        main_window = self.window()
-        if main_window:
-            from src.ui.theme import apply_rtl_recursive
-            apply_rtl_recursive(main_window)
-
-        # رفرش خود Settings
+        # ۶. رفرش خود Settings
         self.refresh()
+
+        # ۷. ⚠️ RTL با تأخیر کوتاه (بعد از رندر QSS جدید)
+        if main_window:
+            QTimer.singleShot(50, lambda: self._apply_rtl_to_window(main_window))
+
+    def _apply_rtl_to_window(self, window) -> None:
+        """اعمال RTL روی پنجره و همه‌ی صفحات."""
+        from src.ui.theme import apply_rtl_recursive
+
+        apply_rtl_recursive(window)
+
+        if hasattr(window, "sidebar"):
+            apply_rtl_recursive(window.sidebar)
+        if hasattr(window, "header"):
+            apply_rtl_recursive(window.header)
+        if hasattr(window, "stack"):
+            current = window.stack.currentWidget()
+            if current:
+                apply_rtl_recursive(current)
 
     def _build_database_card(self) -> None:
         card = SettingCard(title="دیتابیس", icon="💾")

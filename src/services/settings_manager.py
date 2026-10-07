@@ -18,12 +18,22 @@ class SettingsManager:
     KEY_WINDOW_GEOMETRY = "window_geometry"
     KEY_WINDOW_STATE = "window_state"
     KEY_LAST_PAGE = "last_page"
+
+    # ⚠️ کلیدهای Sync (استاندارد — هماهنگ با SyncService)
     KEY_SYNC_COURSES = "sync_courses"
     KEY_SYNC_CONTENTS = "sync_contents"
     KEY_SYNC_EVENTS = "sync_events"
-    KEY_SYNC_POSTS = "sync_posts"
-    KEY_SYNC_ASSIGNMENTS = "sync_assignments"
+    KEY_SYNC_WALL = "sync_wall"           # ← wall = posts + assignments
     KEY_SYNC_MEMBERS = "sync_members"
+
+    # نگاشت keyهای UI به keyهای DB
+    SYNC_KEY_MAP = {
+        "courses": KEY_SYNC_COURSES,
+        "contents": KEY_SYNC_CONTENTS,
+        "events": KEY_SYNC_EVENTS,
+        "wall": KEY_SYNC_WALL,
+        "members": KEY_SYNC_MEMBERS,
+    }
 
     @classmethod
     def get_sync_settings(cls) -> dict:
@@ -32,16 +42,20 @@ class SettingsManager:
             "courses": cls.load(cls.KEY_SYNC_COURSES, "true") == "true",
             "contents": cls.load(cls.KEY_SYNC_CONTENTS, "true") == "true",
             "events": cls.load(cls.KEY_SYNC_EVENTS, "true") == "true",
-            "posts": cls.load(cls.KEY_SYNC_POSTS, "true") == "true",
-            "assignments": cls.load(cls.KEY_SYNC_ASSIGNMENTS, "true") == "true",
-            "members": cls.load(cls.KEY_SYNC_MEMBERS, "false") == "false",  # پیش‌فرض: خاموش
+            "wall": cls.load(cls.KEY_SYNC_WALL, "true") == "true",
+            "members": cls.load(cls.KEY_SYNC_MEMBERS, "false") == "true",  # ← اصلاح شد
         }
 
     @classmethod
     def save_sync_settings(cls, settings: dict) -> None:
         """ذخیره‌ی تنظیمات Sync."""
-        for key, value in settings.items():
-            cls.save(f"sync_{key}", "true" if value else "false")
+        for ui_key, value in settings.items():
+            # نگاشت UI key به DB key
+            db_key = cls.SYNC_KEY_MAP.get(ui_key)
+            if db_key is None:
+                logger.warning(f"کلید ناشناخته: {ui_key}")
+                continue
+            cls.save(db_key, "true" if value else "false")
 
     @classmethod
     def save(cls, key: str, value: str) -> None:

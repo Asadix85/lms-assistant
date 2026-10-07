@@ -50,6 +50,11 @@ class MainWindow(QMainWindow):
         # ساخت UI
         self._build_ui()
 
+        # ⚠️ RTL اولیه
+        from src.ui.theme import apply_rtl_recursive
+        apply_rtl_recursive(self.sidebar)
+        apply_rtl_recursive(self.header)
+
         # بارگذاری صفحات
         self._load_data()
 
@@ -58,6 +63,23 @@ class MainWindow(QMainWindow):
 
         # Acrylic blur
         self._enable_acrylic_blur()
+
+        # ⚠️ RTL دوباره بعد از نمایش (با تأخیر کوتاه)
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self._apply_rtl_to_all)
+
+    def _apply_rtl_to_all(self) -> None:
+        """اعمال RTL روی همه‌ی widgetها (بعد از نمایش)."""
+        from src.ui.theme import apply_rtl_recursive
+
+        apply_rtl_recursive(self)
+
+        for page in self._pages.values():
+            apply_rtl_recursive(page)
+
+        # اطمینان از اعمال روی Sidebar و Header
+        apply_rtl_recursive(self.sidebar)
+        apply_rtl_recursive(self.header)
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -270,9 +292,22 @@ class MainWindow(QMainWindow):
 
         self._thread.start()
 
-    def _on_progress(self, message: str) -> None:
-        self.header.set_busy(True, message)
-        self.status_bar.showMessage(message)
+    def _on_progress(self, progress) -> None:
+        """دریافت progress از worker."""
+        from src.services.sync_progress import SyncProgress
+
+        if not isinstance(progress, SyncProgress):
+            return
+
+        self.header.set_progress(progress)
+
+        # Status bar
+        status_text = progress.message
+        if progress.changes_text:
+            status_text += f"  |  {progress.changes_text}"
+        if progress.elapsed > 0:
+            status_text += f"  |  ⏱️ {progress.elapsed_text}"
+        self.status_bar.showMessage(status_text)
 
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.header.set_busy(False, "آماده")
@@ -321,3 +356,11 @@ class MainWindow(QMainWindow):
     def _on_thread_finished(self) -> None:
         self._thread = None
         self._worker = None
+
+    def showEvent(self, event) -> None:
+        """بعد از نمایش پنجره، RTL رو اعمال کن."""
+        super().showEvent(event)
+
+        # ⚠️ RTL بعد از نمایش
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, self._apply_rtl_to_all)

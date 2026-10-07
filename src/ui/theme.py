@@ -306,7 +306,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background: transparent;
     }}
 
-        /* === Header === */
+    /* === Header === */
     QFrame#Header {{
         background-color: {c.HEADER_BG};
         border: 1px solid {c.GLASS_BORDER};
@@ -324,6 +324,19 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QLabel#HeaderSubtitle {{
         font-size: {f.SIZE_SM}pt;
         color: {c.TEXT_SECONDARY};
+        background: transparent;
+    }}
+    
+    QLabel#HeaderChanges {{
+        font-size: {f.SIZE_SM}pt;
+        color: {c.PRIMARY};
+        font-weight: 600;
+        background: transparent;
+    }}
+
+    QLabel#HeaderElapsed {{
+        font-size: {f.SIZE_XS}pt;
+        color: {c.TEXT_MUTED};
         background: transparent;
     }}
 
@@ -371,6 +384,26 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QPushButton#PrimaryButton:disabled {{
         background-color: {c.TEXT_MUTED};
     }}
+    
+    /* === Pill Progress Button === */
+    QPushButton#PillButton {{
+        background-color: {c.PRIMARY};
+        color: {c.TEXT_WHITE};
+        border: none;
+        border-radius: 22px;
+        font-size: {f.SIZE_BASE}pt;
+        font-weight: 600;
+        padding: 0 20px;
+    }}
+    QPushButton#PillButton:hover {{
+        background-color: {c.PRIMARY_DARK};
+    }}
+    QPushButton#PillButton:pressed {{
+        background-color: {c.PRIMARY_DARK};
+    }}
+    QPushButton#PillButton:disabled {{
+        background-color: {c.TEXT_MUTED};
+    }}
 
     QPushButton#SecondaryButton {{
         background-color: {c.GLASS_BG};
@@ -401,6 +434,23 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.PRIMARY};
         color: white;
         border-color: {c.PRIMARY};
+    }}
+        
+    QPushButton#CircularButton {{
+        background-color: {c.PRIMARY};
+        color: {c.TEXT_WHITE};
+        border: none;
+        border-radius: 40px;
+        font-size: 10pt;
+        font-weight: 600;
+        padding: 8px;
+    }}
+    
+    QPushButton#CircularButton:hover {{
+        background-color: {c.PRIMARY_DARK};
+    }}
+    QPushButton#CircularButton:disabled {{
+        background-color: {c.TEXT_MUTED};
     }}
 
     /* === Input === */
@@ -494,6 +544,37 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.TEXT_SECONDARY};
     }}
 
+        /* === CheckBox === */
+    QCheckBox {{
+        spacing: 12px;
+        color: {c.TEXT_PRIMARY};
+        font-size: {f.SIZE_BASE}pt;
+        padding: 10px 8px;
+        background: transparent;
+        border-radius: 8px;
+    }}
+    QCheckBox:hover {{
+        background-color: {c.BG_HOVER};
+    }}
+    QCheckBox::indicator {{
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        border: 2px solid {c.TEXT_MUTED};
+        background-color: {c.GLASS_BG};
+    }}
+    QCheckBox::indicator:hover {{
+        border-color: {c.PRIMARY};
+    }}
+
+    QCheckBox::indicator:disabled {{
+        background-color: {c.BORDER_LIGHT};
+        border-color: {c.BORDER};
+    }}
+    QCheckBox:disabled {{
+        color: {c.TEXT_MUTED};
+    }}
+    
     /* === Calendar & Detail === */
     QLabel#DetailHeader {{
         background: transparent;
@@ -526,31 +607,37 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     """
 
 
-def apply_rtl_recursive(widget: QWidget) -> None:
-    """اعمال RTL روی ویجت و فرزندان."""
+def apply_rtl_recursive(widget):
+    """اعمال RTL روی widget و همه‌ی فرزندان (recursive)."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import (
+        QLabel, QWidget, QPushButton, QLineEdit,
+        QCheckBox, QRadioButton, QComboBox, QTextEdit,
+        QPlainTextEdit, QListWidget, QTableWidget,
+    )
+
     if widget is None:
         return
 
     widget.setLayoutDirection(Qt.RightToLeft)
 
-    layout = widget.layout()
-    if layout is not None:
-        # فقط برای لایه‌های افقی RightToLeft بگذار
-        if isinstance(layout, QBoxLayout) and layout.direction() in (
-            QBoxLayout.LeftToRight, QBoxLayout.RightToLeft
-        ):
-            layout.setDirection(QBoxLayout.RightToLeft)
-
-    from PySide6.QtWidgets import QLabel, QLineEdit, QTextEdit
-
+    # QLabel — alignment
     if isinstance(widget, QLabel):
-        current = widget.alignment()
-        if not (current & Qt.AlignHCenter):
-            widget.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        widget.setAlignment(
+            (widget.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
+        )
 
-    elif isinstance(widget, (QLineEdit, QTextEdit)):
-        widget.setLayoutDirection(Qt.RightToLeft)
+    # برای QLineEdit, QTextEdit, QPlainTextEdit
+    if isinstance(widget, (QLineEdit, QTextEdit, QPlainTextEdit)):
+        widget.setAlignment(Qt.AlignRight)
 
+    # recursive روی فرزندان
     for child in widget.findChildren(QWidget):
-        if child is not widget:
-            apply_rtl_recursive(child)
+        child.setLayoutDirection(Qt.RightToLeft)
+
+        if isinstance(child, QLabel):
+            child.setAlignment(
+                (child.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
+            )
+        elif isinstance(child, (QLineEdit, QTextEdit, QPlainTextEdit)):
+            child.setAlignment(Qt.AlignRight)

@@ -1,4 +1,6 @@
-"""Collector برای اعضای درس (با pagination)."""
+"""Collector برای اعضای درس (با pagination هوشمند)."""
+
+import re
 
 from loguru import logger
 
@@ -11,6 +13,9 @@ class MembersCollector(BaseCollector):
 
     WIDGET_CONTENT_ID = 1517
     MAX_PAGES = 20
+
+    # الگوی ID عضو
+    MEMBER_ID_PATTERN = re.compile(r"group_member_(\d+)")
 
     def __init__(self, client, course: Course) -> None:
         super().__init__(client)
@@ -26,14 +31,44 @@ class MembersCollector(BaseCollector):
         return self._fetch_page(page_type="admin", page=page)
 
     def collect_all_students(self, max_pages: int = MAX_PAGES) -> list[str]:
-        """دریافت همه‌ی صفحات دانشجویان."""
+        """دریافت همه‌ی صفحات دانشجویان (با تشخیص توقف هوشمند).
+
+        استراتژی توقف:
+        1. HTML خیلی کوتاه → توقف
+        2. هیچ ID جدیدی در صفحه نیست → توقف (صفحه تکراری)
+        3. به max_pages رسیدیم → توقف
+        """
         pages: list[str] = []
+        seen_ids: set[str] = set()
 
         for page in range(1, max_pages + 1):
             html = self.collect_students(page=page)
+
+            # ۱. HTML خیلی کوتاه
             if len(html) < 3000:
+                logger.debug(
+                    f"  توقف: صفحه {page} کوتاه ({len(html)} کاراکتر)"
+                )
                 break
+
+            # ۲. استخراج IDها
+            page_ids = set(self.MEMBER_ID_PATTERN.findall(html))
+
+            # اگه ID جدیدی نیست → توقف
+            new_ids = page_ids - seen_ids
+            if not new_ids:
+                logger.debug(
+                    f"  توقف: صفحه {page} تکراری (no new IDs)"
+                )
+                break
+
+            seen_ids.update(page_ids)
             pages.append(html)
+
+            logger.debug(
+                f"  صفحه {page}: {len(page_ids)} عضو "
+                f"({len(new_ids)} جدید، کل: {len(seen_ids)})"
+            )
 
         return pages
 

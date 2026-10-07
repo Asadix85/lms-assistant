@@ -1,139 +1,102 @@
-"""HTTP client برای LMS با session management."""
-
-import time
 from typing import Any
 
 import httpx
 from loguru import logger
 
-from config.constants import DEFAULT_USER_AGENT
-from src.core.exceptions import ConnectionError
-
 
 class LMSHttpClient:
-    """HTTP client برای LMS.
-
-    این کلاس یک wrapper روی httpx.Client است که:
-    - Session (cookies) را مدیریت می‌کند
-    - Retry logic دارد
-    - Timeout دارد
-    - Logging می‌کند
-    """
-
     def __init__(
-            self,
-            base_url: str,
-            timeout: int = 30,
-            max_retries: int = 3,
-            user_agent: str | None = None,
-    ) -> None:
+        self,
+        base_url: str,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+    ):
         self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
         self.max_retries = max_retries
 
-        # Headers پیش‌فرض
         self._headers = {
-            "User-Agent": user_agent or DEFAULT_USER_AGENT,
-            "Accept": (
-                "text/html,application/xhtml+xml,application/xml;q=0.9,"
-                "image/avif,image/webp,*/*;q=0.8"
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/154.0.0.0 Safari/537.36"
             ),
-            "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
         }
 
-        # ساخت httpx.Client
-        # ⚠️ trust_env=False → Proxy سیستمی را نادیده بگیر
         self._client = httpx.Client(
             base_url=self.base_url,
             timeout=timeout,
             headers=self._headers,
             follow_redirects=True,
-            trust_env=False,  # ← حیاتی!
+            trust_env=False,
         )
 
-        logger.info(f"LMSHttpClient ساخته شد: {self.base_url}")
-
-        # ساخت httpx.Client
-        self._client = httpx.Client(
-            base_url=self.base_url,
-            timeout=timeout,
-            headers=self._headers,
-            follow_redirects=True,
-        )
-
-        logger.info(f"LMSHttpClient ساخته شد: {self.base_url}")
-
-    # === Properties ===
-
-    @property
-    def cookies(self) -> httpx.Cookies:
-        """دسترسی به کوکی‌ها."""
-        return self._client.cookies
-
-    @property
-    def is_closed(self) -> bool:
-        """آیا client بسته است؟"""
-        return self._client.is_closed
-
-    # === HTTP Methods ===
-
-    def get(self, path: str, **kwargs: Any) -> httpx.Response:
-        """GET request با retry."""
-        return self._request("GET", path, **kwargs)
-
-    def post(self, path: str, **kwargs: Any) -> httpx.Response:
-        """POST request با retry."""
-        return self._request("POST", path, **kwargs)
-
-    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        """درخواست داخلی با retry logic."""
-        last_exception: Exception | None = None
-
-        for attempt in range(1, self.max_retries + 1):
+    def _request(
+        self,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        for attempt in range(self.max_retries):
             try:
-                logger.debug(f"{method} {path} (تلاش {attempt}/{self.max_retries})")
-                response = self._client.request(method, path, **kwargs)
-                logger.debug(f"  → {response.status_code} ({len(response.content)} bytes)")
+                response = self._client.request(
+                    method,
+                    url,
+                    **kwargs,
+                )
+
+                response.raise_for_status()
+
                 return response
 
-            except httpx.TimeoutException as e:
-                last_exception = e
-                logger.warning(f"  → Timeout (تلاش {attempt})")
+            except (
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                httpx.HTTPStatusError,
+            ) as exc:
+                if attempt == self.max_retries - 1:
+                    raise
 
-            except httpx.NetworkError as e:
-                last_exception = e
-                logger.warning(f"  → Network error: {e} (تلاش {attempt})")
+                delay = 2**attempt
 
-            except httpx.HTTPError as e:
-                last_exception = e
-                logger.warning(f"  → HTTP error: {e} (تلاش {attempt})")
+                logger.warning(
+                    "HTTP request failed: {} {} | retry in {}s | {}",
+                    method,
+                    url,
+                    delay,
+                    exc,
+                )
 
-            # صبر قبل از تلاش بعدی (exponential backoff)
-            if attempt < self.max_retries:
-                wait = 2 ** (attempt - 1)
-                logger.debug(f"  → صبر {wait} ثانیه...")
-                time.sleep(wait)
+                import time
+                time.sleep(delay)
 
-        # همه تلاش‌ها شکست خورد
-        raise ConnectionError(
-            f"درخواست {method} {path} بعد از {self.max_retries} تلاش شکست خورد"
-        ) from last_exception
+        raise RuntimeError("HTTP request failed")
 
-    # === Lifecycle ===
+    def get(
+        self,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        return self._request(
+            "GET",
+            url,
+            **kwargs,
+        )
 
-    def close(self) -> None:
-        """بستن client."""
-        if not self._client.is_closed:
-            self._client.close()
-            logger.info("LMSHttpClient بسته شد")
+    def post(
+        self,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        return self._request(
+            "POST",
+            url,
+            **kwargs,
+        )
 
-    def __enter__(self) -> "LMSHttpClient":
-        return self
+    @property
+    def cookies(self):
+        return self._client.cookies
 
-    def __exit__(self, *args: Any) -> None:
-        self.close()
-
-    def __repr__(self) -> str:
-        return f"LMSHttpClient(base_url={self.base_url!r}, closed={self.is_closed})"
+    def close(self):
+        self._client.close()

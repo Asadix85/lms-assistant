@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPainter, QPen
 
 from src.ui.theme import CurrentTheme
 
@@ -31,23 +32,39 @@ class SettingCard(QFrame):
         c = CurrentTheme.colors()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(14)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(16)
 
         # === Header ===
         header = QHBoxLayout()
-        header.setSpacing(10)
+        header.setSpacing(12)
 
-        icon_label = QLabel(self._icon)
-        icon_label.setStyleSheet("font-size: 16pt; background: transparent;")
-        header.addWidget(icon_label)
+        # Icon در یه دایره‌ی رنگی
+        icon_container = QFrame()
+        icon_container.setFixedSize(38, 38)
+        icon_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {c.PRIMARY_LIGHT};
+                border-radius: 19px;
+                border: none;
+            }}
+        """)
+
+        icon_label = QLabel(self._icon, icon_container)
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setGeometry(0, 0, 38, 38)
+        icon_label.setStyleSheet(
+            "font-size: 16pt; background: transparent; border: none;"
+        )
+
+        header.addWidget(icon_container)
 
         title_label = QLabel(self._title)
         title_label.setStyleSheet(
             f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
-            "font-size: 12pt; background: transparent;"
+            "font-size: 13pt; background: transparent; border: none;"
         )
-        title_label.setAlignment(Qt.AlignRight)
+        title_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         header.addWidget(title_label, stretch=1)
 
         layout.addLayout(header)
@@ -63,7 +80,7 @@ class SettingCard(QFrame):
 
         # === Content ===
         self.content_layout = QVBoxLayout()
-        self.content_layout.setSpacing(10)
+        self.content_layout.setSpacing(12)
         layout.addLayout(self.content_layout)
 
     def add_row(self, label: str, value: str) -> None:

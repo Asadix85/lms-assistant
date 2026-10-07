@@ -36,6 +36,11 @@ class SyncResult:
     assignments_updated: int = 0
     assignments_removed: int = 0
 
+    # Members
+    members_new: int = 0
+    members_updated: int = 0
+    members_removed: int = 0
+
     changes: list[Change] = field(default_factory=list)
     duration_seconds: float = 0.0
     error: str | None = None
@@ -48,6 +53,7 @@ class SyncResult:
             + self.events_new
             + self.posts_new
             + self.assignments_new
+            + self.members_new
         )
 
     @property
@@ -58,6 +64,7 @@ class SyncResult:
             + self.events_updated
             + self.posts_updated
             + self.assignments_updated
+            + self.members_updated
         )
 
     @property
@@ -68,6 +75,7 @@ class SyncResult:
             + self.events_removed
             + self.posts_removed
             + self.assignments_removed
+            + self.members_removed
         )
 
     @property
@@ -103,6 +111,8 @@ class SyncResult:
             parts.append(f"{self.posts_new} پست")
         if self.assignments_new:
             parts.append(f"{self.assignments_new} تکلیف")
+        if self.members_new:
+            parts.append(f"{self.members_new} عضو")
 
         if not parts:
             return f"🔄 {self.total_updated} به‌روزرسانی"
