@@ -78,18 +78,12 @@ class CourseDetailPage(QWidget):
         hero_layout.setSpacing(8)
 
         self.course_title = QLabel("—")
-        self.course_title.setStyleSheet(
-            "color: white; font-size: 22pt; font-weight: bold; "
-            "background: transparent;"
-        )
+        self.course_title.setObjectName("HeroTitle")
         self.course_title.setAlignment(Qt.AlignRight)
         hero_layout.addWidget(self.course_title)
 
         self.course_meta = QLabel("—")
-        self.course_meta.setStyleSheet(
-            "color: rgba(255,255,255,0.9); font-size: 11pt; "
-            "background: transparent;"
-        )
+        self.course_meta.setObjectName("HeroMeta")
         self.course_meta.setAlignment(Qt.AlignRight)
         hero_layout.addWidget(self.course_meta)
 

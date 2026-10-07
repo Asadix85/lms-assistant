@@ -80,11 +80,7 @@ class SectionTitle(QLabel):
 
     def __init__(self, text: str) -> None:
         super().__init__(text)
-        c = CurrentTheme.colors()
-        self.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: bold; font-size: 13pt; "
-            "padding: 12px 4px 6px 4px; background: transparent;"
-        )
+        self.setObjectName("SectionTitle")
         self.setAlignment(Qt.AlignRight)
         self.setFixedHeight(40)
 

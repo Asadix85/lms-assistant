@@ -223,6 +223,39 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QWidget#CentralWidget {{
         background: transparent;
     }}
+    
+    QLabel#HeroTitle {{
+        color: white;
+        font-size: 22pt;
+        font-weight: bold;
+        background: transparent;
+    }}
+
+    QLabel#HeroMeta {{
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 11pt;
+        background: transparent;
+    }}
+    
+    /* === Section Title (داشبورد و آمار) === */
+    QLabel#SectionTitle {{
+        color: {c.TEXT_PRIMARY};
+        font-weight: bold;
+        font-size: 13pt;
+        background: transparent;
+        padding: 12px 4px 6px 4px;
+    }}
+
+    /* === Hero Card (صفحه‌ی درس) === */
+    QFrame#HeroCard {{
+        background: qlineargradient(
+            x1:0, y1:0, x2:1, y2:1,
+            stop:0 {c.PRIMARY},
+            stop:1 {c.PRIMARY_DARK}
+        );
+        border: none;
+        border-radius: 16px;
+    }}
 
     /* === Sidebar === */
     QFrame#Sidebar {{
@@ -373,6 +406,15 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QFrame#ChangeCard:hover,
     QFrame#CourseInfoHeader:hover,
     QFrame#ContentRow:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        border: 1px solid {c.GLASS_BORDER_HOVER};
+    }}
+    QFrame#UpcomingCard {{
+        background-color: {c.GLASS_BG};
+        border: 1px solid {c.GLASS_BORDER};
+        border-radius: 12px;
+    }}
+    QFrame#UpcomingCard:hover {{
         background-color: {c.GLASS_BG_HOVER};
         border: 1px solid {c.GLASS_BORDER_HOVER};
     }}

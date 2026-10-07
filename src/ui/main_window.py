@@ -248,9 +248,12 @@ class MainWindow(QMainWindow):
         from src.ui.pages.about_page import AboutPage
         from src.ui.pages.analytics_page import AnalyticsPage
 
-        self.analytics_page = AnalyticsPage(self.DB_PATH)
-        self._pages["analytics"] = self.analytics_page
-        self.stack.addWidget(self.analytics_page)
+        self.dashboard_page = DashboardPage(self.DB_PATH)
+        self.dashboard_page.course_selected.connect(
+            self._on_course_selected
+        )
+        self._pages["dashboard"] = self.dashboard_page
+        self.stack.addWidget(self.dashboard_page)
 
         self.dashboard_page = DashboardPage(self.DB_PATH)
         self._pages["dashboard"] = self.dashboard_page
