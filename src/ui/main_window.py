@@ -248,27 +248,25 @@ class MainWindow(QMainWindow):
         from src.ui.pages.about_page import AboutPage
         from src.ui.pages.analytics_page import AnalyticsPage
 
+        # === Dashboard ===
         self.dashboard_page = DashboardPage(self.DB_PATH)
-        self.dashboard_page.course_selected.connect(
-            self._on_course_selected
-        )
+        self.dashboard_page.course_selected.connect(self._on_course_selected)
         self._pages["dashboard"] = self.dashboard_page
         self.stack.addWidget(self.dashboard_page)
 
-        self.dashboard_page = DashboardPage(self.DB_PATH)
-        self._pages["dashboard"] = self.dashboard_page
-        self.stack.addWidget(self.dashboard_page)
-
+        # === Calendar ===
         self.calendar_page = CalendarPage(self.DB_PATH)
         self._pages["calendar"] = self.calendar_page
         self.stack.addWidget(self.calendar_page)
 
+        # === Courses ===
         self.courses_page = CoursesPage(self.DB_PATH)
         self.courses_page.course_selected.connect(self._on_course_selected)
         self.courses_page.sync_requested.connect(self._on_update_clicked)
         self._pages["courses"] = self.courses_page
         self.stack.addWidget(self.courses_page)
 
+        # === Course Detail ===
         self.course_detail_page = CourseDetailPage(self.DB_PATH)
         self.course_detail_page.back_clicked.connect(
             lambda: self._on_page_changed("courses")
@@ -276,24 +274,34 @@ class MainWindow(QMainWindow):
         self._pages["course_detail"] = self.course_detail_page
         self.stack.addWidget(self.course_detail_page)
 
+        # === Assignments ===
         self.assignments_page = AssignmentsPage(self.DB_PATH)
         self.assignments_page.sync_requested.connect(self._on_update_clicked)
         self._pages["assignments"] = self.assignments_page
         self.stack.addWidget(self.assignments_page)
 
+        # === Events ===
         self.events_page = EventsPage(self.DB_PATH)
         self._pages["events"] = self.events_page
         self.stack.addWidget(self.events_page)
 
+        # === Analytics ===  ← ⚠️ این بخش جدید
+        self.analytics_page = AnalyticsPage(self.DB_PATH)
+        self._pages["analytics"] = self.analytics_page
+        self.stack.addWidget(self.analytics_page)
+
+        # === Changes ===
         self.changes_page = ChangesPage(self.DB_PATH)
         self.changes_page.sync_requested.connect(self._on_update_clicked)
         self._pages["changes"] = self.changes_page
         self.stack.addWidget(self.changes_page)
 
+        # === Settings ===
         self.settings_page = SettingsPage(self.DB_PATH)
         self._pages["settings"] = self.settings_page
         self.stack.addWidget(self.settings_page)
 
+        # === About ===
         self.about_page = AboutPage()
         self._pages["about"] = self.about_page
         self.stack.addWidget(self.about_page)

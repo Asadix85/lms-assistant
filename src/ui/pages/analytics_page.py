@@ -232,8 +232,17 @@ class AnalyticsPage(BasePage):
         try:
             with Database(self.db_path) as db:
                 # === آمار کلی ===
+                from src.storage.repositories import QueraAssignmentRepository
+                from src.utils.quera_adapter import quera_to_assignment
+
                 courses = CourseRepository(db).get_all()
-                assignments = AssignmentRepository(db).get_all()
+                lms_assignments = AssignmentRepository(db).get_all()
+                quera_assignments = QueraAssignmentRepository(db).get_all()
+                quera_as_assignments = [
+                    quera_to_assignment(q) for q in quera_assignments
+                ]
+                assignments = lms_assignments + quera_as_assignments
+
                 contents = ContentRepository(db).get_all()
                 events = EventRepository(db).get_all()
                 posts = PostRepository(db).get_all()

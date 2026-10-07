@@ -158,15 +158,26 @@ class DashboardPage(BasePage):
     # ============================================================
 
     def _load_stats(self, db) -> None:
+        from src.storage.repositories import QueraAssignmentRepository
+        from src.utils.quera_adapter import quera_to_assignment
+
         courses = CourseRepository(db).get_all()
         active_courses = [c for c in courses if c.is_active]
 
         now = datetime.now()
-        assignments = AssignmentRepository(db).get_all()
 
-        # تکالیف در انتظار (deadline >= now یا بدون deadline)
+        # === LMS + Quera ===
+        lms_assignments = AssignmentRepository(db).get_all()
+        quera_assignments = QueraAssignmentRepository(db).get_all()
+
+        # تبدیل Quera به Assignment
+        all_assignments = list(lms_assignments) + [
+            quera_to_assignment(q) for q in quera_assignments
+        ]
+
+        # تکالیف در انتظار
         pending_assignments = [
-            a for a in assignments
+            a for a in all_assignments
             if not a.deadline or a.deadline >= now
         ]
 
@@ -199,6 +210,9 @@ class DashboardPage(BasePage):
     # ============================================================
 
     def _load_upcoming(self, db) -> None:
+        from src.storage.repositories import QueraAssignmentRepository
+        from src.utils.quera_adapter import quera_to_assignment
+
         # پاک کردن
         self._clear_layout(self.upcoming_container)
 
@@ -210,6 +224,20 @@ class DashboardPage(BasePage):
         upcoming_events = [
             e for e in events
             if e.start_at and now <= e.start_at <= week_later
+        ]
+
+        # === تکالیف LMS ===
+        lms_assignments = AssignmentRepository(db).get_all()
+
+        # === تکالیف Quera ===
+        quera_assignments = QueraAssignmentRepository(db).get_all()
+        quera_as_assignments = [quera_to_assignment(q) for q in quera_assignments]
+
+        all_assignments = lms_assignments + quera_as_assignments
+
+        upcoming_assignments = [
+            a for a in all_assignments
+            if a.deadline and now <= a.deadline <= week_later
         ]
 
         # === تکالیف ===

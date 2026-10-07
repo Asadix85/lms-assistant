@@ -39,6 +39,7 @@ class QueraSyncService:
             "new": 0,
             "updated": 0,
             "total": 0,
+            "courses": 0,
             "error": None,
             "duration": 0.0,
         }
@@ -60,9 +61,37 @@ class QueraSyncService:
                 result["error"] = f"HTTP {r.status_code}"
                 return result
 
-            # === ۳. Parse ===
-            logger.info("🔍 پارس HTML...")
+            # === ۳. Parse assignments ===
+            logger.info("🔍 پارس HTML (تمرین‌ها)...")
             assignments = self.parser.parse_course_page(r.text)
+
+            # === ۳.۵. Parse courses ===
+            logger.info("🔍 پارس HTML (کلاس‌ها)...")
+            courses = self.parser.parse_courses(r.text)
+
+            # === ۴. ذخیره تمرین‌ها ===
+            logger.info(f"💾 ذخیره {len(assignments)} تمرین...")
+            for a in assignments:
+                existing = self.repo.get_by_id(a.id)
+                self.repo.save(a)
+                if existing is None:
+                    result["new"] += 1
+                else:
+                    result["updated"] += 1
+
+            # === ۴.۵. ذخیره کلاس‌ها ===
+            from src.storage.repositories.quera_repo import QueraCourseRepository
+            course_repo = QueraCourseRepository(self.db)
+            logger.info(f"💾 ذخیره {len(courses)} کلاس...")
+            for c in courses:
+                # تعداد تمرین‌های این کلاس
+                c.assignments_count = sum(
+                    1 for a in assignments if a.course_name == c.name
+                )
+                course_repo.save(c)
+
+            result["total"] = len(assignments)
+            result["courses"] = len(courses)
 
             # === ۴. ذخیره در دیتابیس ===
             logger.info(f"💾 ذخیره {len(assignments)} تمرین...")
@@ -75,10 +104,25 @@ class QueraSyncService:
                 else:
                     result["updated"] += 1
 
+            # === ۴.۵. ذخیره کلاس‌ها ===
+            from src.storage.repositories.quera_repo import QueraCourseRepository
+            course_repo = QueraCourseRepository(self.db)
+
+            logger.info(f"💾 ذخیره {len(courses)} کلاس...")
+            for c in courses:
+                # تعداد تمرین‌های این کلاس
+                c.assignments_count = sum(
+                    1 for a in assignments if a.course_name == c.name
+                )
+                course_repo.save(c)
+
             result["total"] = len(assignments)
+            result["courses"] = len(courses)
+
             logger.info(
                 f"✅ Quera Sync: {result['new']} جدید, "
-                f"{result['updated']} به‌روزرسانی"
+                f"{result['updated']} به‌روزرسانی, "
+                f"{len(courses)} کلاس"
             )
 
         except Exception as e:

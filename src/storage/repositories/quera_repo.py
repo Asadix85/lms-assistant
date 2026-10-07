@@ -147,3 +147,81 @@ class QueraAssignmentRepository(BaseRepository):
             first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
         )
+
+from src.models.quera_course import QueraCourse
+
+
+class QueraCourseRepository(BaseRepository):
+    """ذخیره و بازیابی QueraCourse."""
+
+    TABLE_NAME = "quera_courses"
+
+    def save(self, c: QueraCourse) -> None:
+        existing = self.db.fetch_one(
+            "SELECT id FROM quera_courses WHERE id = ?", (c.id,)
+        )
+        if existing:
+            self.db.execute(
+                """
+                UPDATE quera_courses SET
+                    name = ?, url = ?, teacher = ?,
+                    is_active = ?, assignments_count = ?,
+                    last_seen_at = ?
+                WHERE id = ?
+                """,
+                (
+                    c.name, c.url, c.teacher,
+                    1 if c.is_active else 0,
+                    c.assignments_count,
+                    c.last_seen_at.isoformat(),
+                    c.id,
+                ),
+            )
+        else:
+            self.db.execute(
+                """
+                INSERT INTO quera_courses (
+                    id, name, url, teacher, is_active,
+                    assignments_count, first_seen_at, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    c.id, c.name, c.url, c.teacher,
+                    1 if c.is_active else 0,
+                    c.assignments_count,
+                    c.first_seen_at.isoformat(),
+                    c.last_seen_at.isoformat(),
+                ),
+            )
+            logger.debug(f"درج کلاس Quera: {c.name[:40]}")
+        self.db.connection.commit()
+
+    def get_by_id(self, cid: str) -> QueraCourse | None:
+        row = self.db.fetch_one(
+            "SELECT * FROM quera_courses WHERE id = ?", (cid,)
+        )
+        return self._from_dict(row) if row else None
+
+    def get_all(self) -> list[QueraCourse]:
+        rows = self.db.fetch_all(
+            "SELECT * FROM quera_courses ORDER BY name"
+        )
+        return [self._from_dict(r) for r in rows]
+
+    def get_active(self) -> list[QueraCourse]:
+        rows = self.db.fetch_all(
+            "SELECT * FROM quera_courses WHERE is_active = 1 ORDER BY name"
+        )
+        return [self._from_dict(r) for r in rows]
+
+    def _from_dict(self, row: dict) -> QueraCourse:
+        return QueraCourse(
+            id=row["id"],
+            name=row["name"],
+            url=row["url"],
+            teacher=row.get("teacher", ""),
+            is_active=bool(row.get("is_active", 1)),
+            assignments_count=row.get("assignments_count", 0),
+            first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
+            last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
+        )

@@ -7,6 +7,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from loguru import logger
 
+from src.models.quera_course import QueraCourse
 from src.models.quera_assignment import QueraAssignment, QueraProblem
 
 
@@ -128,3 +129,87 @@ class QueraParser:
         except Exception as e:
             logger.warning(f"خطا در parse problem: {e}")
             return None
+
+    def parse_courses(self, html: str) -> list:
+        """پارس لیست کلاس‌ها از HTML /course.
+
+        ساختار:
+        <a href="/course/28998">
+          <img .../>
+          <div class="chakra-stack ...">
+            <p>ساختمان داده‌ها</p>      ← نام درس
+            <p>دکتر تابع الحجه</p>      ← استاد
+            <p>دانشگاه اصفهان</p>       ← دانشگاه
+          </div>
+        </a>
+        """
+        from src.models.quera_course import QueraCourse
+
+        soup = BeautifulSoup(html, "lxml")
+        courses: list[QueraCourse] = []
+        seen_ids: set[str] = set()
+
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if not re.match(r"^/course/\d+$", href):
+                continue
+
+            course_id = href.split("/")[-1]
+            if course_id in seen_ids:
+                continue
+
+            # === استخراج pها (نه div) ===
+            name = ""
+            teacher = ""
+
+            # همه‌ی <p>های داخل link
+            paragraphs = link.find_all("p")
+
+            # فیلتر کردن pهایی که داخل div.chakra-stack هستن
+            content_ps = []
+            for p in paragraphs:
+                text = p.get_text(strip=True)
+                if text:
+                    content_ps.append(text)
+
+            if content_ps:
+                # p اول: نام درس
+                name = content_ps[0]
+
+                # p دوم: استاد (اگه باشه)
+                if len(content_ps) >= 2:
+                    teacher = content_ps[1]
+
+                # p سوم (دانشگاه) رو نادیده بگیر
+
+            # === fallback: از متن با separator ===
+            if not name:
+                text = link.get_text(separator="|", strip=True)
+                parts = [p.strip() for p in text.split("|") if p.strip()]
+                if parts:
+                    name = parts[0]
+                    if len(parts) > 1:
+                        teacher = parts[1]
+
+            # پاکسازی
+            name = name.strip()
+            teacher = teacher.strip()
+
+            # حذف "دانشگاه اصفهان" از teacher اگه بود
+            if teacher and "دانشگاه" in teacher:
+                teacher = ""
+
+            if not name:
+                continue
+
+            courses.append(QueraCourse(
+                id=course_id,
+                name=name,
+                url=href,
+                teacher=teacher,
+                is_active=True,
+            ))
+            seen_ids.add(course_id)
+
+        logger.info(f"{len(courses)} کلاس از Quera استخراج شد")
+        return courses

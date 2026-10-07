@@ -8,7 +8,10 @@ from src.storage.repositories.event_repo import EventRepository
 from src.storage.repositories.post_repo import PostRepository
 from src.storage.repositories.setting_repo import SettingRepository
 from src.storage.repositories.member_repo import MemberRepository
-from src.storage.repositories.quera_repo import QueraAssignmentRepository
+from src.storage.repositories.quera_repo import (
+    QueraAssignmentRepository,
+    QueraCourseRepository,
+)
 
 __all__ = [
     "AssignmentRepository",
@@ -20,4 +23,5 @@ __all__ = [
     "SettingRepository",
     "MemberRepository",
     "QueraAssignmentRepository",
+    "QueraCourseRepository",
 ]

@@ -172,11 +172,32 @@ class CalendarPage(BasePage):
         self.content_layout.addWidget(self.detail_panel)
 
     def refresh(self) -> None:
+        from src.storage.repositories import QueraAssignmentRepository
+        from src.utils.quera_adapter import quera_to_assignment
+
         try:
             with Database(self.db_path) as db:
-                self._assignments = AssignmentRepository(db).get_all()
+                # === LMS ===
+                lms_assignments = AssignmentRepository(db).get_all()
+
+                # === Quera ===
+                quera_assignments = QueraAssignmentRepository(db).get_all()
+                quera_as_assignments = [
+                    quera_to_assignment(q) for q in quera_assignments
+                ]
+
+                # ادغام
+                self._assignments = lms_assignments + quera_as_assignments
+
+                # نام درس‌ها
                 courses = CourseRepository(db).get_all()
                 self._course_names = {c.id: c.name for c in courses}
+
+                # اضافه کردن اسم‌های Quera
+                for q in quera_assignments:
+                    synthetic_id = f"quera_{q.course_name}"
+                    self._course_names[synthetic_id] = f"🎯 {q.course_name} (کوئرا)"
+
         except Exception as e:
             self.counter_label.setText(f"خطا: {e}")
             return
@@ -284,8 +305,31 @@ class CalendarPage(BasePage):
             return
 
         for a in day_assignments:
-            card = AssignmentCard(a)
-            self.detail_layout.addWidget(card)
+            # چک کن Quera هست؟
+            from src.utils.quera_adapter import is_quera_item
+
+            if is_quera_item(a):
+                # نمایش با نام درس Quera
+                quera_course = a.course_id.replace("quera_", "")
+                container = QFrame()
+                c_layout = QVBoxLayout(container)
+                c_layout.setContentsMargins(0, 0, 0, 0)
+                c_layout.setSpacing(5)
+
+                course_label = QLabel(f"🎯  {quera_course} (کوئرا)")
+                course_label.setStyleSheet(
+                    f"color: {CurrentTheme.colors().PRIMARY}; "
+                    "font-weight: bold; padding: 0 5px; background: transparent;"
+                )
+                course_label.setAlignment(Qt.AlignRight)
+                c_layout.addWidget(course_label)
+
+                card = AssignmentCard(a)
+                c_layout.addWidget(card)
+                self.detail_layout.addWidget(container)
+            else:
+                card = AssignmentCard(a)
+                self.detail_layout.addWidget(card)
 
     def _on_day_clicked(self, jdate) -> None:
         self._selected_date = jdate

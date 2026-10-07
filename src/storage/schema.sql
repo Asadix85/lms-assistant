@@ -152,3 +152,15 @@ CREATE TABLE IF NOT EXISTS quera_assignments (
 
 CREATE INDEX IF NOT EXISTS idx_quera_assignments_finish ON quera_assignments(finish_time);
 CREATE INDEX IF NOT EXISTS idx_quera_assignments_is_new ON quera_assignments(is_new);
+
+-- جدول کلاس‌های Quera
+CREATE TABLE IF NOT EXISTS quera_courses (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    teacher TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    assignments_count INTEGER NOT NULL DEFAULT 0,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+);
