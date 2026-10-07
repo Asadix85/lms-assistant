@@ -1,4 +1,4 @@
-"""Theme: iOS 26 style – Liquid Glass + Minimal (Light + Dark)."""
+"""Theme: Turquoise — Liquid Glass + Minimal (Light + Dark)."""
 
 from pathlib import Path
 from PySide6.QtGui import QFontDatabase, QFont
@@ -14,23 +14,23 @@ class ThemeMode:
 
 # === Colors ===
 class LightColors:
-    """پالت روشن — شیشه‌ای و مینیمال (نزدیک به iOS)"""
-    PRIMARY = "#007AFF"          # آبی کلاسیک iOS
-    PRIMARY_DARK = "#0062CC"
-    PRIMARY_LIGHT = "rgba(0, 122, 255, 0.12)"
+    """پالت روشن — فیروزه‌ای (Turquoise)"""
+    PRIMARY = "#2AA6A3"
+    PRIMARY_DARK = "#1E807E"
+    PRIMARY_LIGHT = "rgba(42, 166, 163, 0.12)"
 
-    SECONDARY = "#5856D6"
+    SECONDARY = "#3B8EA5"
     ACCENT = "#FF9500"
     ACCENT_DARK = "#CC7700"
 
     SUCCESS = "#34C759"
     WARNING = "#FF9500"
     ERROR = "#FF3B30"
-    INFO = "#007AFF"
+    INFO = "#2AA6A3"
 
-    BG_MAIN = "#F2F2F7"
-    BG_GRADIENT_START = "#F2F2F7"
-    BG_GRADIENT_END = "#E5E5EA"
+    BG_MAIN = "#F2F7F7"
+    BG_GRADIENT_START = "#F2F7F7"
+    BG_GRADIENT_END = "#E5EDED"
     BG_CARD = "rgba(255, 255, 255, 0.72)"
     BG_HOVER = "rgba(255, 255, 255, 0.88)"
 
@@ -38,11 +38,11 @@ class LightColors:
     GLASS_BG_HOVER = "rgba(255, 255, 255, 0.85)"
     GLASS_BG_ACTIVE = "rgba(255, 255, 255, 0.92)"
     GLASS_BORDER = "rgba(0, 0, 0, 0.08)"
-    GLASS_BORDER_HOVER = "rgba(0, 122, 255, 0.35)"
+    GLASS_BORDER_HOVER = "rgba(42, 166, 163, 0.35)"
 
     SIDEBAR_BG = "rgba(255, 255, 255, 0.75)"
-    SIDEBAR_BG_HOVER = "rgba(242, 242, 247, 0.9)"
-    SIDEBAR_ITEM_ACTIVE = "rgba(0, 122, 255, 0.12)"
+    SIDEBAR_BG_HOVER = "rgba(242, 247, 247, 0.9)"
+    SIDEBAR_ITEM_ACTIVE = "rgba(42, 166, 163, 0.12)"
     SEPARATOR_COLOR = "rgba(100, 116, 139, 0.25)"
 
     HEADER_BG = "rgba(255, 255, 255, 0.78)"
@@ -56,43 +56,43 @@ class LightColors:
     BORDER_LIGHT = "rgba(0, 0, 0, 0.04)"
 
     LMS3 = "#34C759"
-    LMS4 = "#007AFF"
+    LMS4 = "#2AA6A3"
     LMS5 = "#FF3B30"
 
 
 class DarkColors:
-    """پالت تیره — شیشه‌ای عمیق (iOS Dark)"""
-    PRIMARY = "#0A84FF"
-    PRIMARY_DARK = "#0071E3"
-    PRIMARY_LIGHT = "rgba(10, 132, 255, 0.18)"
+    """پالت تیره — فیروزه‌ای درخشان"""
+    PRIMARY = "#4ECDC4"
+    PRIMARY_DARK = "#3BAAA2"
+    PRIMARY_LIGHT = "rgba(78, 205, 196, 0.18)"
 
-    SECONDARY = "#5E5CE6"
+    SECONDARY = "#5E9EAD"
     ACCENT = "#FF9F0A"
     ACCENT_DARK = "#CC7F08"
-    SEPARATOR_COLOR = "rgba(96, 165, 250, 0.35)"
+    SEPARATOR_COLOR = "rgba(78, 205, 196, 0.35)"
 
     SUCCESS = "#30D158"
     WARNING = "#FF9F0A"
     ERROR = "#FF453A"
-    INFO = "#0A84FF"
+    INFO = "#4ECDC4"
 
-    BG_MAIN = "#000000"
-    BG_GRADIENT_START = "#000000"
-    BG_GRADIENT_END = "#1C1C1E"
-    BG_CARD = "rgba(28, 28, 30, 0.72)"
-    BG_HOVER = "rgba(44, 44, 46, 0.85)"
+    BG_MAIN = "#0A1212"
+    BG_GRADIENT_START = "#0A1212"
+    BG_GRADIENT_END = "#1C2626"
+    BG_CARD = "rgba(28, 38, 38, 0.72)"
+    BG_HOVER = "rgba(44, 54, 54, 0.85)"
 
-    GLASS_BG = "rgba(28, 28, 30, 0.68)"
-    GLASS_BG_HOVER = "rgba(44, 44, 46, 0.82)"
-    GLASS_BG_ACTIVE = "rgba(58, 58, 60, 0.9)"
+    GLASS_BG = "rgba(28, 38, 38, 0.68)"
+    GLASS_BG_HOVER = "rgba(44, 54, 54, 0.82)"
+    GLASS_BG_ACTIVE = "rgba(58, 68, 68, 0.9)"
     GLASS_BORDER = "rgba(255, 255, 255, 0.1)"
-    GLASS_BORDER_HOVER = "rgba(10, 132, 255, 0.45)"
+    GLASS_BORDER_HOVER = "rgba(78, 205, 196, 0.45)"
 
-    SIDEBAR_BG = "rgba(0, 0, 0, 0.82)"
-    SIDEBAR_BG_HOVER = "rgba(28, 28, 30, 0.7)"
-    SIDEBAR_ITEM_ACTIVE = "rgba(10, 132, 255, 0.18)"
+    SIDEBAR_BG = "rgba(10, 18, 18, 0.82)"
+    SIDEBAR_BG_HOVER = "rgba(28, 38, 38, 0.7)"
+    SIDEBAR_ITEM_ACTIVE = "rgba(78, 205, 196, 0.18)"
 
-    HEADER_BG = "rgba(0, 0, 0, 0.78)"
+    HEADER_BG = "rgba(10, 18, 18, 0.78)"
 
     TEXT_PRIMARY = "#FFFFFF"
     TEXT_SECONDARY = "#EBEBF5"
@@ -103,7 +103,7 @@ class DarkColors:
     BORDER_LIGHT = "rgba(255, 255, 255, 0.06)"
 
     LMS3 = "#30D158"
-    LMS4 = "#0A84FF"
+    LMS4 = "#4ECDC4"
     LMS5 = "#FF453A"
 
 
@@ -246,28 +246,21 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
 
     /* === Logo === */
     QLabel#SidebarLogo {{
-        font-size: 13pt;
-        font-weight: bold;
+        font-size: 15pt;
+        font-weight: 800;
         color: {c.PRIMARY};
-        padding: 8px 4px 2px 4px;
+        padding: 4px 4px 8px 4px;
         background: transparent;
     }}
 
     QLabel#SidebarSubtitle {{
-        font-size: 8pt;
+        font-size: 9pt;
         color: {c.TEXT_MUTED};
         padding: 0 4px 4px 4px;
         background: transparent;
     }}
 
-        /* === Separator === */
-    QFrame#SidebarSeparator {{
-        margin: 6px 12px;
-        max-height: 1px;
-        border: none;
-    }}
-    
-    /* === Separator (خاکستری در Light، آبی شفاف در Dark) === */
+    /* === Separator === */
     QFrame#SidebarSeparator {{
         background-color: {c.SEPARATOR_COLOR};
         margin: 6px 12px;
@@ -275,7 +268,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         border: none;
     }}
 
-    /* === Sidebar Buttons (مرکز) === */
+    /* === Sidebar Buttons === */
     QPushButton#SidebarButton {{
         text-align: center;
         padding: 10px 14px;
@@ -296,6 +289,22 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.SIDEBAR_ITEM_ACTIVE};
         color: {c.PRIMARY};
         font-weight: bold;
+    }}
+
+    /* === Sidebar Toggle Button === */
+    QPushButton#SidebarToggleButton {{
+        background-color: {c.GLASS_BG};
+        color: {c.TEXT_SECONDARY};
+        border: 1px solid {c.GLASS_BORDER};
+        border-radius: 14px;
+        font-size: 14pt;
+        font-weight: bold;
+        padding: 0;
+    }}
+    QPushButton#SidebarToggleButton:hover {{
+        background-color: {c.PRIMARY};
+        color: {c.TEXT_WHITE};
+        border-color: {c.PRIMARY};
     }}
 
     /* === Version === */
@@ -326,7 +335,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.TEXT_SECONDARY};
         background: transparent;
     }}
-    
+
     QLabel#HeaderChanges {{
         font-size: {f.SIZE_SM}pt;
         color: {c.PRIMARY};
@@ -340,7 +349,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background: transparent;
     }}
 
-    /* === Cards (شیشه‌ای مینیمال) === */
+    /* === Cards === */
     QFrame#Card,
     QFrame#StatCard,
     QFrame#CourseCard,
@@ -384,7 +393,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QPushButton#PrimaryButton:disabled {{
         background-color: {c.TEXT_MUTED};
     }}
-    
+
     /* === Pill Progress Button === */
     QPushButton#PillButton {{
         background-color: {c.PRIMARY};
@@ -435,7 +444,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: white;
         border-color: {c.PRIMARY};
     }}
-        
+
     QPushButton#CircularButton {{
         background-color: {c.PRIMARY};
         color: {c.TEXT_WHITE};
@@ -445,7 +454,6 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         font-weight: 600;
         padding: 8px;
     }}
-    
     QPushButton#CircularButton:hover {{
         background-color: {c.PRIMARY_DARK};
     }}
@@ -544,7 +552,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.TEXT_SECONDARY};
     }}
 
-        /* === CheckBox === */
+    /* === CheckBox === */
     QCheckBox {{
         spacing: 12px;
         color: {c.TEXT_PRIMARY};
@@ -566,7 +574,6 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QCheckBox::indicator:hover {{
         border-color: {c.PRIMARY};
     }}
-
     QCheckBox::indicator:disabled {{
         background-color: {c.BORDER_LIGHT};
         border-color: {c.BORDER};
@@ -574,7 +581,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QCheckBox:disabled {{
         color: {c.TEXT_MUTED};
     }}
-    
+
     /* === Calendar & Detail === */
     QLabel#DetailHeader {{
         background: transparent;
@@ -621,17 +628,14 @@ def apply_rtl_recursive(widget):
 
     widget.setLayoutDirection(Qt.RightToLeft)
 
-    # QLabel — alignment
     if isinstance(widget, QLabel):
         widget.setAlignment(
             (widget.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
         )
 
-    # برای QLineEdit, QTextEdit, QPlainTextEdit
     if isinstance(widget, (QLineEdit, QTextEdit, QPlainTextEdit)):
         widget.setAlignment(Qt.AlignRight)
 
-    # recursive روی فرزندان
     for child in widget.findChildren(QWidget):
         child.setLayoutDirection(Qt.RightToLeft)
 

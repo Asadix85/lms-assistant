@@ -1,15 +1,21 @@
-"""پنجره اصلی LMS Assistant."""
+"""پنجره اصلی LMS Assistant — با System Tray و Sidebar راست."""
+from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread
+from PySide6.QtCore import Qt, QThread, QTimer
+from PySide6.QtGui import QIcon, QAction
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QStackedWidget,
     QMessageBox,
     QStatusBar,
-    QApplication, QBoxLayout,
+    QApplication,
+    QBoxLayout,
+    QSystemTrayIcon,
+    QMenu,
 )
 
 from config.settings import settings
@@ -24,7 +30,7 @@ from src.ui.worker import SyncWorker
 
 
 class MainWindow(QMainWindow):
-    """پنجره اصلی با Sidebar و صفحات."""
+    """پنجره اصلی با Sidebar راست + System Tray."""
 
     DB_PATH = "data/lms.db"
 
@@ -38,6 +44,17 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAutoFillBackground(False)
 
+        # آیکون پنجره
+        from PySide6.QtGui import QIcon
+        from pathlib import Path
+
+        icon_path = Path("assets/icons/app.ico")
+        if not icon_path.exists():
+            icon_path = Path("assets/icons/app.png")
+
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+
         # پاک کردن کش آیکون‌ها
         from src.ui.icons import Icons
         Icons.clear_cache()
@@ -46,11 +63,12 @@ class MainWindow(QMainWindow):
         self._worker: SyncWorker | None = None
         self._pages: dict[str, QWidget] = {}
         self._current_page_key: str = "dashboard"
+        self._force_quit = False
 
         # ساخت UI
         self._build_ui()
 
-        # ⚠️ RTL اولیه
+        # RTL اولیه
         from src.ui.theme import apply_rtl_recursive
         apply_rtl_recursive(self.sidebar)
         apply_rtl_recursive(self.header)
@@ -64,24 +82,95 @@ class MainWindow(QMainWindow):
         # Acrylic blur
         self._enable_acrylic_blur()
 
-        # ⚠️ RTL دوباره بعد از نمایش (با تأخیر کوتاه)
-        from PySide6.QtCore import QTimer
+        # System Tray
+        self._setup_tray()
+
+        # RTL دوباره بعد از نمایش
         QTimer.singleShot(100, self._apply_rtl_to_all)
+
+    # ============================================================
+    # System Tray
+    # ============================================================
+
+    def _setup_tray(self) -> None:
+        """راه‌اندازی System Tray."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            print("⚠️ System Tray در دسترس نیست")
+            return
+
+        self.tray = QSystemTrayIcon(self)
+
+        # آیکون tray
+        icon_path = Path("assets/icons/app.png")
+        if icon_path.exists():
+            self.tray.setIcon(QIcon(str(icon_path)))
+        else:
+            # fallback: آیکون پنجره
+            self.tray.setIcon(self.windowIcon())
+
+        self.tray.setToolTip("LMS Assistant — دانشگاه اصفهان")
+
+        # === منو ===
+        menu = QMenu()
+
+        show_action = QAction("🏠  نمایش پنجره", self)
+        show_action.triggered.connect(self._show_window)
+        menu.addAction(show_action)
+
+        sync_action = QAction("🔄  بروزرسانی از LMS", self)
+        sync_action.triggered.connect(self._on_update_clicked)
+        menu.addAction(sync_action)
+
+        menu.addSeparator()
+
+        quit_action = QAction("❌  خروج", self)
+        quit_action.triggered.connect(self._force_quit_app)
+        menu.addAction(quit_action)
+
+        self.tray.setContextMenu(menu)
+
+        # === کلیک روی آیکون ===
+        self.tray.activated.connect(self._on_tray_activated)
+
+        self.tray.show()
+
+    def _on_tray_activated(self, reason) -> None:
+        """کلیک روی آیکون tray."""
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            if self.isVisible() and not self.isMinimized():
+                self.hide()
+            else:
+                self._show_window()
+        elif reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._show_window()
+
+    def _show_window(self) -> None:
+        """نمایش و فعال‌سازی پنجره."""
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _force_quit_app(self) -> None:
+        """خروج واقعی از برنامه."""
+        self._force_quit = True
+        QApplication.quit()
+
+    # ============================================================
+    # UI
+    # ============================================================
 
     def _apply_rtl_to_all(self) -> None:
         """اعمال RTL روی همه‌ی widgetها (بعد از نمایش)."""
         from src.ui.theme import apply_rtl_recursive
 
-        apply_rtl_recursive(self)
-
         for page in self._pages.values():
             apply_rtl_recursive(page)
 
-        # اطمینان از اعمال روی Sidebar و Header
         apply_rtl_recursive(self.sidebar)
         apply_rtl_recursive(self.header)
 
     def _build_ui(self) -> None:
+        """ساخت UI با QGridLayout — Sidebar در ستون 0 (راست در RTL)."""
         central = QWidget()
         central.setObjectName("CentralWidget")
         central.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -90,13 +179,18 @@ class MainWindow(QMainWindow):
         central.setLayoutDirection(Qt.RightToLeft)
         self.setCentralWidget(central)
 
-        main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        # ⚠️ مهم: جهت رو LeftToRight بذار و ترتیب اضافه کردن ویجت‌ها رو عوض کن
-        main_layout.setDirection(QBoxLayout.LeftToRight)
+        # ⚠️ QGridLayout — دقیقاً کنترل می‌کنیم کدوم سمت
+        # در RTL: ستون 0 = راست، ستون 1 = چپ
+        grid = QGridLayout(central)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(0)
 
-        # اول Content رو اضافه کن
+        # === Sidebar در ستون 0 (راست در RTL) ===
+        self.sidebar = Sidebar()
+        self.sidebar.page_changed.connect(self._on_page_changed)
+        grid.addWidget(self.sidebar, 0, 0)
+
+        # === Content در ستون 1 (چپ در RTL) ===
         content = QWidget()
         content.setAttribute(Qt.WA_TranslucentBackground, True)
         content.setAttribute(Qt.WA_NoSystemBackground, True)
@@ -106,7 +200,6 @@ class MainWindow(QMainWindow):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
-        content_layout.setDirection(QBoxLayout.TopToBottom)
 
         # Header
         self.header = Header()
@@ -120,12 +213,11 @@ class MainWindow(QMainWindow):
         self.stack.setLayoutDirection(Qt.RightToLeft)
         content_layout.addWidget(self.stack)
 
-        main_layout.addWidget(content, stretch=1)  # اول content
+        grid.addWidget(content, 0, 1)
 
-        # بعد Sidebar رو اضافه کن → می‌ره سمت راست
-        self.sidebar = Sidebar()
-        self.sidebar.page_changed.connect(self._on_page_changed)
-        main_layout.addWidget(self.sidebar)
+        # ستون 1 (محتوا) کشیده بشه، ستون 0 (سایدبار) ثابت
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(0, 0)
 
         # Status bar
         self.status_bar = QStatusBar()
@@ -155,24 +247,20 @@ class MainWindow(QMainWindow):
         from src.ui.pages.calendar_page import CalendarPage
         from src.ui.pages.about_page import AboutPage
 
-        # Dashboard
         self.dashboard_page = DashboardPage(self.DB_PATH)
         self._pages["dashboard"] = self.dashboard_page
         self.stack.addWidget(self.dashboard_page)
 
-        # Calendar
         self.calendar_page = CalendarPage(self.DB_PATH)
         self._pages["calendar"] = self.calendar_page
         self.stack.addWidget(self.calendar_page)
 
-        # Courses
         self.courses_page = CoursesPage(self.DB_PATH)
         self.courses_page.course_selected.connect(self._on_course_selected)
         self.courses_page.sync_requested.connect(self._on_update_clicked)
         self._pages["courses"] = self.courses_page
         self.stack.addWidget(self.courses_page)
 
-        # Course Detail
         self.course_detail_page = CourseDetailPage(self.DB_PATH)
         self.course_detail_page.back_clicked.connect(
             lambda: self._on_page_changed("courses")
@@ -180,29 +268,24 @@ class MainWindow(QMainWindow):
         self._pages["course_detail"] = self.course_detail_page
         self.stack.addWidget(self.course_detail_page)
 
-        # Assignments
         self.assignments_page = AssignmentsPage(self.DB_PATH)
         self.assignments_page.sync_requested.connect(self._on_update_clicked)
         self._pages["assignments"] = self.assignments_page
         self.stack.addWidget(self.assignments_page)
 
-        # Events
         self.events_page = EventsPage(self.DB_PATH)
         self._pages["events"] = self.events_page
         self.stack.addWidget(self.events_page)
 
-        # Changes
         self.changes_page = ChangesPage(self.DB_PATH)
         self.changes_page.sync_requested.connect(self._on_update_clicked)
         self._pages["changes"] = self.changes_page
         self.stack.addWidget(self.changes_page)
 
-        # Settings
         self.settings_page = SettingsPage(self.DB_PATH)
         self._pages["settings"] = self.settings_page
         self.stack.addWidget(self.settings_page)
 
-        # About
         self.about_page = AboutPage()
         self._pages["about"] = self.about_page
         self.stack.addWidget(self.about_page)
@@ -226,6 +309,10 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 print(f"⚠️ خطا در بازیابی geometry: {e}")
 
+    # ============================================================
+    # Events
+    # ============================================================
+
     def closeEvent(self, event) -> None:
         """ذخیره‌ی تنظیمات هنگام بستن پنجره."""
         try:
@@ -236,7 +323,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"⚠️ خطا در ذخیره تنظیمات: {e}")
 
-        super().closeEvent(event)
+        super().closeEvent(event)  # ← بستن عادی
 
     def _on_course_selected(self, course_id: str) -> None:
         try:
@@ -260,7 +347,9 @@ class MainWindow(QMainWindow):
                 page.refresh()
             self.status_bar.showMessage(f"صفحه: {key}")
 
-    # === Update ===
+    # ============================================================
+    # Update / Sync
+    # ============================================================
 
     def _on_update_clicked(self) -> None:
         if not settings.lms_username or not settings.lms_password:
@@ -301,7 +390,6 @@ class MainWindow(QMainWindow):
 
         self.header.set_progress(progress)
 
-        # Status bar
         status_text = progress.message
         if progress.changes_text:
             status_text += f"  |  {progress.changes_text}"
@@ -316,6 +404,23 @@ class MainWindow(QMainWindow):
         current = self.stack.currentWidget()
         if hasattr(current, "refresh"):
             current.refresh()
+
+        # اعلان tray
+        if hasattr(self, "tray") and self.tray.isVisible():
+            if result.has_error:
+                self.tray.showMessage(
+                    "❌ خطا در Sync",
+                    result.error or "خطای نامشخص",
+                    QSystemTrayIcon.MessageIcon.Critical,
+                    3000,
+                )
+            elif result.total_new > 0:
+                self.tray.showMessage(
+                    "📢 تغییرات جدید",
+                    f"{result.total_new} آیتم جدید",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    3000,
+                )
 
         if result.has_error:
             QMessageBox.critical(self, "خطا", f"خطا در Sync:\n{result.error}")
@@ -360,7 +465,4 @@ class MainWindow(QMainWindow):
     def showEvent(self, event) -> None:
         """بعد از نمایش پنجره، RTL رو اعمال کن."""
         super().showEvent(event)
-
-        # ⚠️ RTL بعد از نمایش
-        from PySide6.QtCore import QTimer
         QTimer.singleShot(50, self._apply_rtl_to_all)
