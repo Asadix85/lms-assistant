@@ -6,11 +6,18 @@ class Settings(BaseSettings):
     """تنظیمات برنامه، خوانده‌شده از .env"""
 
     # === LMS Credentials ===
-    lms_username: str
-    lms_password: str
+    lms_username: str = ""
+    lms_password: str = ""
 
     # === LMS URLs ===
     lms_base_url: str = "https://lms4.ui.ac.ir"
+
+    # === Quera Credentials ===
+    quera_username: str = ""
+    quera_password: str = ""
+
+    # === Quera URLs ===
+    quera_base_url: str = "https://quera.org"
 
     # === Database ===
     db_path: Path = Path("./data/lms.db")

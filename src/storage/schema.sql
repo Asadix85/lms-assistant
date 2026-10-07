@@ -131,3 +131,24 @@ CREATE INDEX IF NOT EXISTS idx_posts_course ON posts(course_id);
 CREATE INDEX IF NOT EXISTS idx_posts_posted_at ON posts(posted_at);
 CREATE INDEX IF NOT EXISTS idx_assignments_course ON assignments(course_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_deadline ON assignments(deadline);
+
+-- ============================================================
+-- Quera Tables
+-- ============================================================
+
+-- جدول تمرین‌های Quera
+CREATE TABLE IF NOT EXISTS quera_assignments (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    course_name TEXT,
+    finish_time TEXT,
+    problems_json TEXT,
+    problems_count INTEGER NOT NULL DEFAULT 0,
+    submitted_count INTEGER NOT NULL DEFAULT 0,
+    is_new INTEGER NOT NULL DEFAULT 0,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_quera_assignments_finish ON quera_assignments(finish_time);
+CREATE INDEX IF NOT EXISTS idx_quera_assignments_is_new ON quera_assignments(is_new);

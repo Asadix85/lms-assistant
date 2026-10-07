@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+
+
+<html lang="fa" dir="rtl">
+
+  <head>
+    <title>Quera</title>
+    <meta name="description"
+          content="از آموزش و تمرین برنامه‌نویسی تا رقابت و استخدام در بهترین شرکت‌ها! در Quera، بزرگترین جامعه‌ی توسعه‌دهندگان ایرانی">
+
+    <meta charset="utf-8">
+    <meta name="fontiran.com:license" content="56AXFY">
+    
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
+    <meta property="og:site_name" content="Quera" />
+    
+      <meta property="og:title" content="Quera" />
+      <meta property="og:type" content="website" />
+      <meta property="og:image" content="/static/images/logo/logo-1200x630.3-3c34556d3b7c.png" />
+      
+    
+    
+  
+      <link rel="apple-touch-icon" sizes="180x180" href="/static/images/logo/favicon/apple-touch-icon.3-2887f2aad086.png">
+      <link rel="icon" type="image/png" sizes="32x32" href="/static/images/logo/favicon/favicon-32x32.3-b5be5ba884c5.png">
+      <link rel="icon" type="image/png" sizes="16x16" href="/static/images/logo/favicon/favicon-16x16.3-4bcbe4f363d7.png">
+      <link rel="manifest" href="/static/images/logo/favicon/site.3-eee0bbeb0fd7.webmanifest">
+      <link rel="mask-icon" href="/static/images/logo/favicon/safari-pinned-tab.3-c497e3a2ff0f.svg" color="#5bbad5">
+      <link rel="shortcut icon" href="/static/images/logo/favicon/favicon.3-53ba381ba55d.ico">
+      <meta name="apple-mobile-web-app-title" content="Quera">
+      <meta name="application-name" content="Quera">
+      <meta name="msapplication-TileColor" content="#da532c">
+      <meta name="msapplication-config" content="/static/images/logo/favicon/browserconfig.3-0049c1f5e338.xml">
+      <meta name="theme-color" content="#09c">
+    
+    
+
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    
+      window.dataLayer.push({'event': 'login', 'method': 'pass', 'account_type': 'developer'});
+    
+  </script>
+
+
+
+  <script>
+    window.localStorage.setItem("marketingId", "h8vj336y73")
+  </script>
+
+
+
+
+  <script>
+  /* beautify ignore:start */
+    (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-TDRQP6V');
+    /* beautify ignore:end */
+  </script>
+
+
+
+  <script>
+  const clarityRegister = function(c, l, a, r, i, t, y) {
+    c[a] = c[a] || function() {
+      (c[a].q = c[a].q || []).push(arguments)
+    };
+    t = l.createElement(r);
+    t.async = 1;
+    t.src = "https://www.clarity.ms/tag/" + i;
+    y = l.getElementsByTagName(r)[0];
+    y.parentNode.insertBefore(t, y);
+  };
+
+  const clarityID = "egsk7hcbu0";
+  // console.log("clarityID:", clarityID)
+  if (clarityID) {
+    clarityRegister(window, document, "clarity", "script", clarityID);
+  }
+</script>
+
+
+  <script>
+  window.addEventListener("load", function() {
+    ! function(t, e, n) {
+      t.yektanetAnalyticsObject = n, t[n] = t[n] || function() {
+        t[n].q.push(arguments)
+      }, t[n].q = t[n].q || [];
+      var a = new Date,
+          r = a.getFullYear().toString() + "0" + a.getMonth() + "0" + a.getDate() + "0" + a.getHours(),
+          c = e.getElementsByTagName("script")[0],
+          s = e.createElement("script");
+      s.id = "ua-script-aOf5eUzZ";
+      s.dataset.analyticsobject = n;
+      s.async = 1;
+      s.type = "text/javascript";
+      s.src = "https://cdn.yektanet.com/rg_woebegone/scripts_v3/aOf5eUzZ/rg.complete.js?v=" + r, c.parentNode
+        .insertBefore(s, c)
+    }(window, document, "yektanet");
+  });
+</script>
+
+
+  <script>
+  window.addEventListener("load", function() {
+    const s = document.createElement("script");
+    s.src = "https://s1.mediaad.org/serve/111576/retargeting.js";
+    s.async = true;
+    document.body.appendChild(s);
+  });
+</script>
+
+
+
+    
+      
+
+<script>
+  (function() {
+    function getCookie(name) {
+      var v = document.cookie.match("(^|;) ?" + name + "=([^;]*)(;|$)");
+      return v ? v[2] : null;
+    }
+
+    var theme = getCookie("quera-theme-preference") || getCookie("chakra-ui-color-mode") || "system";
+
+    // Evaluate if the system is dark if "system" is selected
+    var isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)")
+        .matches);
+    window.__darkWanted = isDark;
+  })();
+</script>
+
+<script src="/static/vendor/darkreader/darkreader.min.3-3a5e0f663f2c.js"></script>
+
+<script>
+  (function() {
+    if (!window.DarkReader) return;
+    if (DarkReader.setFetchMethod) {
+      DarkReader.setFetchMethod(window.fetch);
+    }
+
+    const darkReaderConfig = {
+      brightness: 95,
+      contrast: 95,
+      sepia: 0,
+      grayscale: 0,
+      darkSchemeBackgroundColor: "#171923",
+      darkSchemeTextColor: "#EDF2F7",
+      lightSchemeBackgroundColor: "#FFFFFF",
+      lightSchemeTextColor: "#000000",
+      scrollbarColor: "auto",
+      selectionColor: "auto",
+      styleSystemControls: false,
+    };
+
+    const cssOverrides = `
+      body, html {
+        background-color: #171923 !important;
+        color: #EDF2F7 !important;
+      }
+      .pusher, #quera-base-container, #body_container {
+        background-color: #171923 !important;
+      }
+      header, .navbar {
+        background-color: #171923 !important;
+        color: #EDF2F7 !important;
+      }
+
+      #qnav-banner__container {
+        background-color: var(--qnav-banner-background-color) !important;
+      }
+      #qnav-banner {
+        background-image: var(--qnav-banner-mobile-image) !important;
+      }
+      @media (min-width: 768px) {
+        #qnav-banner {
+          background-image: var(--qnav-banner-desktop-image) !important;
+        }
+      }
+
+      .ui.teal.button, .ui.teal.label, .ui.teal.segment {
+        background-color: #91DEF3 !important;
+        color: #171923 !important;
+      }
+      .ui.teal.text, .teal-text-class {
+        color: #91DEF3 !important;
+      }
+      .ui.teal.segment {
+        border-top-color: #91DEF3 !important;
+      }
+
+      /* 2. Hijack DarkReader's injected variables for Footer */
+      #q-footer, [class*="_footer_"], [class*="Footer_footer"] {
+        --darkreader-bg--footer-background: #1a202c !important;
+        --darkreader-border--footer-top-border-color: #2D3748 !important;
+        --darkreader-border--footer-bottom-border-color: #2d3748 !important;
+        --darkreader-text--footer-text-color: #edf2f7 !important;
+        --darkreader-text--footer-links-header-color: #edf2f7 !important;
+        --darkreader-text--footer-links-color: #a0aec0 !important;
+        --darkreader-text--footer-copyright-color: #edf2f7 !important;
+        --darkreader-text--footer-logo-section-color: #edf2f7 !important;
+      }
+
+      /* 3. Hijack DarkReader's injected variables for Dropdowns */
+      [class*="_dropdown_"], [class*="Dropdown_dropdown"] {
+        --darkreader-border--colors-border: #2D3748 !important;
+        --darkreader-bg--colors-primary: #0076a6 !important;
+        --darkreader-text--colors-primary: #0076a6 !important;
+        --darkreader-border--colors-primary: #0076a6 !important;
+        --darkreader-bg--colors-primary-hover: #0086ba !important;
+        --darkreader-text--colors-primary-hover: #0086ba !important;
+        --darkreader-bg--colors-primary-hover-opaque: #00a8d621 !important;
+        --darkreader-bg--colors-primary-focus: #0099cc !important;
+        --darkreader-bg--colors-primary-down: #0099cc !important;
+        --darkreader-text--colors-primary-down: #0099cc !important;
+        --darkreader-bg--colors-primary-active: #0099cc !important;
+      }
+
+      /* 4. Dropdown Menu Background Fix */
+      [class*="_dropdown_"] .menu, [class*="Dropdown_dropdown"] .menu {
+        background-color: #171923 !important;
+        color: #ffffff !important;
+      }
+    `;
+
+    function applyTheme(isDark) {
+      if (isDark) {
+        DarkReader.enable(darkReaderConfig, {
+          css: cssOverrides,
+        });
+        document.documentElement.setAttribute("data-theme", "dark"); // For CSS modules
+      } else {
+        DarkReader.disable();
+        document.documentElement.removeAttribute("data-theme");
+      }
+    }
+
+    // Initial application on page load
+    applyTheme(window.__darkWanted);
+
+    // LISTEN TO THE REACT NAVBAR WIDGET
+    document.addEventListener("queraThemeChange", function(e) {
+      const theme = e.detail;
+      const isDark =
+        theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      applyTheme(isDark);
+    });
+
+    // Handle OS-level theme changes if user has "system" selected
+    // window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+    //   function getCookie(name) {
+    //     var v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    //     return v ? v[2] : null;
+    //   }
+    //
+    //   if ((getCookie('quera-theme-preference') || getCookie('chakra-ui-color-mode')) === 'system') {
+    //     applyTheme(e.matches);
+    //   }
+    // });
+
+    window.DarkMode = {
+      enable: function() {
+        document.cookie = "chakra-ui-color-mode=dark; path=/; max-age=31536000";
+        document.cookie = "quera-theme-preference=dark; path=/; max-age=31536000";
+        applyTheme(true);
+      },
+      disable: function() {
+        document.cookie = "chakra-ui-color-mode=light; path=/; max-age=31536000";
+        document.cookie = "quera-theme-preference=light; path=/; max-age=31536000";
+        applyTheme(false);
+      },
+      toggle: function() {
+        const isDark = this.isDark();
+        const nextState = !isDark;
+        document.cookie = "chakra-ui-color-mode=" + (nextState ? "dark" : "light") + "; path=/; max-age=31536000";
+        document.cookie = "quera-theme-preference=" + (nextState ? "dark" : "light") +
+        "; path=/; max-age=31536000";
+        applyTheme(nextState);
+        return nextState;
+      },
+      isDark: function() {
+        function getCookie(name) {
+          var v = document.cookie.match("(^|;) ?" + name + "=([^;]*)(;|$)");
+          return v ? v[2] : null;
+        }
+
+        var v = getCookie("quera-theme-preference") || getCookie("chakra-ui-color-mode");
+        return v === "dark" || (v === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      },
+    };
+  })();
+</script>
+
+    
+
+    <script type="text/javascript" src="/static/js/reverse.3-eabd19adcf18.js"></script>
+    <link rel="stylesheet" href="/static/vendor/jquery-ui/themes/flick/jquery-ui.min.3-ab85c33b8a0b.css" />
+    <script type="text/javascript" src="/static/vendor_common/common.min.3-875dfbebadaa.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/vendor_common/common.min.3-c21277d78369.css" />
+    <link rel="stylesheet" type="text/css" href="/static/vendor/semantic/semantic.rtl.min.3-19e34486d3a0.css" />
+    <link rel="stylesheet" type="text/css" href="/static/css/style.3-cc865337d4ed.css" />
+    <link rel="stylesheet" type="text/css" href="/static/semanticui/style.3-b3ef4156e542.css" />
+    <link rel="preload" href="/static/fonts/iranyekan/fonts/woff2/IRANYekanX-Regular.3-a6bab62df99b.woff2" as="font"
+          type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="/static/fonts/iranyekan/fonts/woff2/IRANYekanX-Bold.3-0691142bf3bf.woff2" as="font"
+          type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="/static/fonts/iranyekan/fonts/woff2/IRANYekanX-Light.3-a8911f3f2bdd.woff2" as="font"
+          type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="/static/fonts/iranyekan/fonts/woff2/IRANYekanX-Medium.3-5e66990e2ecd.woff2" as="font"
+          type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="/static/vendor/semantic/themes/default/assets/fonts/icons.3-0ab54153eeec.woff2" as="font"
+          type="font/woff2" crossorigin="anonymous">
+    <link rel="preload" href="/static/vendor/semantic/themes/default/assets/fonts/brand-icons.3-e8c322de9658.woff2" as="font"
+          type="font/woff2" crossorigin="anonymous">
+    <script type="text/javascript" src="/static/js/main.3-cc08ece38365.js"></script>
+    <script type="text/javascript" src="/static/js/notebook.min.3-9cf835c62a06.js"></script>
+    <script type="text/javascript" src="/static/js/markdown-moratab.3-c12f7b91865d.js"></script>
+    <script src="/static/vendor/clipboard/clipboard.min.3-af8ab3658931.js" type="text/javascript"></script>
+    <script src="/static/vendor/prism/prism.min.3-5da0e75af4f0.js" data-manual></script>
+    <link rel="stylesheet" type="text/css" href="/static/vendor/prism/prism.3-dbfd9aee9574.css">
+    <link rel="stylesheet" href="/static/vendor/katex/katex.min.3-acbaf2d4a641.css" />
+    <link rel="stylesheet" href="/static/fonts/peyda/css/fontiran.3-4a610e61cb74.css">
+
+    
+
+  </head>
+
+  <body dir="rtl" style="">
+
+    
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TDRQP6V" height="0" width="0"
+                    style="display:none;visibility:hidden"></iframe></noscript>
+
+
+
+    
+    <div class="pusher" id="quera-base-container">
+      
+        
+
+<link rel="stylesheet" href="/static/qnav/global.3-1c281a9236e7.css" /><link rel="stylesheet" href="/static/layout/qlayout.3-a4189e97abb1.css" /><div id="qnav-college-landpage-modal"></div><link rel="stylesheet" href="/static/qnav/developer_navbar.3-551d769effdc.css" /><style>
+
+      #qnav-banner {
+        --qnav-banner-mobile-image: url("/media/public/qnav/99727.mobile-navbar-336x36_1.gif");
+        --qnav-banner-desktop-image: url("/media/public/qnav/54ce5.desktop-navbar-820x56.gif");
+        background-image: var(--qnav-banner-mobile-image);
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        width: 100%;
+        height: 32px;
+        max-width: 300px;
+      }
+
+      @media (min-width: 480px) {
+        #qnav-banner {
+          max-width: 480px;
+          height: 56px;
+        }
+      }
+
+      @media (min-width: 768px) {
+        #qnav-banner {
+          background-image: var(--qnav-banner-desktop-image);
+          max-width: 820px;
+          height: 56px;
+        }
+
+        #qnav-banner__countdown {
+          z-index: 1;
+        }
+      }
+
+      #qnav-banner__container {
+        --qnav-banner-background-color: #161715;
+        background-color: var(--qnav-banner-background-color);
+      }
+
+      #qnav-banner__countdown {
+        z-index: 1;
+      }
+    </style><div id="qnav-banner__container" data-link="https://quera.org/r/x0zup"><div id="qnav-banner"></div><div class="countdown" id="qnav-banner__countdown" data-countdown-stop-at=></div><button id="qnav-banner__close-btn"><img src="/static/images/navbar/close.3-28f7d944f802.svg" alt="close" /></button><div style="clear: both;"></div></div><header id="qnav" class=" fixed"><div id="qnav__container"><div class="show-in-mobile qnav-burger" id="developer__burger"></div><div id="qnav__logo" class="qnav-center"><a href="/"><img class="logo" id="logo"
+               src="/static/images/logo/logo-quera-heavy.3-c92f638115e0.svg" alt="Quera" /></a></div><div id="qnav__rightmenu"><div class="qnav-links" id="developer__links" data-active-page=""></div></div><div style="flex: 1"></div><div class="qnav-leftmenu" id="developer__leftmenu"></div></div></header><script id="__qnav_data__" type="application/json">{"user": {"is_authenticated": true, "username": "Asadix", "full_name": "محمد اسدی", "email": "mohammad8asadi5@gmail.com", "phone_number": "+989908630528", "avatar": "/media/CACHE/images/public/avatars/1d59979b8395468f8edd32b239fcf4b7/e31344a3b1da57362812f147270da9b4.jpg"}, "colleges": [{"id": 27650, "name": "راهکارهای توسعه در اینترنت ملی", "url": "/college/land/college/27650/solutions-for-development/"}], "events": [], "bootcamps": [], "notifications": {"has_unread": false, "items": []}, "surveys": null}</script><script id="__qnav_urls__" type="application/json">{"talent_site_base_url": "https://talent.quera.org", "domain_base_url": "https://quera.org"}</script><script defer type="text/javascript" src="/static/layout/qlayout.3-0290c6785960.js"></script><script defer type="text/javascript">
+    const bannerContainer = document.getElementById("qnav-banner__container");
+    const COOKIE_NAME = "public_qnav-banner__closed-time";
+
+  // Helper functions for cookie management
+    const getCookie = (name) => {
+      const value = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='));
+      return value ? decodeURIComponent(value.split('=')[1]) : null;
+    };
+
+    const setCookie = (name, value, maxAgeDays = 1) => {
+      const maxAgeSeconds = maxAgeDays * 24 * 60 * 60;
+      const expires = new Date(Date.now() + maxAgeSeconds * 1000).toUTCString();
+      document.cookie =
+        `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; Expires=${expires}; Path=/; SameSite=Lax`;
+    };
+
+    const closeBanner = () => {
+      bannerContainer.style.height = "0"
+      bannerContainer.style.paddingBlock = "0"
+    };
+
+    const setCloseTime = () => {
+      const now = new Date().toISOString();
+      setCookie(COOKIE_NAME, now);
+    };
+
+    if (bannerContainer) {
+      const lastClosedTime = getCookie(COOKIE_NAME);
+      if (lastClosedTime) {
+        const dayInMilliseconds = 60 * 60 * 24 * 1000;
+        const diff = new Date() - new Date(lastClosedTime)
+        if (!isNaN(diff) && (diff < dayInMilliseconds))
+          closeBanner();
+      }
+
+      document.getElementById("qnav-banner__close-btn").addEventListener('click', (event) => {
+        event.stopPropagation();
+        setCloseTime();
+        closeBanner();
+      })
+
+      bannerContainer.addEventListener('click', () => {
+        if (bannerContainer.dataset.link) {
+          if (bannerContainer.dataset.link.startsWith('#')) {
+            try {
+              const e = document.querySelector(bannerContainer.dataset.link);
+              if (e) e.scrollIntoView();
+            } catch (e) {
+              console.error(e);
+            }
+
+          } else {
+            window.open(bannerContainer.dataset.link, '_blank');
+          }
+        }
+      })
+    }
+  </script>
+
+      
+      
+
+
+      
+        <script>
+          
+        </script>
+      
+      <div id="body_container">
+        
+  <script>
+    (function() {
+      function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? match[2] : null;
+      }
+      const prefTheme = getCookie('quera-theme-preference');
+      const chakraTheme = getCookie('chakra-ui-color-mode');
+      const mode = prefTheme || chakraTheme || 'system';
+      const isDark = mode === "dark" || (mode === "system" && window.matchMedia('(prefers-color-scheme: dark)')
+          .matches);
+      document.documentElement.classList.toggle("dark", isDark);
+      document.documentElement.classList.toggle("chakra-ui-dark", isDark);
+      document.documentElement.classList.toggle("chakra-ui-light", !isDark);
+      document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+      document.body.classList.toggle("chakra-ui-dark", isDark);
+      document.body.classList.toggle("chakra-ui-light", !isDark);
+    })();
+  </script>
+
+  
+
+<link rel="stylesheet" href="/static/react/assets/index-c06e4a43.css" />
+<script type="module" src="/static/react/assets/dashboard-d2fbee13.js"></script>
+<script nomodule="" src="/static/react/assets/polyfills-legacy-9406fa89.js"></script>
+<script nomodule="" src="/static/react/assets/dashboard-d2fbee13.js"></script>
+  <div class="ui padded container" style="margin-top: 30px;">
+    <div class="ui stackable grid">
+      <div class="ui grid" style="width:100%; margin:0px !important;padding:0px !important">
+        <div id="dashboard_widgets" style="width:100%"></div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <div id="__dashboard_data__" style="display: none">{&quot;lightweight_mode&quot;: false, &quot;slider_images&quot;: [{&quot;address&quot;: &quot;https://quera.org/r/wtlwf&quot;, &quot;title&quot;: &quot;رویداد استارتاپی BuildX&quot;, &quot;slug&quot;: &quot;9q6p2i2&quot;, &quot;slider_image_thumbnail&quot;: &quot;/media/CACHE/images/public/slider/images/9q6p2i2/9de4ac883e51a0d9f15d339e1ec19fde.jpg&quot;, &quot;slider_mobile_image_thumbnail&quot;: &quot;/media/CACHE/images/public/slider/images/9q6p2i2_mobile/7cbef66f310cece918302bc3b9711712.jpg&quot;}], &quot;blog_posts&quot;: [{&quot;title&quot;: &quot;بهترین هوش مصنوعی رایگان کدام است؟ مقایسه‌ ۲۶ ابزار فعال در ۱۴۰۵&quot;, &quot;url&quot;: &quot;https://quera.org/blog/best-free-ai-tools/&quot;, &quot;time&quot;: &quot;۱۴ مهر ۱۴۰۵&quot;}, {&quot;title&quot;: &quot;پایتون چیست؟ آشنایی با زبان برنامه‌نویسی Python&quot;, &quot;url&quot;: &quot;https://quera.org/blog/python-explained/&quot;, &quot;time&quot;: &quot;۵ مهر ۱۴۰۵&quot;}], &quot;jobs&quot;: {&quot;title&quot;: &quot;فرصت‌های شغلی پیشنهادی&quot;, &quot;objects&quot;: [{&quot;id&quot;: &quot;xmqr6&quot;, &quot;title&quot;: &quot;Senior Java Developer&quot;, &quot;company_name&quot;: &quot;مهیمن&quot;}, {&quot;id&quot;: &quot;dkmj9&quot;, &quot;title&quot;: &quot;توسعه‌دهنده Mid-Level-C#) Back-end)&quot;, &quot;company_name&quot;: &quot;ره آوا&quot;}, {&quot;id&quot;: &quot;jk6qk&quot;, &quot;title&quot;: &quot;Embedded Systems Developer&quot;, &quot;company_name&quot;: &quot;رادشید&quot;}, {&quot;id&quot;: &quot;gkvg7&quot;, &quot;title&quot;: &quot;برنامه‌نویس Mid-Level-React) Front-end)&quot;, &quot;company_name&quot;: &quot;ره آوا&quot;}]}, &quot;latest_courses&quot;: [{&quot;id&quot;: 28998, &quot;qa&quot;: {&quot;term&quot;: &quot;پاییز ۰۶-۰۵&quot;, &quot;members_count&quot;: 52}, &quot;name&quot;: &quot;ساختمان داده‌ها&quot;, &quot;instructor&quot;: &quot;دکتر تابع الحجه&quot;, &quot;last_assignment&quot;: {&quot;id&quot;: 107091, &quot;name&quot;: &quot;سری اول | تحلیل و پیچیدگی زمانی&quot;}}, {&quot;id&quot;: 29085, &quot;qa&quot;: {&quot;term&quot;: &quot;پاییز ۰۵-۰۴&quot;, &quot;members_count&quot;: 16}, &quot;name&quot;: &quot;مبانی کامپیوتر و برنامه نویسی&quot;, &quot;instructor&quot;: &quot;دکتر جمالی&quot;, &quot;last_assignment&quot;: {&quot;id&quot;: 107367, &quot;name&quot;: &quot;استراکت&quot;}}, {&quot;id&quot;: 27225, &quot;qa&quot;: {&quot;term&quot;: &quot;بهار ۰۵-۰۴&quot;, &quot;members_count&quot;: 98}, &quot;name&quot;: &quot;برنامه‌نویسی پیشرفته&quot;, &quot;instructor&quot;: &quot;دکتر رمضانی&quot;, &quot;last_assignment&quot;: {&quot;id&quot;: 105664, &quot;name&quot;: &quot;پروژه پایانی | بازی Farm Frenzy&quot;}}], &quot;ps_suggestions&quot;: [{&quot;level&quot;: &quot;ساده&quot;, &quot;problem&quot;: {&quot;id&quot;: 234284, &quot;name&quot;: &quot;سلام ورودی&quot;}}, {&quot;level&quot;: &quot;متوسط&quot;, &quot;problem&quot;: {&quot;id&quot;: 2598, &quot;name&quot;: &quot;محمد مهدی و LIS&quot;}}, {&quot;level&quot;: &quot;سخت&quot;, &quot;problem&quot;: {&quot;id&quot;: 6144, &quot;name&quot;: &quot;سلری&quot;}}], &quot;contest_assignments&quot;: [{&quot;id&quot;: 107423, &quot;name&quot;: &quot;رویداد محصولی BuildX&quot;, &quot;start_time&quot;: &quot;۱۱ مهر ۱۴۰۵ - ساعت ۰۹:۳۰&quot;, &quot;has_started&quot;: true, &quot;participants&quot;: 1076}], &quot;user_very_nearby_contests&quot;: [], &quot;problemsets&quot;: [{&quot;slug&quot;: &quot;technology&quot;, &quot;name&quot;: &quot;تکنولوژی&quot;, &quot;score&quot;: 0, &quot;color&quot;: &quot;orange&quot;}, {&quot;slug&quot;: &quot;contest&quot;, &quot;name&quot;: &quot;مسابقه&quot;, &quot;score&quot;: 0, &quot;color&quot;: &quot;red&quot;}, {&quot;slug&quot;: &quot;university&quot;, &quot;name&quot;: &quot;دانشگاهی&quot;, &quot;score&quot;: 0, &quot;color&quot;: &quot;green&quot;}, {&quot;slug&quot;: &quot;olympiad&quot;, &quot;name&quot;: &quot;المپیاد&quot;, &quot;score&quot;: 0, &quot;color&quot;: &quot;blue&quot;}], &quot;latest_colleges&quot;: [{&quot;id&quot;: 27650, &quot;passed_percent&quot;: 14, &quot;name&quot;: &quot;راهکارهای توسعه در اینترنت ملی&quot;, &quot;remaining_assignments&quot;: 5}], &quot;profile_progress&quot;: 41, &quot;college_users_count&quot;: 182931, &quot;domain_base_url&quot;: &quot;https://quera.org&quot;}</div> 
+  <div style="margin-top: -25px;">
+
+    
+
+<link rel="stylesheet" href="/static/style/style.3-7fdabf4e238e.css" />
+
+<div id="dashboard_skeleton" class="skeleton_container">
+  <div class="skeleton_content">
+    <main>
+      
+        <span class="skeleton_slider"></span>
+      
+      <div class="skeleton_content_container">
+        
+          
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+        <img width="24px" height="24px" src="static/college/images/dashboard/college.svg" />
+      
+      <p>یادگیری در کالج</p>
+    </div>
+    
+      <span></span>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+<link rel="stylesheet" href="/static/style/skeleton/has_college.3-a5841f418a0f.css" />
+
+<div style="width:100%;display:flex;flex-direction:column;justify-content:space-between">
+
+  
+    
+      
+        <div class="has_college_skeleton_container">
+          <div class="has_college_skeleton_content_container">
+            <div class="has_college_content_container">
+              <span></span>
+              <div class="college_info">
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <span></span>
+          </div>
+          <div class="divider"></div>
+        </div>
+      
+    
+    
+  
+
+</div>
+
+    </div>
+  
+</div>
+
+        
+        
+          
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+        <img width="24px" height="24px" src="static/college/images/dashboard/contest.svg" />
+      
+      <p>رقابت در مسابقات</p>
+    </div>
+    
+      <span></span>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+<link rel="stylesheet" href="/static/style/skeleton/has_college.3-a5841f418a0f.css" />
+
+<div style="width:100%;display:flex;flex-direction:column;justify-content:space-between">
+
+  
+    
+      
+        <div class="has_college_skeleton_container">
+          <div class="has_college_skeleton_content_container">
+            <div class="has_college_content_container">
+              <span style="width:306px"></span>
+              <div class="college_info">
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+            <span></span>
+          </div>
+          <div class="divider"></div>
+        </div>
+      
+    
+    
+  
+
+</div>
+
+    </div>
+  
+</div>
+
+        
+        
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+        <img width="24px" height="24px" src="static/college/images/dashboard/lms.svg" />
+      
+      <p>کلاس‌ها</p>
+    </div>
+    
+      <span></span>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+<link rel="stylesheet" href="/static/style/skeleton/lms.3-6035e91f28c3.css" />
+
+<div class="lms_skeleton_container">
+  
+    
+      <div class="header_content_container">
+        <div class="header_container">
+          <span></span>
+          <div>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="footer_container">
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      <div class="divider"></div>
+    
+      <div class="header_content_container">
+        <div class="header_container">
+          <span></span>
+          <div>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="footer_container">
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      <div class="divider"></div>
+    
+      <div class="header_content_container">
+        <div class="header_container">
+          <span></span>
+          <div>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="footer_container">
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+      <div class="divider"></div>
+    
+  
+  
+    <span></span>
+  
+</div>
+
+    </div>
+  
+</div>
+
+        
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+        <img width="24px" height="24px" src="static/college/images/dashboard/code.svg" />
+      
+      <p>تمرین بیشتر در بانک سؤالات</p>
+    </div>
+    
+      <span></span>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+<link rel="stylesheet" href="/static/style/skeleton/problemset.3-0aaeff4b9cb7.css" />
+
+<div class="problemset_skeleton_container">
+  <div class="table_header">
+    <span></span>
+    <div class="table_feature">
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+  <span></span>
+  <div class="table_footer">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+    </div>
+  
+</div>
+
+      </div>
+    </main>
+    <aside>
+      
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+      <p></p>
+    </div>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+<link rel="stylesheet" href="/static/style/skeleton/profile.3-3c40ae99aba3.css" />
+
+<div class="profile_container">
+  <div class="img_container">
+    <span class="img"></span>
+    <div class="user_info_container">
+      <span></span>
+      <span></span>
+    </div>
+  </div>
+  <div class="text_container">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+  <div class="cv_container">
+    <span></span>
+    <span></span>
+  </div>
+</div>
+
+    </div>
+  
+</div>
+
+      
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+      <p>آخرین مطالب بلاگ</p>
+    </div>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+
+<link rel="stylesheet" href="/static/style/skeleton/blog_job.3-0670bee7e443.css" />
+
+<div class="blog_job_container">
+  <span class="blog_job_element_container">
+    <span class="long_skeleton"></span>
+    <span class="short_skeleton"></span>
+    <span class="divider"></span>
+  </span>
+  <span class="blog_job_element_container">
+    <span class="long_skeleton"></span>
+    <span class="short_skeleton"></span>
+    <span class="divider"></span>
+  </span>
+  <span class="blog_job_element_container">
+    <span class="long_skeleton"></span>
+    <span class="short_skeleton"></span>
+  </span>
+  <div class="button_skeleton"></div>
+</div>
+
+    </div>
+  
+</div>
+
+      
+
+<div class="skeleton_card_container">
+  <div class="skeleton_card_header_container">
+    <div class="skeleton_card_content_header">
+      
+      <p>فرصت‌های شغلی پیشنهادی</p>
+    </div>
+    
+  </div>
+  
+    <div class="skeleton_card_content_body">
+      
+
+<link rel="stylesheet" href="/static/style/skeleton/blog_job.3-0670bee7e443.css" />
+
+<div class="blog_job_container">
+  <span class="blog_job_element_container">
+    <span class="long_skeleton"></span>
+    <span class="short_skeleton"></span>
+    <span class="divider"></span>
+  </span>
+  <span class="blog_job_element_container">
+    <span class="long_skeleton"></span>
+    <span class="short_skeleton"></span>
+    <span class="divider"></span>
+  </span>
+  <span class="blog_job_element_container">
+    <span class="long_skeleton"></span>
+    <span class="short_skeleton"></span>
+  </span>
+  <div class="button_skeleton"></div>
+</div>
+
+    </div>
+  
+</div>
+
+    </aside>
+  </div>
+</div>
+
+  </div>
+
+      </div>
+      
+        
+
+<div id="q-footer"></div>
+
+      
+    </div>
+
+    
+  </body>
+
+</html>
