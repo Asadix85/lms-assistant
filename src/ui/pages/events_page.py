@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
-    QFrame,
+    QFrame, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -77,8 +77,15 @@ class EventsPage(BasePage):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.list_widget = QWidget()
+        self.list_widget.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Minimum,  # ← مهم: ارتفاع بر اساس محتوا
+        )
+
         self.list_layout = QVBoxLayout(self.list_widget)
         self.list_layout.setSpacing(8)
         self.list_layout.setContentsMargins(0, 0, 0, 0)
@@ -95,7 +102,12 @@ class EventsPage(BasePage):
         except Exception as e:
             self.counter_label.setText(f"خطا: {e}")
             return
+
         self._apply_filters()
+
+        # ⚠️ اجبار به به‌روزرسانی layout
+        self.list_widget.updateGeometry()
+        self.list_widget.adjustSize()
 
     def _apply_filters(self) -> None:
         events = list(self._all_events)
@@ -114,8 +126,10 @@ class EventsPage(BasePage):
         # پاک کردن
         while self.list_layout.count():
             item = self.list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
 
         if not events:
             empty = QLabel("هیچ رویدادی با این فیلتر نیست.")
@@ -137,10 +151,19 @@ class EventsPage(BasePage):
         for day in sorted(groups.keys()):
             day_events = groups[day]
 
-            # Day header
-            header = QLabel(f"──  {self._format_day(day)}  ──")
+            # Day header (بدون ── که RTL رو خراب می‌کنه)
+            header = QLabel(self._format_day(day))
             header.setObjectName("DayHeader")
-            header.setAlignment(Qt.AlignRight)
+            header.setAlignment(Qt.AlignCenter)  # ← وسط‌چین
+            header.setStyleSheet(
+                "background-color: rgba(42, 166, 163, 0.1); "
+                "color: #2AA6A3; "
+                "font-weight: bold; "
+                "font-size: 11pt; "
+                "padding: 8px; "
+                "border-radius: 8px; "
+                "margin: 12px 0 6px 0;"
+            )
             self.list_layout.addWidget(header)
 
             for e in day_events:
@@ -148,13 +171,38 @@ class EventsPage(BasePage):
                 card.join_clicked.connect(self.event_selected.emit)
                 self.list_layout.addWidget(card)
 
+        # ⚠️ اضافه کن stretch در انتها
+        self.list_layout.addStretch()
+
     def _format_day(self, day: str) -> str:
         if day == "unknown":
             return "بدون تاریخ"
         try:
-            dt = datetime.strptime(day, "%Y-%m-%d")
-            return dt.strftime("%A, %d %B %Y")
-        except Exception:
+            from datetime import datetime as dt_cls
+            import jdatetime
+
+            dt = dt_cls.strptime(day, "%Y-%m-%d")
+            jd = jdatetime.date.fromgregorian(date=dt.date())
+
+            # نام روز به فارسی
+            weekdays = [
+                "شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه",
+                "چهارشنبه", "پنج‌شنبه", "جمعه",
+            ]
+            # jdatetime.weekday(): شنبه=0
+            day_name = weekdays[jd.weekday()]
+
+            # نام ماه
+            months = [
+                "", "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد",
+                "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+            ]
+            month_name = months[jd.month]
+
+            return f"{day_name} — {jd.day} {month_name} {jd.year}"
+
+        except Exception as e:
+            print(f"خطا در فرمت روز: {e}")
             return day
 
     def _set_filter(self, f: str) -> None:

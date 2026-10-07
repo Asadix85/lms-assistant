@@ -135,6 +135,7 @@ class Sidebar(QFrame):
             ("courses", Icons.COURSES, "دروس"),
             ("assignments", Icons.ASSIGNMENTS, "تکالیف"),
             ("events", Icons.EVENTS, "جلسات آنلاین"),
+            ("analytics", Icons.CHART_LINE, "آمار"),
             ("changes", Icons.CHANGES, "تغییرات"),
         ]
 
@@ -239,6 +240,7 @@ class Sidebar(QFrame):
             "courses": Icons.COURSES,
             "assignments": Icons.ASSIGNMENTS,
             "events": Icons.EVENTS,
+            "analytics": Icons.CHART_LINE,
             "changes": Icons.CHANGES,
             "settings": Icons.SETTINGS,
             "about": Icons.ABOUT,

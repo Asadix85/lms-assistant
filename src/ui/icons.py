@@ -41,6 +41,9 @@ class Icons:
     BELL_SLASH = "bell-slash"
     INBOX = "inbox"
     FILE = "file"
+    CHART_LINE = "chart-line"
+    CHART_PIE = "chart-pie"
+    CHART_BAR = "chart-bar"
 
     _cache: dict = {}
 
