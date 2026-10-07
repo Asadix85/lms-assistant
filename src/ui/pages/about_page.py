@@ -10,15 +10,14 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtCore import QUrl
 
 from src.ui.theme import CurrentTheme, Fonts
 
 
 class InfoCard(QFrame):
-    """کارت اطلاعات (برای ویژگی‌های تکنیکال)."""
+    """کارت اطلاعات (برای ویژگی‌های فنی)."""
 
     def __init__(
         self,
@@ -37,34 +36,23 @@ class InfoCard(QFrame):
         self._build()
 
     def _build(self) -> None:
-        c = CurrentTheme.colors()
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(8)
 
-        # Icon
         icon_label = QLabel(self._icon)
         icon_label.setStyleSheet("font-size: 28pt; background: transparent;")
         icon_label.setAlignment(Qt.AlignRight | Qt.AlignTop)
         layout.addWidget(icon_label)
 
-        # Title
         title = QLabel(self._title)
-        title.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: bold; font-size: 12pt; "
-            "background: transparent;"
-        )
+        title.setObjectName("CardTitle")
         title.setAlignment(Qt.AlignRight)
         layout.addWidget(title)
 
-        # Description
         desc = QLabel(self._description)
+        desc.setObjectName("CardSubtitle")
         desc.setWordWrap(True)
-        desc.setStyleSheet(
-            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
-            "background: transparent;"
-        )
         desc.setAlignment(Qt.AlignRight | Qt.AlignTop)
         layout.addWidget(desc)
 
@@ -85,8 +73,6 @@ class StatCard(QFrame):
         self.setObjectName("StatCard")
         self.setMinimumHeight(140)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-
-        c = CurrentTheme.colors()
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
@@ -141,9 +127,6 @@ class AboutPage(QWidget):
         self._build()
 
     def _build(self) -> None:
-        c = CurrentTheme.colors()
-        f = Fonts
-
         # === Outer layout with scroll ===
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -162,7 +145,7 @@ class AboutPage(QWidget):
         layout.setSpacing(20)
 
         # ============================================
-        # HERO SECTION (بطاقة بزرگ آبی)
+        # HERO SECTION (بطاقه بزرگ آبی)
         # ============================================
         hero = QFrame()
         hero.setObjectName("HeroCard")
@@ -181,24 +164,19 @@ class AboutPage(QWidget):
 
         # Name
         name = QLabel("محمد اسدی")
-        name.setStyleSheet(
-            "font-size: 22pt; font-weight: bold; color: white; "
-            "background: transparent;"
-        )
+        name.setObjectName("HeroTitle")
         name.setAlignment(Qt.AlignCenter)
         hero_layout.addWidget(name)
 
         # Subtitle
         subtitle = QLabel("مهندسی کامپیوتر • ورودی ۱۴۰۴")
-        subtitle.setStyleSheet(
-            "font-size: 13pt; color: rgba(255, 255, 255, 0.95); "
-            "background: transparent;"
-        )
+        subtitle.setObjectName("HeroMeta")
         subtitle.setAlignment(Qt.AlignCenter)
         hero_layout.addWidget(subtitle)
 
         # University
         university = QLabel("🎓 دانشگاه اصفهان")
+        university.setObjectName("HeroMeta")
         university.setStyleSheet(
             "font-size: 11pt; color: rgba(255, 255, 255, 0.85); "
             "background: transparent; padding-top: 6px;"
@@ -219,10 +197,7 @@ class AboutPage(QWidget):
         desc_layout.setSpacing(10)
 
         desc_title = QLabel("📖  درباره‌ی این پروژه")
-        desc_title.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: bold; font-size: 13pt; "
-            "background: transparent;"
-        )
+        desc_title.setObjectName("CardTitle")
         desc_title.setAlignment(Qt.AlignRight)
         desc_layout.addWidget(desc_title)
 
@@ -233,14 +208,13 @@ class AboutPage(QWidget):
             "این برنامه به‌طور خودکار دروس، فایل‌ها، تکالیف و پیام‌های "
             "استادان را از LMS استخراج می‌کند، تغییرات جدید را تشخیص "
             "می‌دهد و به کاربر اطلاع می‌دهد.\n\n"
+            "همچنین تمرین‌های سایت Quera (مخصوص دروس کدنویسی) را نیز "
+            "دریافت کرده و در کنار تکالیف LMS نمایش می‌دهد.\n\n"
             "هدف: ساختن یک دستیار ساده، سریع و کاربردی که کارهای روزمره‌ی "
             "دانشجویی را آسان‌تر کند."
         )
+        desc_text.setObjectName("CardSubtitle")
         desc_text.setWordWrap(True)
-        desc_text.setStyleSheet(
-            f"color: {c.TEXT_SECONDARY}; font-size: 11pt; line-height: 180%; "
-            "background: transparent;"
-        )
         desc_text.setAlignment(Qt.AlignRight)
         desc_layout.addWidget(desc_text)
 
@@ -250,10 +224,7 @@ class AboutPage(QWidget):
         # TECHNICAL FEATURES (Grid of cards)
         # ============================================
         feat_title = QLabel("⚙️  ویژگی‌های فنی")
-        feat_title.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: bold; font-size: 13pt; "
-            "background: transparent; padding: 10px 5px 0 5px;"
-        )
+        feat_title.setObjectName("SectionTitle")
         feat_title.setAlignment(Qt.AlignRight)
         layout.addWidget(feat_title)
 
@@ -264,17 +235,17 @@ class AboutPage(QWidget):
         row1.addWidget(InfoCard(
             icon="🐍",
             title="Python + PySide6",
-            description="ساخته شده با زبان پایتون و فریم‌ورک PySide6 (Qt)"
+            description="ساخته شده با زبان پایتون و فریم‌ورک PySide6 (Qt)",
         ))
         row1.addWidget(InfoCard(
             icon="🍪",
             title="Multi-Domain SSO",
-            description="پشتیبانی از lms3، lms4، lms5 با احراز هویت خودکار"
+            description="پشتیبانی از lms3، lms4، lms5 با احراز هویت خودکار",
         ))
         row1.addWidget(InfoCard(
             icon="💾",
             title="SQLite Storage",
-            description="ذخیره‌سازی محلی روی سیستم شما، بدون نیاز به سرور"
+            description="ذخیره‌سازی محلی روی سیستم شما، بدون نیاز به سرور",
         ))
 
         layout.addLayout(row1)
@@ -286,38 +257,57 @@ class AboutPage(QWidget):
         row2.addWidget(InfoCard(
             icon="🔄",
             title="Change Detection",
-            description="تشخیص خودکار موارد جدید بین Syncها"
+            description="تشخیص خودکار موارد جدید بین Syncها",
         ))
         row2.addWidget(InfoCard(
             icon="📅",
             title="تقویم ددلاین‌ها",
-            description="نمای هفتگی از مهلت تکالیف و رویدادهای مهم"
+            description="نمای هفتگی از مهلت تکالیف و رویدادهای مهم",
         ))
         row2.addWidget(InfoCard(
             icon="🎨",
             title="Liquid Glass UI",
-            description="رابط کاربری مدرن با تم روشن و تیره"
+            description="رابط کاربری مدرن با تم روشن و تیره",
         ))
 
         layout.addLayout(row2)
+
+        # Row 3 (Quera)
+        row3 = QHBoxLayout()
+        row3.setSpacing(15)
+
+        row3.addWidget(InfoCard(
+            icon="🎯",
+            title="Quera Integration",
+            description="همگام‌سازی تمرین‌های سایت Quera در کنار LMS",
+        ))
+        row3.addWidget(InfoCard(
+            icon="📊",
+            title="آمار و نمودار",
+            description="نمایش آمار کلی با نمودارهای تعاملی",
+        ))
+        row3.addWidget(InfoCard(
+            icon="🔔",
+            title="System Tray",
+            description="اجرای پس‌زمینه با اعلان‌های ویندوز",
+        ))
+
+        layout.addLayout(row3)
 
         # ============================================
         # STATS
         # ============================================
         stats_title = QLabel("📊  آمار پروژه")
-        stats_title.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: bold; font-size: 13pt; "
-            "background: transparent; padding: 10px 5px 0 5px;"
-        )
+        stats_title.setObjectName("SectionTitle")
         stats_title.setAlignment(Qt.AlignRight)
         layout.addWidget(stats_title)
 
         stats_row = QHBoxLayout()
         stats_row.setSpacing(15)
 
-        stats_row.addWidget(StatCard(value="۷", label="صفحه", icon="📄"))
-        stats_row.addWidget(StatCard(value="۳", label="دامنه", icon="🌐"))
-        stats_row.addWidget(StatCard(value="۲", label="تم", icon="🎨"))
+        stats_row.addWidget(StatCard(value="۱۲+", label="صفحه", icon="📄"))
+        stats_row.addWidget(StatCard(value="۳", label="دامنه LMS", icon="🌐"))
+        stats_row.addWidget(StatCard(value="۲", label="منبع (LMS+Quera)", icon="🎯"))
         stats_row.addWidget(StatCard(value="۱۰۰٪", label="رایگان", icon="✨"))
 
         layout.addLayout(stats_row)
@@ -325,11 +315,8 @@ class AboutPage(QWidget):
         # ============================================
         # CONTACT
         # ============================================
-        contact_title = QLabel("📬  ارتباط")
-        contact_title.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: bold; font-size: 13pt; "
-            "background: transparent; padding: 10px 5px 0 5px;"
-        )
+        contact_title = QLabel("📬  ارتباط با من")
+        contact_title.setObjectName("SectionTitle")
         contact_title.setAlignment(Qt.AlignRight)
         layout.addWidget(contact_title)
 
@@ -338,17 +325,17 @@ class AboutPage(QWidget):
 
         contact_row.addWidget(SocialButton(
             text="GitHub",
-            url="https://github.com/",
+            url="https://github.com/Asadix85",
             icon="🐙",
         ))
         contact_row.addWidget(SocialButton(
             text="Telegram",
-            url="https://t.me/",
+            url="https://t.me/ASAADIX",
             icon="✈️",
         ))
         contact_row.addWidget(SocialButton(
-            text="ایمیل",
-            url="mailto:example@example.com",
+            text="Email",
+            url="mailto:mohammad8asadi5@gmail.com",
             icon="📧",
         ))
         contact_row.addStretch()
@@ -363,9 +350,10 @@ class AboutPage(QWidget):
             "© ۱۴۰۵ — محمد اسدی"
         )
         footer.setAlignment(Qt.AlignCenter)
+        footer.setObjectName("PageSubtitle")
         footer.setStyleSheet(
-            f"color: {c.TEXT_MUTED}; font-size: 9pt; "
-            "background: transparent; padding: 20px 0 10px 0;"
+            "font-size: 9pt; padding: 20px 0 10px 0; "
+            "background: transparent;"
         )
         layout.addWidget(footer)
 

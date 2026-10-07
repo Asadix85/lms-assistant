@@ -58,19 +58,16 @@ class StatBox(QFrame):
         layout.addWidget(icon_label)
 
         self.value_label = QLabel(value)
-        color = c.PRIMARY if accent else c.TEXT_PRIMARY
-        self.value_label.setStyleSheet(
-            f"color: {color}; font-weight: bold; font-size: 20pt; "
-            "background: transparent;"
-        )
+        # ⚠️ از objectName استفاده کن تا QSS رنگ رو داینامیک بده
+        if accent:
+            self.value_label.setObjectName("StatValueAccent")
+        else:
+            self.value_label.setObjectName("StatValue")
         self.value_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.value_label)
 
         label_widget = QLabel(label)
-        label_widget.setStyleSheet(
-            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
-            "background: transparent;"
-        )
+        label_widget.setObjectName("StatLabel")  # ← QSS
         label_widget.setAlignment(Qt.AlignCenter)
         layout.addWidget(label_widget)
 
@@ -232,10 +229,16 @@ class AnalyticsPage(BasePage):
         try:
             with Database(self.db_path) as db:
                 # === آمار کلی ===
-                from src.storage.repositories import QueraAssignmentRepository
+                from src.storage.repositories import (
+                    QueraAssignmentRepository,
+                    QueraCourseRepository,
+                )
                 from src.utils.quera_adapter import quera_to_assignment
 
+                # === آمار کلی ===
                 courses = CourseRepository(db).get_all()
+                quera_courses = QueraCourseRepository(db).get_all()
+
                 lms_assignments = AssignmentRepository(db).get_all()
                 quera_assignments = QueraAssignmentRepository(db).get_all()
                 quera_as_assignments = [
@@ -248,7 +251,10 @@ class AnalyticsPage(BasePage):
                 posts = PostRepository(db).get_all()
                 members = MemberRepository(db).get_all()
 
-                self._set_stat("courses", len(courses))
+                # مجموع دروس (LMS + Quera)
+                total_courses = len(courses) + len(quera_courses)
+
+                self._set_stat("courses", total_courses)
                 self._set_stat("assignments", len(assignments))
                 self._set_stat("contents", len(contents))
                 self._set_stat("events", len(events))

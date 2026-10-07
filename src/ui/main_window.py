@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         show_action.triggered.connect(self._show_window)
         menu.addAction(show_action)
 
-        sync_action = QAction("🔄  بروزرسانی از LMS", self)
+        sync_action = QAction("🔄  بروزرسانی ", self)
         sync_action.triggered.connect(self._on_update_clicked)
         menu.addAction(sync_action)
 
@@ -368,10 +368,14 @@ class MainWindow(QMainWindow):
     # ============================================================
 
     def _on_update_clicked(self) -> None:
-        if not settings.lms_username or not settings.lms_password:
+        # ⚠️ چک هم LMS و هم Quera
+        has_lms = bool(settings.lms_username and settings.lms_password)
+        has_quera = bool(settings.quera_username and settings.quera_password)
+
+        if not has_lms and not has_quera:
             QMessageBox.warning(
                 self, "خطا",
-                "نام کاربری و رمز عبور در .env تنظیم نشده."
+                "نام کاربری و رمز عبور LMS یا Quera در .env تنظیم نشده."
             )
             return
 

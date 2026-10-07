@@ -21,16 +21,20 @@ class PillProgressButton(QWidget):
     RING_MARGIN = 6
     RING_WIDTH = 3
 
+    # متن‌ها
+    TEXT_IDLE = "🔄  بروزرسانی"
+    TEXT_BUSY = "⏳  در حال بروزرسانی..."
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setFixedSize(260, 58)
 
         # === دکمه‌ی وسط ===
-        self.button = QPushButton("📡  بروزرسانی از LMS", self)
+        self.button = QPushButton(self.TEXT_IDLE, self)
         self.button.setCursor(Qt.PointingHandCursor)
         self.button.setFixedHeight(40)
 
-        # ⚠️ inline styleSheet — bypass global QSS
+        # inline styleSheet
         self._apply_button_style()
 
         # چیدمان
@@ -40,17 +44,16 @@ class PillProgressButton(QWidget):
         layout.setSpacing(0)
         layout.addWidget(self.button)
 
-        # === state ===
+        # state
         self._value = 0
         self._busy = False
 
-        # === انیمیشن ===
+        # انیمیشن
         self._animation = QPropertyAnimation(self, b"value")
         self._animation.setDuration(400)
         self._animation.setEasingCurve(QEasingCurve.OutCubic)
 
     def _apply_button_style(self) -> None:
-        """اعمال استایل مستقیم روی دکمه (inline)."""
         from src.ui.theme import CurrentTheme
         c = CurrentTheme.colors()
 
@@ -75,8 +78,6 @@ class PillProgressButton(QWidget):
             }}
         """)
 
-    # === Property برای انیمیشن ===
-
     def get_value(self) -> int:
         return self._value
 
@@ -86,10 +87,7 @@ class PillProgressButton(QWidget):
 
     value = Property(int, get_value, set_value)
 
-    # === Public API ===
-
     def set_progress(self, value: int, animated: bool = True) -> None:
-        """تنظیم درصد پیشرفت (0-100)."""
         if animated:
             self._animation.stop()
             self._animation.setStartValue(self._value)
@@ -99,23 +97,18 @@ class PillProgressButton(QWidget):
             self.set_value(value)
 
     def set_busy(self, busy: bool) -> None:
-        """حالت busy (در حال sync)."""
         self._busy = busy
         if busy:
-            self.button.setText("⏳  در حال بروزرسانی...")
+            self.button.setText(self.TEXT_BUSY)
         else:
-            self.button.setText("📡  بروزرسانی از LMS")
+            self.button.setText(self.TEXT_IDLE)
             self.set_progress(0, animated=True)
         self.update()
 
     def refresh_style(self) -> None:
-        """بعد از تغییر تم صدا زده بشه."""
         self._apply_button_style()
 
-    # === Paint ===
-
     def paintEvent(self, event) -> None:
-        """نقاشی حلقه‌ی progress دور دکمه (پادساعتگرد)."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
@@ -128,17 +121,17 @@ class PillProgressButton(QWidget):
         )
         radius = rect.height() / 2
 
-        # === path دور بیضی (stadium) ===
+        # path دور بیضی
         path = QPainterPath()
         path.addRoundedRect(rect, radius, radius)
 
-        # === حلقه‌ی پس‌زمینه (خاکستری) ===
+        # حلقه‌ی پس‌زمینه
         pen_bg = QPen(QColor(180, 180, 180, 70), self.RING_WIDTH)
         pen_bg.setCapStyle(Qt.RoundCap)
         painter.setPen(pen_bg)
         painter.drawPath(path)
 
-        # === حلقه‌ی progress (پادساعتگرد) ===
+        # حلقه‌ی progress
         if self._value > 0:
             from src.ui.theme import CurrentTheme
             c = CurrentTheme.colors()
@@ -149,13 +142,10 @@ class PillProgressButton(QWidget):
 
             n = 400
             n_progress = int(n * self._value / 100)
-
-            # شروع از بالا-وسط (25% path)
             START_OFFSET = 0.25
 
             prev_pt = path.pointAtPercent(START_OFFSET)
             for i in range(1, n_progress + 1):
-                # پادساعتگرد: از START_OFFSET به عقب
                 t = (START_OFFSET - i / n) % 1.0
                 pt = path.pointAtPercent(t)
                 painter.drawLine(prev_pt, pt)

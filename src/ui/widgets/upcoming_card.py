@@ -66,13 +66,29 @@ class UpcomingCard(QFrame):
         text_col = QVBoxLayout()
         text_col.setSpacing(2)
 
+        # عنوان + badge (اگه Quera)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+
         title_label = QLabel(title)
         title_label.setStyleSheet(
             f"color: {c.TEXT_PRIMARY}; font-weight: 600; font-size: 11pt; "
             "background: transparent;"
         )
         title_label.setAlignment(Qt.AlignRight)
-        text_col.addWidget(title_label)
+        title_row.addWidget(title_label, stretch=1)
+
+        # badge کوئرا
+        from src.utils.quera_adapter import is_quera_item
+        if is_quera_item(self._item):
+            badge = QLabel("🎯 کوئرا")
+            badge.setStyleSheet(
+                f"background-color: {c.PRIMARY}22; color: {c.PRIMARY}; "
+                "padding: 2px 8px; border-radius: 8px; font-size: 8pt;"
+            )
+            title_row.addWidget(badge)
+
+        text_col.addLayout(title_row)
 
         sub_label = QLabel(self._course_name)
         sub_label.setStyleSheet(

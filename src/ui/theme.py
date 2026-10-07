@@ -543,7 +543,13 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QLabel#StatValue {{
         font-size: {f.SIZE_HERO}pt;
         font-weight: 700;
-        color: {c.PRIMARY};
+        color: {c.TEXT_PRIMARY};  /* ← برای مقادیر عادی */
+        background: transparent;
+    }}
+    QLabel#StatValueAccent {{
+        font-size: {f.SIZE_HERO}pt;
+        font-weight: 700;
+        color: {c.PRIMARY};  /* ← فقط برای کارت accent (دروس) */
         background: transparent;
     }}
     QLabel#StatLabel {{
@@ -551,28 +557,106 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.TEXT_SECONDARY};
         background: transparent;
     }}
+    
+        /* === Dashboard Stat === */
+    QLabel#DashboardStatIcon {{
+        font-size: 20pt;
+        background: transparent;
+        border: none;
+    }}
 
-    /* === Scroll === */
+    QLabel#DashboardStatValue {{
+        font-size: 24pt;
+        font-weight: bold;
+        /* رنگ پیش‌فرض — برای accent سفارشی از inline استفاده می‌شه */
+        color: {c.TEXT_PRIMARY};
+        background: transparent;
+        border: none;
+    }}
+
+    QLabel#DashboardStatLabel {{
+        font-size: 10pt;
+        color: {c.TEXT_SECONDARY};
+        background: transparent;
+        border: none;
+    }}
+
+        /* === Scroll Bar (سفارشی) === */
     QScrollArea {{
         border: none;
         background: transparent;
     }}
+
     QScrollBar:vertical {{
         background-color: transparent;
-        width: 8px;
-        margin: 4px;
+        width: 12px;
+        margin: 4px 2px 4px 2px;
+        border: none;
     }}
+
     QScrollBar::handle:vertical {{
-        background-color: {c.TEXT_MUTED};
-        border-radius: 4px;
-        min-height: 30px;
+        background: qlineargradient(
+            x1:0, y1:0, x2:1, y2:0,
+            stop:0 {c.PRIMARY},
+            stop:1 {c.PRIMARY_DARK}
+        );
+        border-radius: 5px;
+        min-height: 40px;
+        margin: 0px 3px;
     }}
+
     QScrollBar::handle:vertical:hover {{
-        background-color: {c.TEXT_SECONDARY};
+        background: qlineargradient(
+            x1:0, y1:0, x2:1, y2:0,
+            stop:0 {c.PRIMARY_DARK},
+            stop:1 {c.PRIMARY}
+        );
+        margin: 0px 1px;  /* ← پهن‌تر می‌شه */
     }}
+
+    QScrollBar::handle:vertical:pressed {{
+        background: {c.PRIMARY_DARK};
+        margin: 0px 0px;
+    }}
+
     QScrollBar::add-line:vertical,
     QScrollBar::sub-line:vertical {{
         height: 0;
+        background: transparent;
+    }}
+
+    QScrollBar::add-page:vertical,
+    QScrollBar::sub-page:vertical {{
+        background: transparent;
+    }}
+
+    /* افقی */
+    QScrollBar:horizontal {{
+        background-color: transparent;
+        height: 12px;
+        margin: 2px 4px;
+        border: none;
+    }}
+
+    QScrollBar::handle:horizontal {{
+        background: qlineargradient(
+            x1:0, y1:0, x2:0, y2:1,
+            stop:0 {c.PRIMARY},
+            stop:1 {c.PRIMARY_DARK}
+        );
+        border-radius: 5px;
+        min-width: 40px;
+        margin: 3px 0px;
+    }}
+
+    QScrollBar::handle:horizontal:hover {{
+        background: {c.PRIMARY_DARK};
+        margin: 1px 0px;
+    }}
+
+    QScrollBar::add-line:horizontal,
+    QScrollBar::sub-line:horizontal {{
+        width: 0;
     }}
 
     /* === Progress === */

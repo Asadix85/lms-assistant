@@ -13,12 +13,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from PySide6.QtCore import (
-    Signal, Qt, QSize, QPropertyAnimation, QEasingCurve, QEvent,
+    Signal, Qt, QSize, QPropertyAnimation, QEasingCurve,
 )
-from PySide6.QtGui import QPixmap, QCursor
+from PySide6.QtGui import QPixmap
 
 from src.ui.icons import Icons
 from src.ui.theme import CurrentTheme
+
+
+# رنگ آیکون در لایت‌مود (آبی نفتی لوگو)
+SIDEBAR_ICON_COLOR_LIGHT = "#191746"
 
 
 class ClickableIcon(QLabel):
@@ -38,9 +42,8 @@ class ClickableIcon(QLabel):
         super().mousePressEvent(event)
 
     def enterEvent(self, event) -> None:
-        # افکت hover (اختیاری)
         self.setStyleSheet(
-            "background: rgba(0,122,255,0.08); "
+            "background: rgba(42, 166, 163, 0.08); "
             "border-radius: 12px; border: none;"
         )
         super().enterEvent(event)
@@ -96,7 +99,7 @@ class Sidebar(QFrame):
         top_card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
         top_layout = QVBoxLayout(top_card)
-        top_layout.setContentsMargins(12, 24, 12, 16)  # ← padding بیشتر بالا
+        top_layout.setContentsMargins(12, 24, 12, 16)
         top_layout.setSpacing(8)
 
         # === آیکون app (قابل کلیک برای toggle) ===
@@ -104,7 +107,7 @@ class Sidebar(QFrame):
         self._app_icon.clicked.connect(self.toggle_collapse)
         self._load_app_icon(size=self.ICON_SIZE_EXPANDED)
 
-        # wrap در container برای وسط‌چین افقی
+        # wrap در container برای وسط‌چین
         icon_container = QWidget()
         icon_container.setStyleSheet("background: transparent;")
         icon_layout = QHBoxLayout(icon_container)
@@ -117,7 +120,16 @@ class Sidebar(QFrame):
         self._logo_text = QLabel("LMS Assistant")
         self._logo_text.setObjectName("SidebarLogo")
         self._logo_text.setAlignment(Qt.AlignCenter)
-        top_layout.addWidget(self._logo_text)
+        self._logo_text.setLayoutDirection(Qt.LeftToRight)
+
+        # wrap در QHBoxLayout برای وسط‌چین
+        logo_row = QHBoxLayout()
+        logo_row.setContentsMargins(0, 0, 0, 0)
+        logo_row.setSpacing(0)
+        logo_row.addStretch(1)
+        logo_row.addWidget(self._logo_text)
+        logo_row.addStretch(1)
+        top_layout.addLayout(logo_row)
 
         # === Separator ===
         sep1 = QFrame()
@@ -187,6 +199,20 @@ class Sidebar(QFrame):
 
         self._buttons["dashboard"].setChecked(True)
 
+    # ============================================================
+    # Icon helpers
+    # ============================================================
+
+    def _get_icon_color(self) -> str | None:
+        """رنگ آیکون بر اساس تم فعلی.
+
+        - لایت‌مود: آبی نفتی (#191746) هماهنگ با لوگو
+        - دارک‌مود: None → پیش‌فرض (سفید/روشن)
+        """
+        if CurrentTheme.is_dark():
+            return None
+        return SIDEBAR_ICON_COLOR_LIGHT
+
     def _load_app_icon(self, size: int) -> None:
         """لود آیکون app."""
         if not self.APP_ICON_PATH.exists():
@@ -218,7 +244,8 @@ class Sidebar(QFrame):
         btn.setMinimumHeight(42)
         btn.setLayoutDirection(Qt.LeftToRight)
 
-        icon = Icons.get(icon_name, size=22)
+        icon_color = self._get_icon_color()
+        icon = Icons.get(icon_name, size=22, color=icon_color)
         if not icon.isNull():
             btn.setIcon(icon)
             btn.setIconSize(QSize(22, 22))
@@ -234,21 +261,25 @@ class Sidebar(QFrame):
             self._buttons[key].setChecked(True)
 
     def refresh_icons(self) -> None:
+        """رفرش آیکون‌ها (بعد از تغییر تم)."""
         icon_map = {
             "dashboard": Icons.DASHBOARD,
             "calendar": Icons.CALENDAR,
             "courses": Icons.COURSES,
             "assignments": Icons.ASSIGNMENTS,
             "events": Icons.EVENTS,
-            "analytics": Icons.CHART_LINE,
+            "analytics": Icons.CHART_LINE,  # ← اضافه شد
             "changes": Icons.CHANGES,
             "settings": Icons.SETTINGS,
             "about": Icons.ABOUT,
         }
+
+        icon_color = self._get_icon_color()
+
         for key, btn in self._buttons.items():
             icon_name = icon_map.get(key)
             if icon_name:
-                icon = Icons.get(icon_name, size=22)
+                icon = Icons.get(icon_name, size=22, color=icon_color)
                 if not icon.isNull():
                     btn.setIcon(icon)
                     btn.setIconSize(QSize(22, 22))
@@ -275,26 +306,16 @@ class Sidebar(QFrame):
     def _update_content_visibility(self) -> None:
         """نمایش/مخفی کردن متن‌ها و تغییر سایز آیکون."""
         if self._is_collapsed:
-            # آیکون کوچیک
             self._load_app_icon(size=self.ICON_SIZE_COLLAPSED)
-
-            # مخفی کردن متن‌ها
             self._logo_text.setVisible(False)
             self._version.setVisible(False)
-
-            # دکمه‌ها: فقط آیکون
             for btn in self._buttons.values():
                 btn.setText("")
                 btn.setToolTip(btn.property("fullText"))
         else:
-            # آیکون بزرگ
             self._load_app_icon(size=self.ICON_SIZE_EXPANDED)
-
-            # نمایش متن‌ها
             self._logo_text.setVisible(True)
             self._version.setVisible(True)
-
-            # دکمه‌ها: با متن
             for btn in self._buttons.values():
                 full_text = btn.property("fullText")
                 btn.setText(full_text)

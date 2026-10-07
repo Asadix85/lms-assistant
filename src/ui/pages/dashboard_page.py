@@ -167,17 +167,15 @@ class DashboardPage(BasePage):
         now = datetime.now()
 
         # === LMS + Quera ===
-        lms_assignments = AssignmentRepository(db).get_all()
-        quera_assignments = QueraAssignmentRepository(db).get_all()
+        lms = AssignmentRepository(db).get_all()
+        quera = QueraAssignmentRepository(db).get_all()
+        quera_as_assignments = [quera_to_assignment(q) for q in quera]
 
-        # تبدیل Quera به Assignment
-        all_assignments = list(lms_assignments) + [
-            quera_to_assignment(q) for q in quera_assignments
-        ]
+        assignments = lms + quera_as_assignments
 
         # تکالیف در انتظار
         pending_assignments = [
-            a for a in all_assignments
+            a for a in assignments
             if not a.deadline or a.deadline >= now
         ]
 
@@ -268,11 +266,18 @@ class DashboardPage(BasePage):
             return
 
         # نام درس‌ها
+        from src.utils.quera_adapter import quera_course_label, is_quera_item
+
         courses = CourseRepository(db).get_all()
         course_map = {c.id: c.name for c in courses}
 
         for _, item_type, item in items:
-            course_name = course_map.get(item.course_id or "", "")
+            # اگه Quera هست، نام مصنوعی
+            if is_quera_item(item):
+                course_name = quera_course_label(item.course_id)
+            else:
+                course_name = course_map.get(item.course_id or "", "")
+
             card = UpcomingCard(item, item_type, course_name)
             card.clicked.connect(self.course_selected.emit)
             self.upcoming_container.addWidget(card)
