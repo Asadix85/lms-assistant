@@ -2,9 +2,8 @@ name: Telegram Notify
 
 on:
   schedule:
-    # هر ۲ ساعت (ساعت‌های زوج UTC)
-    - cron: "0 */2 * * *"
-  workflow_dispatch:  # اجرای دستی برای تست
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
 
 jobs:
   notify:
@@ -18,7 +17,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
