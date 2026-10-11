@@ -8,11 +8,24 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+import jdatetime
 import requests
 
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 DB_FILE = Path("data/lms.db")
+
+
+def to_jalali(dt_str: str) -> str:
+    """تبدیل ISO datetime به شمسی (رشته)."""
+    if not dt_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(dt_str)
+        jd = jdatetime.datetime.fromgregorian(datetime=dt)
+        return jd.strftime("%d %B %Y — %H:%M")
+    except Exception:
+        return dt_str[:16]
 
 
 def send_telegram(token: str, chat_id: str, text: str) -> bool:
@@ -42,7 +55,6 @@ def send_telegram(token: str, chat_id: str, text: str) -> bool:
 
 
 def main() -> None:
-    # === تنظیمات ===
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -54,7 +66,6 @@ def main() -> None:
         print(f"❌ دیتابیس پیدا نشد: {DB_FILE}")
         return
 
-    # === اتصال به دیتابیس ===
     conn = sqlite3.connect(str(DB_FILE))
     conn.row_factory = sqlite3.Row
 
@@ -79,7 +90,7 @@ def main() -> None:
     # === پست‌های جدید ===
     try:
         posts = conn.execute(
-            "SELECT id, author, text, course_id FROM posts "
+            "SELECT id, author, text FROM posts "
             "WHERE is_new = 1 ORDER BY posted_at DESC LIMIT 5"
         ).fetchall()
     except sqlite3.OperationalError:
@@ -94,12 +105,10 @@ def main() -> None:
     except sqlite3.OperationalError:
         events = []
 
-    conn.close()
-
-    # === اگه هیچ تغییری نیست → خروج ===
     total = len(assignments) + len(quera) + len(posts) + len(events)
     if total == 0:
         print("✨ هیچ تغییر جدیدی نیست")
+        conn.close()
         return
 
     print(f"🔔 {total} تغییر جدید پیدا شد")
@@ -111,32 +120,18 @@ def main() -> None:
     if assignments:
         lines.append(f"📋 <b>{len(assignments)} تکلیف جدید LMS:</b>")
         for a in assignments[:5]:
-            deadline = ""
-            if a["deadline"]:
-                try:
-                    dt = datetime.fromisoformat(a["deadline"])
-                    deadline = f"  ⏰ {dt.strftime('%Y-%m-%d %H:%M')}"
-                except Exception:
-                    deadline = f"  ⏰ {a['deadline'][:16]}"
             lines.append(f"  • {a['title'][:60]}")
-            if deadline:
-                lines.append(deadline)
+            if a["deadline"]:
+                lines.append(f"    ⏰ {to_jalali(a['deadline'])}")
         lines.append("")
 
     # === تمرین‌های Quera ===
     if quera:
         lines.append(f"🎯 <b>{len(quera)} تمرین جدید Quera:</b>")
         for q in quera[:5]:
-            deadline = ""
-            if q["finish_time"]:
-                try:
-                    dt = datetime.fromisoformat(q["finish_time"])
-                    deadline = f"  ⏰ {dt.strftime('%Y-%m-%d %H:%M')}"
-                except Exception:
-                    deadline = f"  ⏰ {q['finish_time'][:16]}"
             lines.append(f"  • {q['name'][:60]}")
-            if deadline:
-                lines.append(deadline)
+            if q["finish_time"]:
+                lines.append(f"    ⏰ {to_jalali(q['finish_time'])}")
         lines.append("")
 
     # === پست‌های جدید ===
@@ -151,28 +146,26 @@ def main() -> None:
     if events:
         lines.append(f"📅 <b>{len(events)} رویداد جدید:</b>")
         for e in events[:3]:
-            start = ""
-            if e["start_at"]:
-                try:
-                    dt = datetime.fromisoformat(e["start_at"])
-                    start = f"  ⏰ {dt.strftime('%Y-%m-%d %H:%M')}"
-                except Exception:
-                    start = f"  ⏰ {e['start_at'][:16]}"
             lines.append(f"  • {e['title'][:60]}")
-            if start:
-                lines.append(start)
+            if e["start_at"]:
+                lines.append(f"    ⏰ {to_jalali(e['start_at'])}")
         lines.append("")
 
     # === Footer ===
-    lines.append(f"⏱️ {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    now = datetime.now()
+    jd = jdatetime.datetime.fromgregorian(datetime=now)
+    lines.append(f"⏱️ {jd.strftime('%Y/%m/%d — %H:%M')}")
 
     message = "\n".join(lines)
 
     # === ارسال ===
     if send_telegram(token, chat_id, message):
         print("✅ نوتیفیکیشن ارسال شد")
+        # ⚠️ is_new رو صفر نمی‌کنیم چون دیتابیس لوکال دست‌نخورده می‌مونه
     else:
-        print("❌ خطا در ارسال نوتیفیکیشن")
+        print("❌ خطا در ارسال")
+
+    conn.close()
 
 
 if __name__ == "__main__":

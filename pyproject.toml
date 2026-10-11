@@ -3,6 +3,9 @@ name = "lms-assistant"
 version = "0.1.0"
 description = "LMS Assistant for University of Isfahan"
 requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.34.2",
+]
 
 [tool.setuptools]
 packages = ["config", "src"]
