@@ -1,6 +1,7 @@
 """Worker برای Sync در thread جداگانه."""
 
 from PySide6.QtCore import QObject, Signal
+from loguru import logger
 
 from src.services.lms_assistant import LMSAssistant
 from src.services.notifier import Notifier
@@ -75,6 +76,22 @@ class SyncWorker(QObject):
             if self.notify and not result.has_error:
                 notifier = Notifier()
                 notifier.notify_sync_result(result)
+
+            # === Push DB به GitHub (برای GitHub Actions) ===
+            if not result.has_error:
+                try:
+                    from src.services.git_pusher import GitPusher
+
+                    pusher = GitPusher(repo_root=".")
+                    pushed = pusher.push_db()
+
+                    if pushed:
+                        logger.info("✅ DB به GitHub push شد")
+                    else:
+                        logger.info("ℹ️ DB push نشد (تغییری نبود)")
+
+                except Exception as e:
+                    logger.warning(f"⚠️ خطا در push DB: {e}")
 
             self.finished.emit(result)
 
