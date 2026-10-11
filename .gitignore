@@ -24,9 +24,12 @@ ENV/
 .env.*.local
 
 # === Database ===
-data/lms.db
+# ⚠️ data/lms.db رو ignore نکن — GitHub Actions لازمش داره
+data/lms.db-shm
+data/lms.db-wal
 data/lms.db-journal
 data/files/
+data/backups/
 
 # === Logs ===
 *.log
@@ -43,5 +46,5 @@ desktop.ini
 htmlcov/
 .tox/
 
-# === uv ===
-# uv.lock  (فعلاً نگه‌دار، بعداً تصمیم می‌گیریم)
+# === Debug ===
+debug_*.html
