@@ -1,4 +1,4 @@
-"""Assignments Page: لیست همه تکالیف (LMS + Quera)."""
+
 
 from datetime import datetime
 
