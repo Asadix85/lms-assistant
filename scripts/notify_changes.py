@@ -11,7 +11,7 @@ from pathlib import Path
 import jdatetime
 import requests
 
-from scripts.state_manager import (
+from state_manager import (
     filter_new,
     load_state,
     mark_notified,
