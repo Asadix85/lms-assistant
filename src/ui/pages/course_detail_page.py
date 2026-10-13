@@ -20,7 +20,11 @@ from src.storage.repositories import (
     AssignmentRepository,
     ContentRepository,
     PostRepository,
+    MemberRepository,
 )
+from src.storage.repositories.course_schedule_repo import CourseScheduleRepository
+from src.models.member import MemberType
+from src.ui.widgets.schedule_card import ScheduleCard
 from src.ui.theme import Colors, CurrentTheme
 from src.ui.widgets.assignment_card import AssignmentCard
 from src.ui.widgets.post_card import PostCard
@@ -132,6 +136,10 @@ class CourseDetailPage(QWidget):
         self.contents_container = self._build_tab_container()
         self.tabs.addTab(self.contents_container, "📄 فایل‌ها")
 
+        # ⚠️ Schedule Tab (جدید)
+        self.schedule_container = self._build_tab_container()
+        self.tabs.addTab(self.schedule_container, "📅 برنامه‌ی کلاس")
+
         layout.addWidget(self.tabs, stretch=1)
 
     def _build_tab_container(self) -> QScrollArea:
@@ -189,8 +197,9 @@ class CourseDetailPage(QWidget):
         # === Load tabs ===
         self._load_posts()
         self._load_assignments()
-        self._load_contents()
         self._load_members()
+        self._load_contents()
+        self._load_schedule()
 
         self.tabs.setCurrentIndex(0)
 
@@ -403,6 +412,39 @@ class CourseDetailPage(QWidget):
                 layout.addWidget(self._make_member_row(s))
 
         self.tabs.setTabText(2, f"👥 همکلاسی‌ها ({len(students)})")
+
+    def _load_schedule(self) -> None:
+        """بارگذاری برنامه‌ی کلاس."""
+        if not self._course:
+            return
+
+        layout = self.schedule_container._content_layout
+        self._clear_layout(layout)
+
+        try:
+            with Database(self.db_path) as db:
+                repo = CourseScheduleRepository(db)
+                schedule = repo.get_by_id(self._course.group_id)
+        except Exception as e:
+            layout.addWidget(QLabel(f"خطا: {e}"))
+            return
+
+        if not schedule or not schedule.sessions:
+            empty = EmptyState(
+                icon_name="calendar-xmark",
+                title="برنامه‌ای برای این درس ثبت نشده",
+                description="اطلاعات زمان و مکان کلاس در دسترس نیست. یک Sync جدید بزنید.",
+                compact=True,
+            )
+            layout.addWidget(empty)
+            self.tabs.setTabText(4, "📅 برنامه‌ی کلاس")
+            return
+
+        for session in schedule.sessions:
+            card = ScheduleCard(session)
+            layout.addWidget(card)
+
+        self.tabs.setTabText(4, f"📅 برنامه‌ی کلاس ({len(schedule.sessions)})")
 
     def _make_member_row(self, member) -> QFrame:
         """ساخت ردیف یک عضو."""
