@@ -7,11 +7,12 @@ from dataclasses import dataclass, field
 # وزن هر فاز برای محاسبه‌ی درصد کل
 # (مجموع = 1.0)
 PHASE_WEIGHTS: dict[str, float] = {
-    "login": 0.10,
+    "login": 0.08,
     "courses": 0.10,
-    "contents": 0.25,
+    "schedules": 0.07,
+    "contents": 0.22,
     "events": 0.05,
-    "wall": 0.30,
+    "wall": 0.28,
     "members": 0.20,
 }
 

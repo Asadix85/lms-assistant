@@ -1,105 +1,182 @@
-"""Parser برای استخراج اطلاعات جلسات (زمان + مکان) از صفحه‌ی درس."""
+"""Parser برای استخراج برنامه‌ی هفتگی (زمان + مکان) از صفحه‌ی درس."""
 
 import re
 
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from src.models.course_schedule import CourseSchedule
+from src.models.course_schedule import ClassSession, CourseSchedule
 
 
 class CourseScheduleParser:
-    """استخراج زمان + مکان کلاس از HTML صفحه‌ی درس.
+    """استخراج برنامه‌ی کلاس از HTML صفحه‌ی wall.
 
-    ساختار HTML (نمونه):
-    ایجاد شده: ۲۱ مهر ۱۴۰۵ ۹:۴۲ عصر
-    حمید ملا - کد درس: ۲۰۳۰۶-۱۱-۱ | برگزاری: سه شنبه ۰۰:۱۶-۱۴:۰۰ |
-    فنی و مهندسی ساختمان انصاری - طبقه همکف - اتاق شماره ۱۳۵
+    ساختار:
+    <div id='group_information'>
+      ایجاد شده : ۲۱ مهر ۰۵, ۱۰:۱۳ عصر
+      کمال جمشیدی - کد درس : 36-20-313  برگزاری : دوشنبه 09:00-10:00 در فني و مهندسي كلاس 25- ...|
+    </div>
     """
 
-    # الگوی روز هفته
+    # ⚠️ بلندترین اول (تا «شنبه» داخل «دوشنبه» match نشه)
     WEEKDAYS = [
-        "شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه", "سه شنبه",
-        "چهارشنبه", "پنج‌شنبه", "پنج شنبه", "جمعه",
+        "چهارشنبه",
+        "پنج‌شنبه", "پنج شنبه", "پنجشنبه",
+        "یک‌شنبه", "یک شنبه", "یکشنبه",
+        "دوشنبه",
+        "سه‌شنبه", "سه شنبه",
+        "جمعه",
+        "شنبه",  # ← آخر (کوتاه‌ترین)
     ]
 
-    # الگوی ساعت: 00:16-14:00 یا 16:00-14:00 یا 14:00
+    # الگوی ساعت: 09:00-10:00
     TIME_PATTERN = re.compile(r"(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})")
 
-    # الگوی اتاق
-    ROOM_PATTERN = re.compile(r"اتاق\s+شماره\s+(\d+)")
-
-    # الگوی طبقه
-    FLOOR_PATTERN = re.compile(r"طبقه\s+([^\s\-|]+)")
-
-    # الگوی ساختمان
-    BUILDING_PATTERN = re.compile(r"(ساختمان\s+[^\s\-|]+|فنی\s+و\s+مهندسی[^\s\-|]*)")
+    # الگوی کد درس
+    CODE_PATTERN = re.compile(r"کد\s*درس\s*:\s*([\d\-]+)")
 
     def parse(self, html: str, course_id: str) -> CourseSchedule | None:
-        """استخراج اطلاعات از HTML."""
         soup = BeautifulSoup(html, "lxml")
 
-        # === پیدا کردن متن «برگزاری» ===
-        text = soup.get_text(separator=" ", strip=True)
+        info_div = soup.find("div", id="group_information")
+        if not info_div:
+            logger.debug(f"div#group_information توی درس {course_id} پیدا نشد")
+            return None
 
-        # پاکسازی
+        text = info_div.get_text(separator=" ", strip=True)
         text = text.replace("\xa0", " ").replace("\u200c", "")
         text = re.sub(r"\s+", " ", text)
 
-        # === پیدا کردن بخش «برگزاری» ===
-        # الگو: «برگزاری: سه شنبه 00:16-14:00 | فنی و مهندسی... - طبقه همکف - اتاق شماره 135»
-        pattern = re.compile(
-            r"برگزاری\s*:\s*(.+?)(?=ایجاد|$)",
-            re.DOTALL,
-        )
-        match = pattern.search(text)
+        logger.debug(f"متن schedule: {text[:200]}")
 
-        if not match:
-            logger.debug(f"بخش «برگزاری» توی درس {course_id} پیدا نشد")
-            return None
+        # کد درس
+        course_code = ""
+        code_match = self.CODE_PATTERN.search(text)
+        if code_match:
+            course_code = code_match.group(1)
 
-        schedule_text = match.group(1).strip()
+        # بخش «برگزاری»
+        schedule_text = text
+        if "برگزاری" in text:
+            idx = text.find("برگزاری")
+            schedule_text = text[idx:]
 
-        # === استخراج روز ===
-        weekday = None
-        for wd in self.WEEKDAYS:
-            if wd in schedule_text:
-                weekday = wd
-                break
-
-        # === استخراج ساعت ===
-        start_time = None
-        end_time = None
-        time_match = self.TIME_PATTERN.search(schedule_text)
-        if time_match:
-            start_time = time_match.group(1)
-            end_time = time_match.group(2)
-
-        # === استخراج اتاق ===
-        room = None
-        room_match = self.ROOM_PATTERN.search(schedule_text)
-        if room_match:
-            room = room_match.group(1)
-
-        # === استخراج طبقه ===
-        floor = None
-        floor_match = self.FLOOR_PATTERN.search(schedule_text)
-        if floor_match:
-            floor = floor_match.group(1).strip()
-
-        # === استخراج ساختمان ===
-        building = None
-        building_match = self.BUILDING_PATTERN.search(schedule_text)
-        if building_match:
-            building = building_match.group(1).strip()
+        # استخراج جلسات
+        sessions = self._parse_sessions(schedule_text)
 
         return CourseSchedule(
             course_id=course_id,
+            course_code=course_code,
+            sessions=sessions,
+            raw_text=text,
+        )
+
+    def _parse_sessions(self, text: str) -> list[ClassSession]:
+        """استخراج جلسات از متن (با longest-match-first)."""
+        sessions: list[ClassSession] = []
+
+        # جایگزینی , با |
+        text = text.replace(",", "|")
+
+        # === استراتژی: از چپ به راست، بلندترین match ===
+        # موقعیت‌های شروع رو پیدا کن
+        positions = []
+        i = 0
+        while i < len(text):
+            matched = False
+            # بلندترین روز اول
+            for weekday in self.WEEKDAYS:
+                if text[i:i + len(weekday)] == weekday:
+                    positions.append((i, weekday))
+                    i += len(weekday)
+                    matched = True
+                    break
+            if not matched:
+                i += 1
+
+        logger.debug(f"پیدا شد {len(positions)} روز: {[(p[1]) for p in positions]}")
+
+        # === برای هر روز، جلسه رو استخراج کن ===
+        for idx, (start, weekday) in enumerate(positions):
+            # پایان = شروع روز بعد یا انتهای متن
+            if idx + 1 < len(positions):
+                end = positions[idx + 1][0]
+            else:
+                # آخرین جلسه: تا انتهای متن یا اولین |
+                pipe_idx = text.find("|", start)
+                end = pipe_idx if pipe_idx != -1 else len(text)
+
+            session_text = text[start:end].strip()
+
+            session = self._parse_single_session(session_text, weekday)
+            if session:
+                sessions.append(session)
+
+        return sessions
+
+    def _parse_single_session(
+        self,
+        text: str,
+        weekday: str,
+    ) -> ClassSession | None:
+        """پارس یه جلسه."""
+        # ساعت
+        time_match = self.TIME_PATTERN.search(text)
+        if not time_match:
+            return None
+
+        start_time = time_match.group(1)
+        end_time = time_match.group(2)
+
+        # === مکان: اولین «در» رو بگیر ===
+        location = ""
+        match = re.search(r"\sدر\s+(.+?)(?:\s*\||$)", text)
+        if match:
+            location = match.group(1).strip()
+
+        # پاکسازی
+        location = re.sub(r"\s+", " ", location).strip()
+
+        # ⚠️ حذف تکرار (نصف دوم اگه با نصف اول یکیه)
+        location = self._dedupe_location(location)
+
+        return ClassSession(
             weekday=weekday,
             start_time=start_time,
             end_time=end_time,
-            building=building,
-            floor=floor,
-            room=room,
-            raw_text=schedule_text,
+            location=location,
+        )
+
+    def _dedupe_location(self, location: str) -> str:
+        """حذف تکرار در مکان.
+
+        مثال:
+        «ساختمان A ساختمان A کلاس 203» → «ساختمان A کلاس 203»
+        """
+        if not location:
+            return location
+
+        words = location.split()
+        n = len(words)
+
+        # اگه تعداد کلمات زوجه، چک کن نصف اول == نصف دوم
+        # ولی معمولاً تکرار قبل از «کلاس» هست
+
+        # روش: دنبال تکرار کلمه‌به‌کلمه بگرد
+        # برای سادگی: اگه نصف اول متن == نصف دوم متن، حذف کن
+        for split in range(n // 2, 0, -1):
+            first_half = " ".join(words[:split])
+            second_half = " ".join(words[split:split * 2])
+            if first_half == second_half:
+                # تکرار پیدا شد
+                rest = " ".join(words[split * 2:])
+                return f"{first_half} {rest}".strip()
+
+        return location
+
+        return ClassSession(
+            weekday=weekday,
+            start_time=start_time,
+            end_time=end_time,
+            location=location,
         )

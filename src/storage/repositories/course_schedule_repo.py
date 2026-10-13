@@ -1,10 +1,11 @@
 """Repository برای CourseSchedule."""
 
+import json
 from datetime import datetime
 
 from loguru import logger
 
-from src.models.course_schedule import CourseSchedule
+from src.models.course_schedule import ClassSession, CourseSchedule
 from src.storage.repositories.base import BaseRepository
 
 
@@ -21,18 +22,28 @@ class CourseScheduleRepository(BaseRepository):
 
         now = datetime.now().isoformat()
 
+        # سریالایز sessions به JSON
+        sessions_data = [
+            {
+                "weekday": s.weekday,
+                "start_time": s.start_time,
+                "end_time": s.end_time,
+                "location": s.location,
+            }
+            for s in schedule.sessions
+        ]
+        sessions_json = json.dumps(sessions_data, ensure_ascii=False)
+
         if existing:
             self.db.execute(
                 """
                 UPDATE course_schedules SET
-                    weekday = ?, start_time = ?, end_time = ?,
-                    building = ?, floor = ?, room = ?,
+                    course_code = ?, sessions_json = ?,
                     raw_text = ?, last_seen_at = ?
                 WHERE course_id = ?
                 """,
                 (
-                    schedule.weekday, schedule.start_time, schedule.end_time,
-                    schedule.building, schedule.floor, schedule.room,
+                    schedule.course_code, sessions_json,
                     schedule.raw_text, now, schedule.course_id,
                 ),
             )
@@ -40,16 +51,13 @@ class CourseScheduleRepository(BaseRepository):
             self.db.execute(
                 """
                 INSERT INTO course_schedules (
-                    course_id, weekday, start_time, end_time,
-                    building, floor, room, raw_text,
-                    first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    course_id, course_code, sessions_json,
+                    raw_text, first_seen_at, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    schedule.course_id, schedule.weekday,
-                    schedule.start_time, schedule.end_time,
-                    schedule.building, schedule.floor, schedule.room,
-                    schedule.raw_text, now, now,
+                    schedule.course_id, schedule.course_code,
+                    sessions_json, schedule.raw_text, now, now,
                 ),
             )
             logger.debug(f"درج برنامه‌ی جدید: {schedule.course_id}")
@@ -68,13 +76,22 @@ class CourseScheduleRepository(BaseRepository):
         return [self._from_dict(r) for r in rows]
 
     def _from_dict(self, row: dict) -> CourseSchedule:
+        sessions = []
+        try:
+            data = json.loads(row.get("sessions_json", "[]"))
+            for s in data:
+                sessions.append(ClassSession(
+                    weekday=s.get("weekday", ""),
+                    start_time=s.get("start_time", ""),
+                    end_time=s.get("end_time", ""),
+                    location=s.get("location", ""),
+                ))
+        except json.JSONDecodeError:
+            pass
+
         return CourseSchedule(
             course_id=row["course_id"],
-            weekday=row.get("weekday"),
-            start_time=row.get("start_time"),
-            end_time=row.get("end_time"),
-            building=row.get("building"),
-            floor=row.get("floor"),
-            room=row.get("room"),
+            course_code=row.get("course_code", ""),
+            sessions=sessions,
             raw_text=row.get("raw_text", ""),
         )

@@ -1,42 +1,50 @@
 """مدل CourseSchedule (زمان + مکان کلاس)."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass
+class ClassSession:
+    """یه جلسه‌ی کلاس (روز + ساعت + مکان)."""
+
+    weekday: str = ""       # دوشنبه
+    start_time: str = ""    # 09:00
+    end_time: str = ""      # 10:00
+    location: str = ""      # فني و مهندسي كلاس 25- مجتمع كلاسها طبقه دوم
+
+    @property
+    def time_range(self) -> str:
+        if self.start_time and self.end_time:
+            return f"{self.start_time}-{self.end_time}"
+        return self.start_time or ""
+
+    def to_text(self) -> str:
+        """متن خوانا."""
+        parts = []
+        if self.weekday:
+            parts.append(self.weekday)
+        if self.time_range:
+            parts.append(self.time_range)
+        if self.location:
+            parts.append(f"در {self.location}")
+        return " ".join(parts)
 
 
 @dataclass
 class CourseSchedule:
-    """اطلاعات زمان + مکان کلاس."""
+    """برنامه‌ی یه درس."""
 
     course_id: str
-    weekday: str | None = None       # سه‌شنبه
-    start_time: str | None = None    # 14:00
-    end_time: str | None = None      # 16:00
-    building: str | None = None      # ساختمان انصاری
-    floor: str | None = None         # همکف
-    room: str | None = None          # 135
+    course_code: str = ""       # 36-20-313
+    sessions: list[ClassSession] = field(default_factory=list)
     raw_text: str = ""
 
     @property
-    def location(self) -> str:
-        """مکان به صورت یک خط."""
-        parts = []
-        if self.building:
-            parts.append(self.building)
-        if self.floor:
-            parts.append(f"طبقه {self.floor}")
-        if self.room:
-            parts.append(f"اتاق {self.room}")
-        return " — ".join(parts)
-
-    @property
-    def time_range(self) -> str:
-        """بازه‌ی زمانی."""
-        if self.start_time and self.end_time:
-            return f"{self.start_time} - {self.end_time}"
-        return self.start_time or ""
+    def has_sessions(self) -> bool:
+        return len(self.sessions) > 0
 
     def __repr__(self) -> str:
         return (
             f"CourseSchedule(course={self.course_id!r}, "
-            f"weekday={self.weekday!r}, time={self.time_range!r})"
+            f"sessions={len(self.sessions)})"
         )

@@ -146,8 +146,6 @@ class SyncService:
             self._enabled_phases = ["login", "courses", "schedules"]
             if sync_contents:
                 self._enabled_phases.append("contents")
-            if sync_contents:
-                self._enabled_phases.append("contents")
             if sync_events:
                 self._enabled_phases.append("events")
             if sync_wall:
