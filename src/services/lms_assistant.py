@@ -206,6 +206,21 @@ class LMSAssistant:
 
         return posts_by_course, assignments_by_course
 
+    def get_course_wall_html(self, course: Course) -> str | None:
+        """HTML خام صفحه‌ی wall درس."""
+        if course.domain not in self.active_domains:
+            if course.nodeg_url:
+                self.activate_domain(course.nodeg_url, course.domain)
+            else:
+                return None
+
+        try:
+            collector = WallCollector(self.client, course=course)
+            return collector.collect()
+        except Exception as e:
+            logger.error(f"خطا در wall {course.name}: {e}")
+            return None
+
     # === Lifecycle ===
 
     def close(self) -> None:

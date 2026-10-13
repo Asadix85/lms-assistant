@@ -368,15 +368,16 @@ class MainWindow(QMainWindow):
     # ============================================================
 
     def _on_update_clicked(self) -> None:
-        # ⚠️ چک هم LMS و هم Quera
-        has_lms = bool(settings.lms_username and settings.lms_password)
-        has_quera = bool(settings.quera_username and settings.quera_password)
+        from src.services.credential_provider import CredentialProvider
+
+        creds = CredentialProvider.get()
+
+        has_lms = bool(creds.lms_username and creds.lms_password)
+        has_quera = bool(creds.quera_username and creds.quera_password)
 
         if not has_lms and not has_quera:
-            QMessageBox.warning(
-                self, "خطا",
-                "نام کاربری و رمز عبور LMS یا Quera در .env تنظیم نشده."
-            )
+            # باز کردن Dialog
+            self._show_login_dialog()
             return
 
         self.header.set_busy(True, "در حال Sync...")
@@ -384,11 +385,34 @@ class MainWindow(QMainWindow):
 
         self._thread = QThread()
         self._worker = SyncWorker(
-            username=settings.lms_username,
-            password=settings.lms_password,
+            username=creds.lms_username,
+            password=creds.lms_password,
             db_path=self.DB_PATH,
             notify=True,
         )
+
+    def _show_login_dialog(self) -> None:
+        """باز کردن Dialog ورود."""
+        from src.services.credential_provider import CredentialProvider
+        from src.ui.dialogs.login_dialog import LoginDialog
+
+        creds = CredentialProvider.get()
+
+        dialog = LoginDialog(
+            self,
+            lms_username=creds.lms_username,
+            lms_password=creds.lms_password,
+            quera_username=creds.quera_username,
+            quera_password=creds.quera_password,
+        )
+
+        dialog.login_success.connect(
+            lambda lu, lp, qu, qp: CredentialProvider.update(lu, lp, qu, qp)
+        )
+
+        if dialog.exec() == LoginDialog.Accepted:
+            self.status_bar.showMessage("✅ اطلاعات ذخیره شد")
+
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)

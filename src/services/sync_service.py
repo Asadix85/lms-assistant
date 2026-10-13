@@ -143,7 +143,9 @@ class SyncService:
             )
 
             # === ساخت لیست فازهای فعال ===
-            self._enabled_phases = ["login", "courses"]
+            self._enabled_phases = ["login", "courses", "schedules"]
+            if sync_contents:
+                self._enabled_phases.append("contents")
             if sync_contents:
                 self._enabled_phases.append("contents")
             if sync_events:
@@ -284,6 +286,26 @@ class SyncService:
                     "Sync phase 'wall' completed in {:.2f}s",
                     time.perf_counter() - phase_start,
                 )
+
+            # =====================================================
+            # Schedules (زمان + مکان کلاس)
+            # =====================================================
+
+            phase_start = time.perf_counter()
+
+            self._notify(
+                phase="schedules",
+                message="دریافت برنامه‌ی کلاس‌ها...",
+                current=0,
+                total=len(active_courses),
+            )
+
+            self._sync_schedules(result, active_courses)
+
+            logger.info(
+                "Sync phase 'schedules' completed in {:.2f}s",
+                time.perf_counter() - phase_start,
+            )
 
             # =====================================================
             # Members
@@ -636,6 +658,47 @@ class SyncService:
                     current=completed,
                     total=total,
                     changes=self._result_changes(result),
+                )
+
+    def _sync_schedules(self, result: SyncResult, courses) -> None:
+        """Sync برنامه‌ی هفتگی (زمان + مکان)."""
+        from src.parsers.course_schedule_parser import CourseScheduleParser
+        from src.storage.repositories.course_schedule_repo import CourseScheduleRepository
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        parser = CourseScheduleParser()
+        repo = CourseScheduleRepository(self.db)
+
+        def fetch(course):
+            try:
+                html = self.assistant.get_course_wall_html(course)
+                if not html:
+                    return course, None
+
+                schedule = parser.parse(html, course.group_id)
+                return course, schedule
+            except Exception:
+                logger.exception(f"خطا در schedule {course.id}")
+                return course, None
+
+        completed = 0
+        total = len(courses)
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(fetch, c) for c in courses]
+
+            for future in as_completed(futures):
+                course, schedule = future.result()
+                completed += 1
+
+                if schedule:
+                    repo.save(schedule)
+
+                self._notify(
+                    phase="schedules",
+                    message=f"برنامه {completed} از {total} درس",
+                    current=completed,
+                    total=total,
                 )
 
     # =============================================================

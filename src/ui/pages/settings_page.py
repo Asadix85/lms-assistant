@@ -66,6 +66,7 @@ class SettingsPage(BasePage):
 
         # === Cards ===
         self._build_user_card()
+        self._build_credentials_card()
         self._build_sync_card()
         self._build_display_card()
         self._build_database_card()
@@ -108,6 +109,92 @@ class SettingsPage(BasePage):
         card.add_row("دامنه‌ها", domains_str)
 
         self.scroll_layout.addWidget(card)
+
+    def _build_credentials_card(self) -> None:
+        """کارت مدیریت credentials."""
+        from src.services.credential_provider import CredentialProvider
+        from src.services.credentials_manager import CredentialsManager
+
+        card = SettingCard(title="اطلاعات ورود", icon="🔐")
+
+        creds = CredentialProvider.get()
+
+        # نمایش
+        username_display = creds.lms_username or "—"
+        card.add_row("نام کاربری LMS", username_display)
+
+        if creds.quera_username:
+            card.add_row("نام کاربری Quera", creds.quera_username)
+
+        # === دکمه‌ها ===
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        change_btn = QPushButton("🔄 تغییر رمز")
+        change_btn.setObjectName("SecondaryButton")
+        change_btn.clicked.connect(self._on_change_password)
+        btn_row.addWidget(change_btn)
+
+        logout_btn = QPushButton("🚪 خروج")
+        logout_btn.setObjectName("SecondaryButton")
+        logout_btn.clicked.connect(self._on_logout)
+        btn_row.addWidget(logout_btn)
+
+        btn_row.addStretch()
+
+        container = QWidget()
+        container.setLayout(btn_row)
+        card.add_widget(container)
+
+        self.scroll_layout.addWidget(card)
+
+    def _on_change_password(self) -> None:
+        """تغییر رمز از طریق Dialog."""
+        from src.services.credential_provider import CredentialProvider
+        from src.ui.dialogs.login_dialog import LoginDialog
+
+        creds = CredentialProvider.get()
+
+        dialog = LoginDialog(
+            self,
+            lms_username=creds.lms_username,
+            lms_password="",  # رمز خالی
+            quera_username=creds.quera_username,
+            quera_password="",
+        )
+
+        dialog.login_success.connect(
+            lambda lu, lp, qu, qp: CredentialProvider.update(lu, lp, qu, qp)
+        )
+
+        if dialog.exec() == LoginDialog.Accepted:
+            QMessageBox.information(self, "موفق", "اطلاعات ذخیره شد.")
+            self.refresh()
+
+    def _on_logout(self) -> None:
+        """خروج و حذف credentials."""
+        from src.services.credential_provider import CredentialProvider
+        from src.services.credentials_manager import CredentialsManager
+
+        reply = QMessageBox.question(
+            self,
+            "خروج",
+            "آیا مطمئن هستی؟ اطلاعات ورود حذف می‌شود.",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        CredentialsManager.clear_all()
+        CredentialProvider.reset()
+
+        QMessageBox.information(
+            self, "خروج",
+            "اطلاعات حذف شد. برنامه را ببندید و دوباره باز کنید."
+        )
+
+        self.refresh()
 
     def _build_sync_card(self) -> None:
         from src.services.settings_manager import SettingsManager
@@ -419,6 +506,7 @@ class SettingsPage(BasePage):
 
         # بازسازی
         self._build_user_card()
+        self._build_credentials_card()
         self._build_sync_card()
         self._build_display_card()
         self._build_database_card()

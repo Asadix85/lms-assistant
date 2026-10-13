@@ -12,6 +12,7 @@ from src.storage.repositories.quera_repo import (
     QueraAssignmentRepository,
     QueraCourseRepository,
 )
+from src.storage.repositories.course_schedule_repo import CourseScheduleRepository
 
 __all__ = [
     "AssignmentRepository",
@@ -24,4 +25,5 @@ __all__ = [
     "MemberRepository",
     "QueraAssignmentRepository",
     "QueraCourseRepository",
+    "CourseScheduleRepository",
 ]

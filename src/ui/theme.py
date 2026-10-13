@@ -580,6 +580,15 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background: transparent;
         border: none;
     }}
+    
+    /* === Login Dialog === */
+    QDialog {{
+        background-color: {c.BG_CARD};
+        border-radius: 16px;
+    }}
+    QDialog QLabel {{
+        background: transparent;
+    }}
 
         /* === Scroll Bar (سفارشی) === */
     QScrollArea {{

@@ -164,3 +164,18 @@ CREATE TABLE IF NOT EXISTS quera_courses (
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL
 );
+
+-- جدول برنامه‌ی هفتگی دروس
+CREATE TABLE IF NOT EXISTS course_schedules (
+    course_id TEXT PRIMARY KEY,
+    weekday TEXT,
+    start_time TEXT,
+    end_time TEXT,
+    building TEXT,
+    floor TEXT,
+    room TEXT,
+    raw_text TEXT,
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
