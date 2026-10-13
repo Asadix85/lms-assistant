@@ -24,54 +24,66 @@ class ScheduleCard(QFrame):
         super().__init__(parent)
         self._session = session
         self.setObjectName("Card")
-        self.setMinimumHeight(110)
+        self.setMinimumHeight(120)
         self._build()
 
     def _build(self) -> None:
         c = CurrentTheme.colors()
 
+        # === Layout اصلی (افقی) ===
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
 
-        # === آیکون روز (چپ) ===
+        # ============================================
+        # ۱. جعبه‌ی روز (راست‌ترین در RTL)
+        # ============================================
         day_box = QFrame()
         day_box.setObjectName("AssignmentTimeBox")
-        day_box.setFixedSize(90, 75)
+        day_box.setFixedSize(100, 80)
 
         day_layout = QVBoxLayout(day_box)
         day_layout.setAlignment(Qt.AlignCenter)
-        day_layout.setSpacing(2)
+        day_layout.setSpacing(4)
+        day_layout.setContentsMargins(5, 5, 5, 5)
 
         icon = QLabel("📅")
-        icon.setStyleSheet("font-size: 16pt; background: transparent;")
+        icon.setStyleSheet("font-size: 18pt; background: transparent;")
         icon.setAlignment(Qt.AlignCenter)
         day_layout.addWidget(icon)
 
         day_label = QLabel(self._session.weekday or "—")
         day_label.setStyleSheet(
-            f"font-size: 11pt; font-weight: bold; color: {c.PRIMARY}; "
+            f"font-size: 12pt; font-weight: bold; color: {c.PRIMARY}; "
             "background: transparent;"
         )
         day_label.setAlignment(Qt.AlignCenter)
         day_layout.addWidget(day_label)
 
+        # ⚠️ در RTL، اولین widget = راست‌ترین
         layout.addWidget(day_box)
 
-        # === اطلاعات (وسط) ===
+        # ============================================
+        # ۲. اطلاعات (وسط)
+        # ============================================
         content_col = QVBoxLayout()
         content_col.setSpacing(10)
         content_col.setAlignment(Qt.AlignVCenter)
+        content_col.setDirection(QVBoxLayout.TopToBottom)
 
-        # ساعت
-        time_text = self._session.time_range or "—"
+        # === ساعت ===
         time_row = QHBoxLayout()
         time_row.setSpacing(8)
+        time_row.setDirection(QHBoxLayout.RightToLeft)  # ← راست به چپ
 
+        # ⚠️ در RTL: اول آیکون (راست)، بعد متن (چپ)
         time_icon = QLabel("⏰")
-        time_icon.setStyleSheet("font-size: 12pt; background: transparent;")
+        time_icon.setStyleSheet("font-size: 13pt; background: transparent;")
+        time_icon.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        time_icon.setFixedWidth(25)
         time_row.addWidget(time_icon)
 
+        time_text = self._session.time_range or "—"
         time_label = QLabel(time_text)
         time_label.setStyleSheet(
             f"font-size: 12pt; font-weight: bold; color: {c.TEXT_PRIMARY}; "
@@ -82,14 +94,17 @@ class ScheduleCard(QFrame):
 
         content_col.addLayout(time_row)
 
-        # مکان
+        # === مکان ===
         if self._session.location:
             location_row = QHBoxLayout()
             location_row.setSpacing(8)
+            location_row.setDirection(QHBoxLayout.RightToLeft)  # ← راست به چپ
 
+            # ⚠️ در RTL: اول آیکون (راست)، بعد متن (چپ)
             loc_icon = QLabel("📍")
-            loc_icon.setStyleSheet("font-size: 12pt; background: transparent;")
-            loc_icon.setAlignment(Qt.AlignTop)
+            loc_icon.setStyleSheet("font-size: 13pt; background: transparent;")
+            loc_icon.setAlignment(Qt.AlignRight | Qt.AlignTop)
+            loc_icon.setFixedWidth(25)
             location_row.addWidget(loc_icon)
 
             location_label = QLabel(self._session.location)
