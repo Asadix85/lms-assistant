@@ -1,27 +1,26 @@
-"""Change Card: کارت نمایش یک تغییر."""
+"""Change Card: کارت نمایش یک تغییر — نسخه‌ی بازطراحی‌شده."""
 
-from PySide6.QtWidgets import (
-    QFrame,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QWidget,
-)
+from __future__ import annotations
+
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.models.change import Change, ChangeType, EntityType
-from src.ui.theme import Colors
+from src.ui.theme import CurrentTheme
+
+
+def _c(name: str, fallback: str) -> str:
+    return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
 class ChangeCard(QFrame):
-    """کارت نمایش یک تغییر."""
+    """کارت نمایش یک تغییر با آیکون رنگی و پیل نوع."""
 
     TYPE_META = {
-        ChangeType.NEW: ("🆕", "جدید", Colors.SUCCESS),
-        ChangeType.UPDATED: ("🔄", "به‌روز", Colors.INFO),
-        ChangeType.REMOVED: ("🗑️", "حذف", Colors.ERROR),
+        ChangeType.NEW: ("🆕", "جدید", "#34C759"),
+        ChangeType.UPDATED: ("🔄", "به‌روز", "#2AA6A3"),
+        ChangeType.REMOVED: ("🗑️", "حذف", "#FF3B30"),
     }
-
     ENTITY_META = {
         EntityType.COURSE: ("📚", "درس"),
         EntityType.CONTENT: ("📄", "فایل"),
@@ -36,73 +35,79 @@ class ChangeCard(QFrame):
         self._build()
 
     def _build(self) -> None:
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(18, 15, 18, 15)
-        layout.setSpacing(15)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(14)
 
-        # === Icon Box ===
-        type_icon, type_text, type_color = self.TYPE_META.get(
-            self._change.type, ("❓", "نامشخص", Colors.TEXT_MUTED)
+        # --- آیکون ---
+        type_icon, _type_text, type_color = self.TYPE_META.get(
+            self._change.type, ("❓", "نامشخص", _c("TEXT_MUTED", "#8E8E93"))
         )
 
         icon_box = QFrame()
-        icon_box.setObjectName("ChangeIconBox")
-        icon_box.setFixedSize(60, 60)
+        icon_box.setFixedSize(52, 52)
         icon_box.setStyleSheet(
-            f"QFrame#ChangeIconBox {{ "
-            f"background-color: {type_color}22; "
-            f"border-radius: 10px; }}"
+            f"background-color: {type_color}22; border-radius: 14px;"
         )
+        icon_lay = QVBoxLayout(icon_box)
+        icon_lay.setAlignment(Qt.AlignCenter)
 
-        icon_layout = QVBoxLayout(icon_box)
-        icon_layout.setAlignment(Qt.AlignCenter)
+        icon_lbl = QLabel(type_icon)
+        icon_lbl.setStyleSheet("font-size: 18pt; background: transparent;")
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lay.addWidget(icon_lbl)
+        lay.addWidget(icon_box)
 
-        icon_label = QLabel(type_icon)
-        icon_label.setStyleSheet("font-size: 20pt; background: transparent;")
-        icon_label.setAlignment(Qt.AlignCenter)
-        icon_layout.addWidget(icon_label)
-
-        layout.addWidget(icon_box)
-
-        # === Content ===
+        # --- محتوا ---
         content = QVBoxLayout()
-        content.setSpacing(3)
+        content.setSpacing(4)
 
-        # Title
-        title = self._get_title()
-        title_label = QLabel(title)
-        title_label.setObjectName("CardTitle")
-        title_label.setWordWrap(True)
-        title_label.setAlignment(Qt.AlignRight)
-        content.addWidget(title_label)
+        title = QLabel(self._get_title())
+        title.setWordWrap(True)
+        title.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1C1C1E')}; font-size: 11pt; "
+            "font-weight: 700; background: transparent;"
+        )
+        content.addWidget(title)
 
-        # Entity type + Change type
         entity_icon, entity_text = self.ENTITY_META.get(
             self._change.entity_type, ("❓", "نامشخص")
         )
-        info = QLabel(f"{entity_icon} {entity_text}  •  {type_text}")
-        info.setStyleSheet(
-            f"color: {type_color}; font-size: 9pt; background: transparent;"
-        )
-        info.setAlignment(Qt.AlignRight)
-        content.addWidget(info)
+        info_row = QHBoxLayout()
+        info_row.setSpacing(8)
 
-        # Time
-        time_str = self._change.detected_at.strftime("%Y-%m-%d %H:%M")
-        time_label = QLabel(time_str)
-        time_label.setStyleSheet(
-            f"color: {Colors.TEXT_MUTED}; font-size: 8pt; background: transparent;"
+        entity_pill = QLabel(f"{entity_icon} {entity_text}")
+        entity_pill.setFixedHeight(22)
+        entity_pill.setStyleSheet(
+            f"color: {_c('TEXT_SECONDARY', '#3A3A3C')}; "
+            f"background-color: {_c('BORDER_LIGHT', 'rgba(0,0,0,0.05)')}; "
+            "border-radius: 11px; padding: 0 10px; font-size: 8pt; font-weight: 600;"
         )
-        time_label.setAlignment(Qt.AlignRight)
-        content.addWidget(time_label)
+        info_row.addWidget(entity_pill)
 
-        layout.addLayout(content, stretch=1)
+        type_pill = QLabel(_type_text)
+        type_pill.setFixedHeight(22)
+        type_pill.setStyleSheet(
+            f"color: {type_color}; background-color: {type_color}22; "
+            "border-radius: 11px; padding: 0 10px; font-size: 8pt; font-weight: 700;"
+        )
+        info_row.addWidget(type_pill)
+        info_row.addStretch()
+        content.addLayout(info_row)
+
+        time_lbl = QLabel(self._change.detected_at.strftime("%Y-%m-%d %H:%M"))
+        time_lbl.setStyleSheet(
+            f"color: {_c('TEXT_MUTED', '#8E8E93')}; font-size: 8pt; background: transparent;"
+        )
+        content.addWidget(time_lbl)
+
+        lay.addLayout(content, stretch=1)
 
     def _get_title(self) -> str:
-        """گرفتن عنوان از data."""
         data = self._change.data or {}
-        if "name" in data:
-            return data["name"]
-        if "title" in data:
-            return data["title"]
-        return f"{self._change.entity_id}"
+        return data.get("name") or data.get("title") or self._change.entity_id
+
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم."""
+        # بازسازی کامل کارت
+        self._build()

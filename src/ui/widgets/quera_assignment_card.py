@@ -1,146 +1,181 @@
-"""Quera Assignment Card: کارت نمایش یک تمرین Quera."""
+"""Quera Assignment Card: کارت نمایش یک تمرین Quera — نسخه‌ی بازطراحی‌شده."""
 
-from datetime import datetime
+from __future__ import annotations
 
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QFrame,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QVBoxLayout,
     QWidget,
+    QProgressBar,
 )
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
 
 from src.models.quera_assignment import QueraAssignment
 from src.ui.theme import CurrentTheme
 
 
-class QueraAssignmentCard(QFrame):
-    """کارت تمرین Quera."""
+def _c(name: str, fallback: str) -> str:
+    return str(getattr(CurrentTheme.colors(), name, fallback))
 
-    def __init__(
-        self,
-        assignment: QueraAssignment,
-        parent: QWidget | None = None,
-    ) -> None:
+
+class QueraAssignmentCard(QFrame):
+    """کارت تمرین Quera با نوار پیشرفت و هویت رنگی Accent."""
+
+    def __init__(self, assignment: QueraAssignment, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._assignment = assignment
         self.setObjectName("AssignmentCard")
-        self.setMinimumHeight(110)
+        self.setMinimumHeight(130)
         self._build()
 
     def _build(self) -> None:
-        c = CurrentTheme.colors()
+        accent = _c("ACCENT", "#FF9500")
+        accent_dark = _c("ACCENT_DARK", "#CC7700")
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(18, 15, 18, 15)
-        layout.setSpacing(15)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(18, 16, 18, 16)
+        lay.setSpacing(16)
 
-        # === Time Box ===
+        # --- باکس زمان با رنگ Accent ---
         time_box = QFrame()
-        time_box.setObjectName("AssignmentTimeBox")
-        time_box.setFixedSize(80, 80)
+        time_box.setFixedSize(84, 84)
+        time_box.setStyleSheet(f"""
+            QFrame {{
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {accent},
+                    stop:1 {accent_dark});
+                border-radius: 16px;
+            }}
+        """)
+        time_lay = QVBoxLayout(time_box)
+        time_lay.setAlignment(Qt.AlignCenter)
+        time_lay.setSpacing(2)
 
-        time_layout = QVBoxLayout(time_box)
-        time_layout.setAlignment(Qt.AlignCenter)
-        time_layout.setSpacing(2)
-
-        icon = QLabel("🎯")
-        icon.setStyleSheet("font-size: 14pt; background: transparent;")
-        icon.setAlignment(Qt.AlignCenter)
-        time_layout.addWidget(icon)
-
-        # روز مانده
         days = self._assignment.days_left
         if days < 0:
-            time_text = "گذشت"
-            color = c.TEXT_MUTED
+            time_text, sub_text = "گذشت", "مهلت تمام شده"
         elif days == 0:
-            time_text = "امروز"
-            color = c.ERROR
+            time_text, sub_text = "امروز", "آخرین فرصت!"
         elif days == 1:
-            time_text = "۱ روز"
-            color = c.WARNING
+            time_text, sub_text = "۱ روز", "فردا تمام می‌شه"
         else:
             time_text = self._to_fa(days) + " روز"
-            color = c.PRIMARY if days > 3 else c.WARNING
+            sub_text = "مانده"
 
-        time_label = QLabel(time_text)
-        time_label.setStyleSheet(
-            f"font-size: 12pt; font-weight: bold; color: {color}; "
-            "background: transparent;"
-        )
-        time_label.setAlignment(Qt.AlignCenter)
-        time_layout.addWidget(time_label)
+        time_lbl = QLabel(time_text)
+        time_lbl.setStyleSheet("color: #FFFFFF; font-size: 14pt; font-weight: 800; background: transparent;")
+        time_lbl.setAlignment(Qt.AlignCenter)
+        time_lay.addWidget(time_lbl)
 
-        layout.addWidget(time_box)
+        sub_lbl = QLabel(sub_text)
+        sub_lbl.setStyleSheet("color: rgba(255,255,255,0.85); font-size: 7.5pt; background: transparent;")
+        sub_lbl.setAlignment(Qt.AlignCenter)
+        time_lay.addWidget(sub_lbl)
+        lay.addWidget(time_box)
 
-        # === Content ===
-        content_layout = QVBoxLayout()
-        content_layout.setSpacing(5)
+        # --- محتوا ---
+        content = QVBoxLayout()
+        content.setSpacing(8)
 
-        # عنوان
+        # عنوان + بج کوئرا
+        title_row = QHBoxLayout()
+        title_row.setSpacing(10)
+
         title = QLabel(self._assignment.name)
-        title.setObjectName("CardTitle")
         title.setWordWrap(True)
-        title.setAlignment(Qt.AlignRight)
-        content_layout.addWidget(title)
-
-        # نام درس + badge
-        meta_row = QHBoxLayout()
-        meta_row.setSpacing(8)
-
-        course = QLabel(f"📚  {self._assignment.course_name}")
-        course.setStyleSheet(
-            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
-            "background: transparent;"
+        title.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1C1C1E')}; font-size: 12pt; "
+            "font-weight: 700; background: transparent;"
         )
-        course.setAlignment(Qt.AlignRight)
-        meta_row.addWidget(course)
+        title_row.addWidget(title, stretch=1)
 
-        # badge کوئرا
-        badge = QLabel("🎯  کوئرا")
-        badge.setStyleSheet(
-            f"background-color: {c.PRIMARY}22; color: {c.PRIMARY}; "
-            "padding: 3px 10px; border-radius: 10px; font-size: 9pt;"
+        quera_badge = QLabel("🎯 کوئرا")
+        quera_badge.setFixedHeight(24)
+        quera_badge.setStyleSheet(
+            f"color: {accent}; background-color: {accent}22; "
+            "border-radius: 12px; padding: 0 10px; font-size: 8pt; font-weight: 700;"
         )
-        meta_row.addWidget(badge)
+        title_row.addWidget(quera_badge)
+        content.addLayout(title_row)
 
-        meta_row.addStretch()
-        content_layout.addLayout(meta_row)
-
-        # پیشرفت
-        progress_text = (
-            f"📊  {self._to_fa(self._assignment.submitted_count)} از "
-            f"{self._to_fa(self._assignment.problems_count)} سؤال"
+        # نام درس
+        course_lbl = QLabel(f"📚  {self._assignment.course_name}")
+        course_lbl.setStyleSheet(
+            f"color: {_c('TEXT_SECONDARY', '#3A3A3C')}; font-size: 9.5pt; background: transparent;"
         )
-        progress_label = QLabel(progress_text)
-        progress_label.setStyleSheet(
-            f"color: {c.TEXT_MUTED}; font-size: 9pt; background: transparent;"
-        )
-        progress_label.setAlignment(Qt.AlignRight)
-        content_layout.addWidget(progress_label)
+        content.addWidget(course_lbl)
 
-        layout.addLayout(content_layout, stretch=1)
+        # نوار پیشرفت
+        if self._assignment.problems_count > 0:
+            progress_row = QHBoxLayout()
+            progress_row.setSpacing(10)
 
-        # === Action ===
-        open_btn = QPushButton("🚪  باز کردن")
-        open_btn.setObjectName("PrimaryButton")
-        open_btn.setMinimumWidth(120)
+            progress_lbl = QLabel("پیشرفت:")
+            progress_lbl.setStyleSheet(
+                f"color: {_c('TEXT_MUTED', '#8E8E93')}; font-size: 8.5pt; background: transparent;"
+            )
+            progress_row.addWidget(progress_lbl)
+
+            bar = QProgressBar()
+            bar.setRange(0, self._assignment.problems_count)
+            bar.setValue(self._assignment.submitted_count)
+            bar.setFixedHeight(8)
+            bar.setTextVisible(False)
+            bar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: {_c('BORDER_LIGHT', 'rgba(0,0,0,0.08)')};
+                    border-radius: 4px;
+                }}
+                QProgressBar::chunk {{
+                    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 {accent}, stop:1 {accent_dark});
+                    border-radius: 4px;
+                }}
+            """)
+            progress_row.addWidget(bar, stretch=1)
+
+            count_lbl = QLabel(
+                f"{self._to_fa(self._assignment.submitted_count)}/{self._to_fa(self._assignment.problems_count)}"
+            )
+            count_lbl.setStyleSheet(
+                f"color: {accent}; font-size: 9pt; font-weight: 700; background: transparent;"
+            )
+            progress_row.addWidget(count_lbl)
+            content.addLayout(progress_row)
+
+        lay.addLayout(content, stretch=1)
+
+        # --- دکمه باز کردن ---
+        open_btn = QPushButton("باز کردن  ↗")
         open_btn.setCursor(Qt.PointingHandCursor)
+        open_btn.setMinimumWidth(120)
+        open_btn.setFixedHeight(40)
+        open_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {accent}, stop:1 {accent_dark});
+                color: #FFFFFF;
+                border: none;
+                border-radius: 12px;
+                font-size: 10pt;
+                font-weight: 700;
+            }}
+            QPushButton:hover {{
+                background-color: {accent_dark};
+            }}
+        """)
         open_btn.clicked.connect(self._on_open)
-        layout.addWidget(open_btn)
+        lay.addWidget(open_btn)
 
     def _on_open(self) -> None:
-        url = (
-            f"https://quera.org/course/assignments/"
-            f"{self._assignment.id}/problems"
-        )
+        url = f"https://quera.org/course/assignments/{self._assignment.id}/problems"
         QDesktopServices.openUrl(QUrl(url))
 
     @staticmethod
     def _to_fa(n: int) -> str:
-        fa_digits = "۰۱۲۳۴۵۶۷۸۹"
-        return "".join(fa_digits[int(d)] for d in str(n))
+        fa = "۰۱۲۳۴۵۶۷۸۹"
+        return "".join(fa[int(d)] for d in str(n))

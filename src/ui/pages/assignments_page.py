@@ -1,17 +1,20 @@
+"""Assignments Page: نمایش تکالیف — نسخه‌ی بازطراحی‌شده."""
 
+from __future__ import annotations
 
 from datetime import datetime
 
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
-    QFrame,
+    QVBoxLayout,
+    QWidget,
+    QGraphicsOpacityEffect,
 )
-from PySide6.QtCore import Qt, Signal
 
 from src.models.assignment import Assignment
 from src.models.quera_assignment import QueraAssignment
@@ -27,8 +30,12 @@ from src.ui.widgets.assignment_card import AssignmentCard
 from src.ui.widgets.quera_assignment_card import QueraAssignmentCard
 
 
+def _c(name: str, fallback: str) -> str:
+    return str(getattr(CurrentTheme.colors(), name, fallback))
+
+
 class AssignmentsPage(BasePage):
-    """صفحه‌ی تکالیف (LMS + Quera)."""
+    """صفحه‌ی تکالیف (LMS + Quera) — فیلتر دو مرحله‌ای."""
 
     assignment_clicked = Signal(str)
     sync_requested = Signal()
@@ -37,9 +44,11 @@ class AssignmentsPage(BasePage):
         self.db_path = db_path
         self._lms_assignments: list[Assignment] = []
         self._quera_assignments: list[QueraAssignment] = []
-        self._source_filter: str = "all"  # all | lms | quera
-        self._time_filter: str = "upcoming"  # upcoming | all | overdue
+        self._source_filter: str = "all"
+        self._time_filter: str = "upcoming"
         self._course_names: dict[str, str] = {}
+        self._first_load = True
+        self._anims: list = []
 
         super().__init__(
             title="تکالیف",
@@ -50,84 +59,79 @@ class AssignmentsPage(BasePage):
 
     def _build(self) -> None:
         super()._build()
+        self._fix_rtl()
 
-        # === Source Tabs (LMS/Quera) ===
-        source_toolbar = QHBoxLayout()
-        source_toolbar.setSpacing(10)
+        # === فیلتر منبع ===
+        source_card = QFrame()
+        source_card.setObjectName("Card")
+        src_lay = QHBoxLayout(source_card)
+        src_lay.setContentsMargins(14, 10, 14, 10)
+        src_lay.setSpacing(10)
 
-        self.btn_all_sources = QPushButton("🌐 همه")
-        self.btn_all_sources.setObjectName("FilterButton")
-        self.btn_all_sources.setCheckable(True)
-        self.btn_all_sources.setChecked(True)
-        self.btn_all_sources.clicked.connect(
-            lambda: self._set_source_filter("all")
-        )
-        source_toolbar.addWidget(self.btn_all_sources)
+        self.btn_all_sources = self._chip("🌐 همه", lambda: self._set_source_filter("all"), True)
+        self.btn_lms = self._chip("🎓 LMS", lambda: self._set_source_filter("lms"))
+        self.btn_quera = self._chip("🎯 کوئرا", lambda: self._set_source_filter("quera"))
 
-        self.btn_lms = QPushButton("🎓 LMS")
-        self.btn_lms.setObjectName("FilterButton")
-        self.btn_lms.setCheckable(True)
-        self.btn_lms.clicked.connect(lambda: self._set_source_filter("lms"))
-        source_toolbar.addWidget(self.btn_lms)
+        for b in (self.btn_all_sources, self.btn_lms, self.btn_quera):
+            src_lay.addWidget(b)
+        src_lay.addStretch()
+        self.content_layout.addWidget(source_card)
 
-        self.btn_quera = QPushButton("🎯 کوئرا")
-        self.btn_quera.setObjectName("FilterButton")
-        self.btn_quera.setCheckable(True)
-        self.btn_quera.clicked.connect(lambda: self._set_source_filter("quera"))
-        source_toolbar.addWidget(self.btn_quera)
+        # === فیلتر زمان ===
+        time_card = QFrame()
+        time_card.setObjectName("Card")
+        time_lay = QHBoxLayout(time_card)
+        time_lay.setContentsMargins(14, 10, 14, 10)
+        time_lay.setSpacing(10)
 
-        source_toolbar.addStretch()
-        self.content_layout.addLayout(source_toolbar)
+        self.btn_upcoming = self._chip("⏰ آینده", lambda: self._set_time_filter("upcoming"), True)
+        self.btn_all_time = self._chip("📋 همه", lambda: self._set_time_filter("all"))
+        self.btn_overdue = self._chip("⏹️ گذشته", lambda: self._set_time_filter("overdue"))
 
-        # === Time Tabs (Upcoming/All/Overdue) ===
-        time_toolbar = QHBoxLayout()
-        time_toolbar.setSpacing(10)
+        for b in (self.btn_upcoming, self.btn_all_time, self.btn_overdue):
+            time_lay.addWidget(b)
+        time_lay.addStretch()
+        self.content_layout.addWidget(time_card)
 
-        self.btn_upcoming = QPushButton("⏰ آینده")
-        self.btn_upcoming.setObjectName("FilterButton")
-        self.btn_upcoming.setCheckable(True)
-        self.btn_upcoming.setChecked(True)
-        self.btn_upcoming.clicked.connect(lambda: self._set_time_filter("upcoming"))
-        time_toolbar.addWidget(self.btn_upcoming)
-
-        self.btn_all_time = QPushButton("📋 همه")
-        self.btn_all_time.setObjectName("FilterButton")
-        self.btn_all_time.setCheckable(True)
-        self.btn_all_time.clicked.connect(lambda: self._set_time_filter("all"))
-        time_toolbar.addWidget(self.btn_all_time)
-
-        self.btn_overdue = QPushButton("⏹️ گذشته")
-        self.btn_overdue.setObjectName("FilterButton")
-        self.btn_overdue.setCheckable(True)
-        self.btn_overdue.clicked.connect(lambda: self._set_time_filter("overdue"))
-        time_toolbar.addWidget(self.btn_overdue)
-
-        time_toolbar.addStretch()
-        self.content_layout.addLayout(time_toolbar)
-
-        # Counter
+        # === شمارنده ===
         self.counter_label = QLabel("")
         self.counter_label.setObjectName("PageSubtitle")
-        self.counter_label.setAlignment(Qt.AlignRight)
+        self.counter_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.counter_label.setContentsMargins(4, 8, 4, 0)
         self.content_layout.addWidget(self.counter_label)
 
-        # Scroll
+        # === اسکرول ===
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
         self.list_widget = QWidget()
-        self.list_widget.setSizePolicy(
-            self.list_widget.sizePolicy().horizontalPolicy(),
-            self.list_widget.sizePolicy().verticalPolicy(),
-        )
         self.list_layout = QVBoxLayout(self.list_widget)
-        self.list_layout.setSpacing(10)
-        self.list_layout.setContentsMargins(0, 0, 0, 0)
+        self.list_layout.setSpacing(12)
+        self.list_layout.setContentsMargins(4, 8, 4, 24)
         self.list_layout.setAlignment(Qt.AlignTop)
 
         scroll.setWidget(self.list_widget)
         self.content_layout.addWidget(scroll, stretch=1)
+
+    def _fix_rtl(self) -> None:
+        self.setLayoutDirection(Qt.RightToLeft)
+        for obj in ("PageTitle", "PageSubtitle"):
+            lbl = self.findChild(QLabel, obj)
+            if lbl:
+                lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+    def _chip(self, text: str, slot, checked: bool = False) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setObjectName("FilterButton")
+        btn.setCheckable(True)
+        btn.setChecked(checked)
+        btn.setFixedHeight(36)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(slot)
+        return btn
 
     def refresh(self) -> None:
         try:
@@ -142,96 +146,143 @@ class AssignmentsPage(BasePage):
         self._apply_filters()
 
     def _apply_filters(self) -> None:
-        # === فیلتر منبع ===
         lms = list(self._lms_assignments) if self._source_filter in ("all", "lms") else []
         quera = list(self._quera_assignments) if self._source_filter in ("all", "quera") else []
 
-        # === فیلتر زمان ===
         now = datetime.now()
 
-        def is_upcoming(deadline):
-            return deadline and deadline >= now
-
-        def is_overdue(deadline):
-            return deadline and deadline < now
-
         if self._time_filter == "upcoming":
-            lms = [a for a in lms if is_upcoming(a.deadline)]
-            quera = [a for a in quera if is_upcoming(a.finish_time)]
+            lms = [a for a in lms if a.deadline and a.deadline >= now]
+            quera = [q for q in quera if q.finish_time and q.finish_time >= now]
         elif self._time_filter == "overdue":
-            lms = [a for a in lms if is_overdue(a.deadline)]
-            quera = [a for a in quera if is_overdue(a.finish_time)]
+            lms = [a for a in lms if a.deadline and a.deadline < now]
+            quera = [q for q in quera if q.finish_time and q.finish_time < now]
 
         total = len(lms) + len(quera)
-        total_all = (
-            len(self._lms_assignments)
-            if self._source_filter == "lms"
-            else len(self._quera_assignments)
-            if self._source_filter == "quera"
-            else len(self._lms_assignments) + len(self._quera_assignments)
-        )
+        total_all = len(self._lms_assignments) + len(self._quera_assignments)
+        self.counter_label.setText(f"نمایش {total} از {total_all} تکلیف")
 
-        self.counter_label.setText(
-            f"نمایش {total} از {total_all} تکلیف"
-        )
-
-        # پاک
+        # پاک کردن
         while self.list_layout.count():
             item = self.list_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-                widget.deleteLater()
+            if item.widget():
+                item.widget().deleteLater()
 
         if not lms and not quera:
-            from src.ui.widgets.empty_state import EmptyState
-            empty = EmptyState(
-                icon_name="clipboard-list",
-                title="هیچ تکلیفی نیست",
-                description="برای این فیلتر، تکلیفی پیدا نشد. یک Sync جدید بزنید.",
-                action_text="🔄  بروزرسانی",
-            )
-            empty.action_clicked.connect(self.sync_requested.emit)
-            self.list_layout.addWidget(empty)
+            self.list_layout.addWidget(self._make_empty_state())
             return
 
-        # === ترکیب و مرتب‌سازی بر اساس deadline ===
+        # ترکیب و مرتب‌سازی
         items = []
-
         for a in lms:
-            deadline = a.deadline or datetime.max
-            items.append((deadline, "lms", a))
-
+            items.append((a.deadline or datetime.max, "lms", a))
         for q in quera:
-            deadline = q.finish_time or datetime.max
-            items.append((deadline, "quera", q))
-
+            items.append((q.finish_time or datetime.max, "quera", q))
         items.sort(key=lambda x: x[0])
 
-        # === رندر ===
-        for deadline, source, item in items:
+        # رندر
+        widgets_to_animate = []
+        for _deadline, source, item in items:
             if source == "lms":
-                # LMS: با هدر نام درس
-                container = QFrame()
-                c_layout = QVBoxLayout(container)
-                c_layout.setContentsMargins(0, 0, 0, 0)
-                c_layout.setSpacing(5)
-
-                course_name = self._course_names.get(item.course_id, item.course_id)
-                course_label = QLabel(f"📚  {course_name}")
-                course_label.setStyleSheet(
-                    f"color: {CurrentTheme.colors().PRIMARY}; "
-                    "font-weight: bold; padding: 0 5px; background: transparent;"
-                )
-                course_label.setAlignment(Qt.AlignRight)
-                c_layout.addWidget(course_label)
-
-                card = AssignmentCard(item)
-                c_layout.addWidget(card)
+                container = self._make_lms_container(item)
                 self.list_layout.addWidget(container)
-            else:  # quera
+                widgets_to_animate.append(container)
+            else:
                 card = QueraAssignmentCard(item)
                 self.list_layout.addWidget(card)
+                widgets_to_animate.append(card)
+
+        self.list_layout.addStretch()
+
+        if self._first_load:
+            self._fade_in(widgets_to_animate)
+            self._first_load = False
+
+    def _make_lms_container(self, assignment: Assignment) -> QWidget:
+        """کانتینر تکلیف LMS با هدرس."""
+        container = QWidget()
+        lay = QVBoxLayout(container)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+
+        course_name = self._course_names.get(assignment.course_id, "نامشخص")
+        header = QHBoxLayout()
+        header.setSpacing(8)
+
+        icon = QLabel("📚")
+        icon.setStyleSheet("font-size: 11pt; background: transparent;")
+        header.addWidget(icon)
+
+        name_lbl = QLabel(course_name)
+        name_lbl.setStyleSheet(
+            f"color: {_c('PRIMARY', '#2AA6A3')}; font-weight: 700; "
+            "font-size: 10pt; background: transparent;"
+        )
+        header.addWidget(name_lbl)
+        header.addStretch()
+        lay.addLayout(header)
+
+        card = AssignmentCard(assignment)
+        lay.addWidget(card)
+        return container
+
+    def _make_empty_state(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignCenter)
+        lay.setSpacing(6)
+
+        icon = QLabel("📋")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet(
+            f"font-size: 44pt; color: {_c('TEXT_MUTED', '#8E8E93')}; background: transparent;"
+        )
+        lay.addWidget(icon)
+
+        title = QLabel("هیچ تکلیفی نیست")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1C1C1E')}; font-size: 13pt; "
+            "font-weight: 700; background: transparent;"
+        )
+        lay.addWidget(title)
+
+        desc = QLabel("برای این فیلتر، تکلیفی پیدا نشد.")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet(
+            f"color: {_c('TEXT_SECONDARY', '#3A3A3C')}; font-size: 10pt; background: transparent;"
+        )
+        lay.addWidget(desc)
+
+        lay.addSpacing(14)
+        btn = QPushButton("🔄  بروزرسانی")
+        btn.setObjectName("PrimaryButton")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedSize(150, 40)
+        btn.clicked.connect(self.sync_requested.emit)
+        lay.addWidget(btn, alignment=Qt.AlignCenter)
+        return w
+
+    def _fade_in(self, widgets: list[QWidget]) -> None:
+        self._anims.clear()
+        for i, w in enumerate(widgets[:15]):
+            eff = QGraphicsOpacityEffect(w)
+            w.setGraphicsEffect(eff)
+            anim = QPropertyAnimation(eff, b"opacity", self)
+            anim.setDuration(280)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.setEasingCurve(QEasingCurve.OutCubic)
+            anim.finished.connect(lambda widget=w: (
+                widget.setGraphicsEffect(None),
+                widget.update()
+            ))
+            self._anims.append(anim)
+            QTimer.singleShot(i * 35, anim.start)
+
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم."""
+        self._apply_filters()
 
     def _set_source_filter(self, f: str) -> None:
         self._source_filter = f

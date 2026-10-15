@@ -215,7 +215,10 @@ class Sidebar(QFrame):
 
     def _load_app_icon(self, size: int) -> None:
         """لود آیکون app."""
-        if not self.APP_ICON_PATH.exists():
+        from src.utils.paths import get_asset_path
+        icon_path = get_asset_path("icons/app.png")
+
+        if not icon_path.exists():
             self._app_icon.setText("🎓")
             self._app_icon.setStyleSheet(
                 f"font-size: {size // 2}pt; "
@@ -223,7 +226,7 @@ class Sidebar(QFrame):
             )
             return
 
-        pixmap = QPixmap(str(self.APP_ICON_PATH))
+        pixmap = QPixmap(str(icon_path))
         if pixmap.isNull():
             self._app_icon.setText("🎓")
             return

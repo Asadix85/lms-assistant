@@ -1,157 +1,198 @@
-"""Upcoming Card: کارت رویداد نزدیک (رویداد یا مهلت)."""
+"""Upcoming Card: کارت رویداد/مهلت نزدیک — نسخه‌ی بازطراحی‌شده."""
+
+from __future__ import annotations
 
 from datetime import datetime
 
-import jdatetime
-from PySide6.QtWidgets import (
-    QFrame,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QWidget,
-)
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from src.models.event import Event, EventType
 from src.models.assignment import Assignment
+from src.models.event import Event
 from src.ui.theme import CurrentTheme
 
 
-class UpcomingCard(QFrame):
-    """کارت رویداد/مهلت نزدیک با شمارش معکوس."""
+def _c(name: str, fallback: str) -> str:
+    return str(getattr(CurrentTheme.colors(), name, fallback))
 
-    clicked = Signal(str)  # id
+
+class UpcomingCard(QFrame):
+    """کارت رویداد/مهلت با نوار رنگی وضعیت."""
+
+    clicked = Signal(str)
 
     def __init__(
         self,
         item: Event | Assignment,
-        item_type: str,  # "event" یا "assignment"
+        item_type: str,
         course_name: str = "",
-        parent: QWidget | None = None,
+        parent=None,
     ) -> None:
         super().__init__(parent)
         self._item = item
         self._item_type = item_type
         self._course_name = course_name
-        self._course_id = item.course_id or ""
-
+        self._course_id = getattr(item, 'course_id', '') or ''
         self.setObjectName("UpcomingCard")
-        self.setFixedHeight(72)
+        self.setFixedHeight(76)
         self.setCursor(Qt.PointingHandCursor)
         self._build()
 
     def _build(self) -> None:
-        c = CurrentTheme.colors()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 10, 16, 10)
-        layout.setSpacing(12)
+        # --- نوار رنگی سمت راست ---
+        status_color = self._get_status_color()
+        color_bar = QFrame()
+        color_bar.setFixedWidth(5)
+        color_bar.setStyleSheet(f"background-color: {status_color}; border-top-left-radius: 12px; border-bottom-left-radius: 12px;")
+        lay.addWidget(color_bar)
 
-        # === آیکون ===
-        if self._item_type == "event":
-            icon_text = "🎥"
-            title = self._item.title
-            time_text, color = self._get_event_time()
-        else:
-            icon_text = "📋"
-            title = self._item.title
-            time_text, color = self._get_assignment_time()
+        # --- محتوا ---
+        content = QWidget()
+        content_lay = QHBoxLayout(content)
+        content_lay.setContentsMargins(14, 10, 14, 10)
+        content_lay.setSpacing(12)
 
+        # آیکون
+        icon_text = "🎥" if self._item_type == "event" else "📋"
         icon = QLabel(icon_text)
-        icon.setStyleSheet("font-size: 18pt; background: transparent;")
-        icon.setFixedWidth(32)
-        layout.addWidget(icon)
+        icon.setStyleSheet("font-size: 16pt; background: transparent;")
+        icon.setFixedWidth(28)
+        content_lay.addWidget(icon)
 
-        # === متن ===
+        # متن
         text_col = QVBoxLayout()
-        text_col.setSpacing(2)
+        text_col.setSpacing(3)
 
-        # عنوان + badge (اگه Quera)
+        # عنوان + بج
         title_row = QHBoxLayout()
         title_row.setSpacing(8)
 
-        title_label = QLabel(title)
-        title_label.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: 600; font-size: 11pt; "
-            "background: transparent;"
-        )
-        title_label.setAlignment(Qt.AlignRight)
-        title_row.addWidget(title_label, stretch=1)
+        title = QLabel(getattr(self._item, 'title', ''))
+        title.setStyleSheet(f"color: {_c('TEXT_PRIMARY', '#1C1C1E')}; font-weight: 700; font-size: 10.5pt; background: transparent;")
+        title_row.addWidget(title, stretch=1)
 
-        # badge کوئرا
         from src.utils.quera_adapter import is_quera_item
         if is_quera_item(self._item):
             badge = QLabel("🎯 کوئرا")
-            badge.setStyleSheet(
-                f"background-color: {c.PRIMARY}22; color: {c.PRIMARY}; "
-                "padding: 2px 8px; border-radius: 8px; font-size: 8pt;"
-            )
+            badge.setFixedHeight(20)
+            badge.setStyleSheet(f"color: {_c('ACCENT', '#FF9500')}; background-color: {_c('ACCENT', '#FF9500')}22; border-radius: 10px; padding: 0 8px; font-size: 7.5pt; font-weight: 700;")
             title_row.addWidget(badge)
-
         text_col.addLayout(title_row)
 
-        sub_label = QLabel(self._course_name)
-        sub_label.setStyleSheet(
-            f"color: {c.TEXT_MUTED}; font-size: 9pt; background: transparent;"
-        )
-        sub_label.setAlignment(Qt.AlignRight)
-        text_col.addWidget(sub_label)
+        # نام درس
+        if self._course_name:
+            course_lbl = QLabel(self._course_name)
+            course_lbl.setStyleSheet(f"color: {_c('TEXT_MUTED', '#8E8E93')}; font-size: 8.5pt; background: transparent;")
+            text_col.addWidget(course_lbl)
+        content_lay.addLayout(text_col, stretch=1)
 
-        layout.addLayout(text_col, stretch=1)
+        # زمان
+        time_text, _ = self._get_time_info()
+        time_lbl = QLabel(time_text)
+        time_lbl.setStyleSheet(f"color: {status_color}; font-weight: 800; font-size: 10pt; background: transparent;")
+        time_lbl.setMinimumWidth(80)
+        time_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        content_lay.addWidget(time_lbl)
 
-        # === زمان (راست) ===
-        time_label = QLabel(time_text)
-        time_label.setStyleSheet(
-            f"color: {color}; font-weight: bold; font-size: 11pt; "
-            "background: transparent;"
-        )
-        time_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        time_label.setMinimumWidth(90)
-        layout.addWidget(time_label)
+        lay.addWidget(content, stretch=1)
+
+        # افکت hover بر اساس تم
+        is_dark = CurrentTheme.is_dark()
+        if is_dark:
+            card_bg = "rgba(28, 38, 38, 0.75)"
+            card_hover = "rgba(44, 54, 54, 0.85)"
+        else:
+            card_bg = "rgba(255, 255, 255, 0.85)"
+            card_hover = "#FFFFFF"
+
+        self.setStyleSheet(f"""
+            QFrame#UpcomingCard {{
+                background-color: {card_bg};
+                border: 1px solid {_c('GLASS_BORDER', 'rgba(0,0,0,0.08)')};
+                border-radius: 12px;
+            }}
+            QFrame#UpcomingCard:hover {{
+                background-color: {card_hover};
+                border-color: {status_color}50;
+            }}
+        """)
+
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم."""
+        status_color = self._get_status_color()
+        is_dark = CurrentTheme.is_dark()
+
+        if is_dark:
+            card_bg = "rgba(28, 38, 38, 0.75)"
+            card_hover = "rgba(44, 54, 54, 0.85)"
+        else:
+            card_bg = "rgba(255, 255, 255, 0.85)"
+            card_hover = "#FFFFFF"
+
+        self.setStyleSheet(f"""
+            QFrame#UpcomingCard {{
+                background-color: {card_bg};
+                border: 1px solid {_c('GLASS_BORDER', 'rgba(0,0,0,0.08)')};
+                border-radius: 12px;
+            }}
+            QFrame#UpcomingCard:hover {{
+                background-color: {card_hover};
+                border-color: {status_color}50;
+            }}
+        """)
+
+        # به‌روزرسانی نوار رنگی
+        for child in self.findChildren(QFrame):
+            if child.width() == 5:  # نوار رنگی
+                child.setStyleSheet(
+                    f"background-color: {status_color}; border-top-left-radius: 12px; border-bottom-left-radius: 12px;")
+                break
+
+    def _get_status_color(self) -> str:
+        time_text, color = self._get_time_info()
+        return color
+
+    def _get_time_info(self) -> tuple[str, str]:
+        if self._item_type == "event":
+            return self._get_event_time()
+        else:
+            return self._get_assignment_time()
 
     def _get_event_time(self) -> tuple[str, str]:
-        """زمان رویداد + رنگ."""
-        c = CurrentTheme.colors()
-
-        if not self._item.start_at:
-            return "—", c.TEXT_MUTED
+        if not hasattr(self._item, 'start_at') or not self._item.start_at:
+            return "—", _c('TEXT_MUTED', '#8E8E93')
 
         delta = self._item.start_at - datetime.now()
         seconds = delta.total_seconds()
 
         if seconds < 0:
-            return "گذشته", c.TEXT_MUTED
-        elif seconds < 3600:  # کمتر از ۱ ساعت
-            mins = int(seconds / 60)
-            return f"{mins} دقیقه", c.ERROR
-        elif seconds < 86400:  # کمتر از ۱ روز
-            hours = int(seconds / 3600)
-            return f"{hours} ساعت", c.WARNING
+            return "گذشته", _c('TEXT_MUTED', '#8E8E93')
+        elif seconds < 3600:
+            return f"{int(seconds / 60)} دقیقه", _c('ERROR', '#FF3B30')
+        elif seconds < 86400:
+            return f"{int(seconds / 3600)} ساعت", _c('WARNING', '#FF9500')
         else:
-            days = int(seconds / 86400)
-            return f"{days} روز", c.PRIMARY
+            return f"{int(seconds / 86400)} روز", _c('PRIMARY', '#2AA6A3')
 
     def _get_assignment_time(self) -> tuple[str, str]:
-        """زمان مهلت + رنگ."""
-        c = CurrentTheme.colors()
-
-        if not self._item.deadline:
-            return "—", c.TEXT_MUTED
+        if not hasattr(self._item, 'deadline') or not self._item.deadline:
+            return "—", _c('TEXT_MUTED', '#8E8E93')
 
         delta = self._item.deadline - datetime.now()
         seconds = delta.total_seconds()
 
         if seconds < 0:
-            return "گذشته", c.ERROR
+            return "گذشته", _c('ERROR', '#FF3B30')
         elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"{hours} ساعت", c.ERROR
+            return f"{int(seconds / 3600)} ساعت", _c('ERROR', '#FF3B30')
         elif seconds < 3 * 86400:
-            days = int(seconds / 86400)
-            return f"{days} روز", c.WARNING
+            return f"{int(seconds / 86400)} روز", _c('WARNING', '#FF9500')
         else:
-            days = int(seconds / 86400)
-            return f"{days} روز", c.SUCCESS
+            return f"{int(seconds / 86400)} روز", _c('SUCCESS', '#34C759')
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.LeftButton:

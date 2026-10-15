@@ -48,7 +48,16 @@ class Database:
     def init_schema(self, schema_path: str | Path | None = None) -> None:
         """ساخت جداول از فایل schema.sql."""
         if schema_path is None:
-            schema_path = Path(__file__).parent / "schema.sql"
+            # ⚠️ توی EXE، schema.sql توی _internal هست
+            from src.utils.paths import is_frozen
+
+            if is_frozen():
+                # توی EXE: از _MEIPASS
+                import sys
+                schema_path = Path(sys._MEIPASS) / "src" / "storage" / "schema.sql"
+            else:
+                # توی Python: از مسیر فعلی
+                schema_path = Path(__file__).parent / "schema.sql"
 
         schema_path = Path(schema_path)
         if not schema_path.exists():
@@ -118,6 +127,16 @@ class Database:
 
     def __enter__(self) -> "Database":
         self.connect()
+        # ⚠️ فقط اگه جدول courses نیست، init_schema
+        try:
+            row = self.connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name='courses'"
+            ).fetchone()
+            if not row:
+                self.init_schema()
+        except Exception:
+            pass
         return self
 
     def __exit__(self, *args) -> None:

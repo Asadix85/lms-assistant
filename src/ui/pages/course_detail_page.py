@@ -1,40 +1,44 @@
-"""Course Detail Page: صفحه‌ی جزئیات یک درس (حرفه‌ای)."""
+"""Course Detail Page: صفحه‌ی جزئیات یک درس — نسخه‌ی بازطراحی‌شده."""
 
+from __future__ import annotations
+
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal, QTimer, QUrl
+from PySide6.QtWidgets import QGraphicsOpacityEffect
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
-    QFrame,
     QTabWidget,
-    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QUrl
-from PySide6.QtGui import QDesktopServices
 
 from src.models.course import Course
+from src.models.member import MemberType
 from src.storage.database import Database
 from src.storage.repositories import (
     AssignmentRepository,
     ContentRepository,
-    PostRepository,
     MemberRepository,
+    PostRepository,
 )
 from src.storage.repositories.course_schedule_repo import CourseScheduleRepository
-from src.models.member import MemberType
-from src.ui.widgets.schedule_card import ScheduleCard
-from src.ui.theme import Colors, CurrentTheme
+from src.ui.theme import CurrentTheme
 from src.ui.widgets.assignment_card import AssignmentCard
-from src.ui.widgets.post_card import PostCard
 from src.ui.widgets.course_info_card import CourseInfoCard
 from src.ui.widgets.course_stats_cards import CourseStatsCards
-from src.ui.widgets.empty_state import EmptyState
+from src.ui.widgets.post_card import PostCard
+from src.ui.widgets.schedule_card import ScheduleCard
+
+
+def _c(name: str, fallback: str) -> str:
+    return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
 class CourseDetailPage(QWidget):
-    """صفحه‌ی جزئیات یک درس."""
+    """صفحه‌ی جزئیات یک درس — Hero گرادیانتی + تب‌های مدرن."""
 
     back_clicked = Signal()
 
@@ -43,122 +47,169 @@ class CourseDetailPage(QWidget):
         "lms4": ("🔵", "فنی-مهندسی"),
         "lms5": ("🔴", "اداری-تربیتی"),
     }
+    FILE_META = {
+        "pdf": ("📄", "#FF3B30", "rgba(255, 59, 48, 0.12)"),
+        "zip": ("📦", "#FF9500", "rgba(255, 149, 0, 0.12)"),
+        "rar": ("📦", "#FF9500", "rgba(255, 149, 0, 0.12)"),
+        "mp4": ("🎬", "#3B8EA5", "rgba(59, 142, 165, 0.12)"),
+        "video": ("🎬", "#3B8EA5", "rgba(59, 142, 165, 0.12)"),
+    }
 
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.db_path = db_path
         self._course: Course | None = None
+        self._anims: list = []
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAutoFillBackground(False)
         self._build()
 
+    # --------------------------------------------------------
+    #  اسکلت
+    # --------------------------------------------------------
+
     def _build(self) -> None:
-        c = CurrentTheme.colors()
+        self.setLayoutDirection(Qt.RightToLeft)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 20, 30, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(24, 16, 24, 16)
+        layout.setSpacing(14)
 
-        # === Header Row (Back) ===
-        header_row = QHBoxLayout()
-        header_row.setDirection(QHBoxLayout.RightToLeft)
+        # === ردیف بالا: بازگشت + breadcrumb ===
+        head = QHBoxLayout()
+        head.setSpacing(12)
 
-        back_btn = QPushButton("←  بازگشت به دروس")
+        back_btn = QPushButton("→")
         back_btn.setObjectName("SecondaryButton")
+        back_btn.setFixedSize(40, 40)
         back_btn.setCursor(Qt.PointingHandCursor)
+        back_btn.setStyleSheet(
+            "QPushButton { border-radius: 20px; font-size: 13pt; font-weight: 700; }"
+        )
         back_btn.clicked.connect(self.back_clicked.emit)
-        header_row.addWidget(back_btn)
-        header_row.addStretch()
+        head.addWidget(back_btn)
 
-        layout.addLayout(header_row)
+        self.breadcrumb = QLabel("دروس")
+        self.breadcrumb.setStyleSheet(
+            f"color: {_c('TEXT_MUTED', '#8E8E93')}; font-size: 9.5pt; background: transparent;"
+        )
+        head.addWidget(self.breadcrumb)
+        head.addStretch()
+        layout.addLayout(head)
 
-        # === Hero Section ===
+        # === Hero ===
         self.hero = QFrame()
         self.hero.setObjectName("HeroCard")
-        self.hero.setMinimumHeight(120)
+        self.hero.setMinimumHeight(150)
 
-        hero_layout = QVBoxLayout(self.hero)
-        hero_layout.setContentsMargins(30, 20, 30, 20)
-        hero_layout.setSpacing(8)
+        hero_lay = QHBoxLayout(self.hero)
+        hero_lay.setContentsMargins(28, 22, 28, 22)
+        hero_lay.setSpacing(18)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(12)
 
         self.course_title = QLabel("—")
         self.course_title.setObjectName("HeroTitle")
-        self.course_title.setAlignment(Qt.AlignRight)
-        hero_layout.addWidget(self.course_title)
+        self.course_title.setWordWrap(True)
+        self.course_title.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        text_col.addWidget(self.course_title)
 
-        self.course_meta = QLabel("—")
-        self.course_meta.setObjectName("HeroMeta")
-        self.course_meta.setAlignment(Qt.AlignRight)
-        hero_layout.addWidget(self.course_meta)
+        self.meta_row = QHBoxLayout()
+        self.meta_row.setSpacing(8)
+        text_col.addLayout(self.meta_row)
+        text_col.addStretch()
+        hero_lay.addLayout(text_col, stretch=1)
 
+        self.hero_deco = QLabel("📚")
+        self.hero_deco.setFixedSize(96, 96)
+        self.hero_deco.setAlignment(Qt.AlignCenter)
+        self.hero_deco.setStyleSheet(
+            "background-color: rgba(255, 255, 255, 0.16); "
+            "border-radius: 48px; font-size: 40pt;"
+        )
+        hero_lay.addWidget(self.hero_deco)
         layout.addWidget(self.hero)
 
-        # === Cards Row (استاد + آمار) ===
+        # === کارت استاد + آمار ===
         cards_row = QHBoxLayout()
-        cards_row.setSpacing(15)
+        cards_row.setSpacing(14)
 
-        # کارت استاد
         self.info_card_container = QWidget()
         self.info_card_container.setAttribute(Qt.WA_TranslucentBackground, True)
-        info_layout = QVBoxLayout(self.info_card_container)
-        info_layout.setContentsMargins(0, 0, 0, 0)
-        self.info_card = None
+        QVBoxLayout(self.info_card_container).setContentsMargins(0, 0, 0, 0)
 
-        # کارت‌های آمار
         self.stats_container = QWidget()
         self.stats_container.setAttribute(Qt.WA_TranslucentBackground, True)
-        stats_layout = QVBoxLayout(self.stats_container)
-        stats_layout.setContentsMargins(0, 0, 0, 0)
-        self.stats = None
+        QVBoxLayout(self.stats_container).setContentsMargins(0, 0, 0, 0)
 
         cards_row.addWidget(self.info_card_container, stretch=1)
         cards_row.addWidget(self.stats_container, stretch=2)
-
         layout.addLayout(cards_row)
 
-        # === Tabs ===
+        # === تب‌ها ===
         self.tabs = QTabWidget()
         self.tabs.setLayoutDirection(Qt.RightToLeft)
+        self.tabs.setDocumentMode(True)
+        self._style_tabs()
 
-        # Posts Tab
         self.posts_container = self._build_tab_container()
         self.tabs.addTab(self.posts_container, "📢 پیام‌ها")
-
-        # Assignments Tab
         self.assignments_container = self._build_tab_container()
         self.tabs.addTab(self.assignments_container, "📋 تکالیف")
-
-        # Members Tab
         self.members_container = self._build_tab_container()
         self.tabs.addTab(self.members_container, "👥 همکلاسی‌ها")
-
-        # Contents Tab
         self.contents_container = self._build_tab_container()
         self.tabs.addTab(self.contents_container, "📄 فایل‌ها")
-
-        # ⚠️ Schedule Tab (جدید)
         self.schedule_container = self._build_tab_container()
-        self.tabs.addTab(self.schedule_container, "📅 برنامه‌ی کلاس")
+        self.tabs.addTab(self.schedule_container, "📅 برنامه کلاس")
 
         layout.addWidget(self.tabs, stretch=1)
+
+    def _style_tabs(self) -> None:
+        c = CurrentTheme.colors()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: none; background: transparent; top: -1px; }}
+            QTabBar {{ background: transparent; }}
+            QTabBar::tab {{
+                background: {c.GLASS_BG};
+                color: {c.TEXT_SECONDARY};
+                padding: 10px 20px;
+                margin-left: 6px;
+                border: 1px solid {c.GLASS_BORDER};
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+                font-size: 10pt;
+                font-weight: 600;
+            }}
+            QTabBar::tab:selected {{
+                background: {c.PRIMARY};
+                color: {c.TEXT_WHITE};
+                border-color: {c.PRIMARY};
+            }}
+            QTabBar::tab:hover:!selected {{
+                background: {c.GLASS_BG_HOVER};
+                color: {c.PRIMARY};
+                border-color: {c.GLASS_BORDER_HOVER};
+            }}
+        """)
 
     def _build_tab_container(self) -> QScrollArea:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setAttribute(Qt.WA_TranslucentBackground, True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
 
         widget = QWidget()
         widget.setAttribute(Qt.WA_TranslucentBackground, True)
-
-        layout = QVBoxLayout(widget)
-        layout.setSpacing(12)
-        layout.setContentsMargins(5, 10, 5, 10)
-        layout.setAlignment(Qt.AlignTop)
-        widget.setLayout(layout)
-
+        lay = QVBoxLayout(widget)
+        lay.setSpacing(10)
+        lay.setContentsMargins(6, 12, 6, 12)
+        lay.setAlignment(Qt.AlignTop)
         scroll.setWidget(widget)
-        scroll._content_layout = layout
+        scroll._content_layout = lay
         return scroll
 
     def _clear_layout(self, layout) -> None:
@@ -167,345 +218,350 @@ class CourseDetailPage(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-    # === Data ===
+    def _fade(self, widget: QWidget, delay: int = 0) -> None:
+        eff = QGraphicsOpacityEffect(widget)
+        widget.setGraphicsEffect(eff)
+        anim = QPropertyAnimation(eff, b"opacity", self)
+        anim.setDuration(300)
+        anim.setStartValue(0.0)
+        anim.setEndValue(1.0)
+        anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._anims.append(anim)
+        QTimer.singleShot(delay, anim.start)
+
+    def _hero_chip(self, text: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setFixedHeight(28)
+        lbl.setStyleSheet(
+            "background-color: rgba(255, 255, 255, 0.18); color: #FFFFFF; "
+            "border-radius: 14px; padding: 0 14px; font-size: 9pt; font-weight: 600;"
+        )
+        return lbl
+
+    def _tab_empty(self, icon: str, title: str, desc: str) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignCenter)
+        lay.setSpacing(6)
+
+        ic = QLabel(icon)
+        ic.setAlignment(Qt.AlignCenter)
+        ic.setStyleSheet(f"font-size: 34pt; color: {_c('TEXT_MUTED', '#8E8E93')}; background: transparent;")
+        lay.addWidget(ic)
+
+        t = QLabel(title)
+        t.setAlignment(Qt.AlignCenter)
+        t.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1C1C1E')}; font-size: 11.5pt; "
+            "font-weight: 700; background: transparent;"
+        )
+        lay.addWidget(t)
+
+        d = QLabel(desc)
+        d.setAlignment(Qt.AlignCenter)
+        d.setWordWrap(True)
+        d.setStyleSheet(
+            f"color: {_c('TEXT_SECONDARY', '#3A3A3C')}; font-size: 9.5pt; background: transparent;"
+        )
+        lay.addWidget(d)
+        return w
+
+    # --------------------------------------------------------
+    #  بارگذاری داده
+    # --------------------------------------------------------
 
     def load_course(self, course: Course) -> None:
         self._course = course
+        self._anims.clear()
 
-        # === Hero ===
-        icon, _ = self.DOMAIN_META.get(course.domain, ("⚪", "?"))
-        self.course_title.setText(f"{icon}  {course.name}")
+        icon, domain_fa = self.DOMAIN_META.get(course.domain, ("⚪", course.domain))
+        self.course_title.setText(course.name)
+        self.hero_deco.setText(icon)
+        self.breadcrumb.setText(f"دروس  /  {course.name}")
 
-        meta_parts = []
-        meta_parts.append(f"🌐 {course.domain}")
+        # چیپ‌های روی Hero
+        self._clear_layout(self.meta_row)
+        self.meta_row.addWidget(self._hero_chip(f"🌐 {domain_fa}"))
         if course.code:
-            meta_parts.append(f"📋 {course.code}")
+            self.meta_row.addWidget(self._hero_chip(f"📋 {course.code}"))
         if course.term:
-            meta_parts.append(f"📅 ترم {course.term}")
-        self.course_meta.setText("  •  ".join(meta_parts))
+            self.meta_row.addWidget(self._hero_chip(f"📅 ترم {course.term}"))
+        self.meta_row.addStretch()
 
-        # === Info Card (استاد) ===
+        # کارت استاد + آمار
         self._clear_layout(self.info_card_container.layout())
-        self.info_card = CourseInfoCard(course)
-        self.info_card_container.layout().addWidget(self.info_card)
+        self.info_card_container.layout().addWidget(CourseInfoCard(course))
 
-        # === Stats Cards ===
         self._clear_layout(self.stats_container.layout())
-        self.stats = CourseStatsCards(self.db_path, course.group_id)
-        self.stats_container.layout().addWidget(self.stats)
+        self.stats_container.layout().addWidget(
+            CourseStatsCards(self.db_path, course.group_id)
+        )
 
-        # === Load tabs ===
         self._load_posts()
         self._load_assignments()
         self._load_members()
         self._load_contents()
         self._load_schedule()
-
         self.tabs.setCurrentIndex(0)
 
+        # انیمیشن ورود پلکانی
+        self._fade(self.hero, 0)
+        self._fade(self.info_card_container, 80)
+        self._fade(self.stats_container, 140)
+        self._fade(self.tabs, 200)
+
+    # --- تب پیام‌ها ---
     def _load_posts(self) -> None:
         if not self._course:
             return
-
-        layout = self.posts_container._content_layout
-        self._clear_layout(layout)
-
+        lay = self.posts_container._content_layout
+        self._clear_layout(lay)
         try:
             with Database(self.db_path) as db:
-                repo = PostRepository(db)
-                posts = repo.get_by_course(self._course.group_id, limit=50)
+                posts = PostRepository(db).get_by_course(self._course.group_id, limit=50)
         except Exception as e:
-            layout.addWidget(QLabel(f"خطا: {e}"))
+            lay.addWidget(QLabel(f"خطا: {e}"))
             return
-
         if not posts:
-            empty = EmptyState(
-                icon_name="inbox",
-                title="هنوز پیامی در این درس نیست",
-                description="استاد هنوز پیامی منتشر نکرده است.",
-                compact=True,
-            )
-            layout.addWidget(empty)
+            lay.addWidget(self._tab_empty("📢", "هنوز پیامی نیست", "استاد هنوز پیامی منتشر نکرده است."))
             self.tabs.setTabText(0, "📢 پیام‌ها")
             return
-
         for p in posts:
-            card = PostCard(p)
-            layout.addWidget(card)
+            lay.addWidget(PostCard(p))
+        self.tabs.setTabText(0, f"📢 پیام‌ها ({self._to_fa(len(posts))})")
 
-        self.tabs.setTabText(0, f"📢 پیام‌ها ({len(posts)})")
-
+    # --- تب تکالیف ---
     def _load_assignments(self) -> None:
         if not self._course:
             return
-
-        layout = self.assignments_container._content_layout
-        self._clear_layout(layout)
-
+        lay = self.assignments_container._content_layout
+        self._clear_layout(lay)
         try:
             with Database(self.db_path) as db:
-                repo = AssignmentRepository(db)
-                assignments = repo.get_by_course(self._course.group_id)
+                assignments = AssignmentRepository(db).get_by_course(self._course.group_id)
         except Exception as e:
-            layout.addWidget(QLabel(f"خطا: {e}"))
+            lay.addWidget(QLabel(f"خطا: {e}"))
             return
-
         if not assignments:
-            empty = EmptyState(
-                icon_name="clipboard-list",
-                title="هنوز تکلیفی در این درس نیست",
-                description="استاد هنوز تکلیفی برای این درس ثبت نکرده است.",
-                compact=True,
-            )
-            layout.addWidget(empty)
+            lay.addWidget(self._tab_empty("📋", "هنوز تکلیفی نیست", "استاد تکلیفی برای این درس ثبت نکرده است."))
             self.tabs.setTabText(1, "📋 تکالیف")
             return
-
         for a in assignments:
-            card = AssignmentCard(a)
-            layout.addWidget(card)
+            lay.addWidget(AssignmentCard(a))
+        self.tabs.setTabText(1, f"📋 تکالیف ({self._to_fa(len(assignments))})")
 
-        self.tabs.setTabText(1, f"📋 تکالیف ({len(assignments)})")
-
-    def _load_contents(self) -> None:
-        if not self._course:
-            return
-
-        layout = self.contents_container._content_layout
-        self._clear_layout(layout)
-
-        try:
-            with Database(self.db_path) as db:
-                repo = ContentRepository(db)
-                contents = repo.get_by_course(self._course.group_id)
-        except Exception as e:
-            layout.addWidget(QLabel(f"خطا: {e}"))
-            return
-
-        if not contents:
-            empty = EmptyState(
-                icon_name="file",
-                title="هنوز فایلی در این درس نیست",
-                description="استاد هنوز فایلی آپلود نکرده است.",
-                compact=True,
-            )
-            layout.addWidget(empty)
-            self.tabs.setTabText(3, "📄 فایل‌ها")
-            return
-
-        c = CurrentTheme.colors()
-
-        for content in contents:
-            frame = QFrame()
-            frame.setObjectName("ContentRow")
-            frame.setLayoutDirection(Qt.RightToLeft)
-
-            row = QHBoxLayout(frame)
-            row.setContentsMargins(18, 12, 18, 12)
-            row.setSpacing(12)
-
-            # آیکون نوع
-            icon_char = "📄" if content.content_type == "pdf" else "📦"
-            icon_label = QLabel(icon_char)
-            icon_label.setStyleSheet(
-                "font-size: 18pt; background: transparent;"
-            )
-            icon_label.setFixedWidth(30)
-            row.addWidget(icon_label)
-
-            # نام فایل
-            name_label = QLabel(content.title)
-            name_label.setStyleSheet(
-                f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
-                "font-size: 11pt; background: transparent;"
-            )
-            name_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            name_label.setWordWrap(True)
-            row.addWidget(name_label, stretch=1)
-
-            # نوع
-            type_label = QLabel(content.content_type.upper())
-            type_label.setStyleSheet(
-                f"color: {c.TEXT_MUTED}; font-size: 9pt; "
-                "background: transparent; font-weight: bold;"
-            )
-            type_label.setAlignment(Qt.AlignCenter)
-            row.addWidget(type_label)
-
-            # دانلود
-            download_btn = QPushButton("⬇️ دانلود")
-            download_btn.setObjectName("SecondaryButton")
-            download_btn.setCursor(Qt.PointingHandCursor)
-            download_btn.setMinimumWidth(100)
-            download_btn.clicked.connect(
-                lambda checked, u=content.url: QDesktopServices.openUrl(QUrl(u))
-            )
-            row.addWidget(download_btn)
-
-            layout.addWidget(frame)
-
-        self.tabs.setTabText(3, f"📄 فایل‌ها ({len(contents)})")
-
-    # ⚠️ متدهای جدید - با تورفتگی درست (۴ فاصله)
-
+    # --- تب همکلاسی‌ها ---
     def _load_members(self) -> None:
-        """بارگذاری همکلاسی‌ها."""
         if not self._course:
             return
-
-        layout = self.members_container._content_layout
-        self._clear_layout(layout)
-
+        lay = self.members_container._content_layout
+        self._clear_layout(lay)
         try:
             with Database(self.db_path) as db:
-                from src.storage.repositories import MemberRepository
-                from src.models.member import MemberType
-
-                repo = MemberRepository(db)
-                members = repo.get_by_course(self._course.group_id)
+                members = MemberRepository(db).get_by_course(self._course.group_id)
         except Exception as e:
-            layout.addWidget(QLabel(f"خطا: {e}"))
+            lay.addWidget(QLabel(f"خطا: {e}"))
             return
 
-        # ⚠️ فیلتر بر اساس member_type
         students = [m for m in members if m.member_type == MemberType.STUDENT]
         teachers = [m for m in members if m.member_type == MemberType.TEACHER]
         support = [m for m in members if m.member_type == MemberType.SUPPORT]
 
         if not members:
-            empty = EmptyState(
-                icon_name="user",
-                title="هنوز عضوی در این درس نیست",
-                description="در Settings، گزینه‌ی «همکلاسی‌ها» رو روشن کن و Sync بزن.",
-                compact=True,
-            )
-            layout.addWidget(empty)
+            lay.addWidget(self._tab_empty(
+                "👥", "هنوز عضوی نیست",
+                "در تنظیمات، گزینه‌ی «همکلاسی‌ها» رو روشن کن و Sync بزن.",
+            ))
             self.tabs.setTabText(2, "👥 همکلاسی‌ها")
             return
 
-        c = CurrentTheme.colors()
-
-        # === استادان ===
         if teachers:
-            teacher_section = QLabel(f"👨‍🏫 استاد ({len(teachers)})")
-            teacher_section.setStyleSheet(
-                f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
-                "font-size: 12pt; padding: 10px 0;"
-            )
-            teacher_section.setAlignment(Qt.AlignRight)
-            layout.addWidget(teacher_section)
-
+            lay.addWidget(self._member_section("👨‍ استاد", len(teachers)))
             for t in teachers:
-                layout.addWidget(self._make_member_row(t))
-
-        # === همکلاسی‌ها ===
+                lay.addWidget(self._make_member_row(t))
+        if support:
+            lay.addWidget(self._member_section("🛟 پشتیبان", len(support)))
+            for s in support:
+                lay.addWidget(self._make_member_row(s))
         if students:
-            student_section = QLabel(f"👥 همکلاسی‌ها ({len(students)})")
-            student_section.setStyleSheet(
-                f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
-                "font-size: 12pt; padding: 10px 0;"
-            )
-            student_section.setAlignment(Qt.AlignRight)
-            layout.addWidget(student_section)
-
+            lay.addWidget(self._member_section("👥 همکلاسی‌ها", len(students)))
             for s in students:
-                layout.addWidget(self._make_member_row(s))
+                lay.addWidget(self._make_member_row(s))
 
-        self.tabs.setTabText(2, f"👥 همکلاسی‌ها ({len(students)})")
+        self.tabs.setTabText(2, f"👥 همکلاسی‌ها ({self._to_fa(len(students))})")
 
-    def _load_schedule(self) -> None:
-        """بارگذاری برنامه‌ی کلاس."""
-        if not self._course:
-            return
+    def _member_section(self, title: str, count: int) -> QWidget:
+        w = QWidget()
+        row = QHBoxLayout(w)
+        row.setContentsMargins(4, 12, 4, 4)
+        row.setSpacing(8)
 
-        layout = self.schedule_container._content_layout
-        self._clear_layout(layout)
+        lbl = QLabel(title)
+        lbl.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1C1C1E')}; font-weight: 800; "
+            "font-size: 11.5pt; background: transparent;"
+        )
+        row.addWidget(lbl)
 
-        try:
-            with Database(self.db_path) as db:
-                repo = CourseScheduleRepository(db)
-                schedule = repo.get_by_id(self._course.group_id)
-        except Exception as e:
-            layout.addWidget(QLabel(f"خطا: {e}"))
-            return
-
-        if not schedule or not schedule.sessions:
-            empty = EmptyState(
-                icon_name="calendar-xmark",
-                title="برنامه‌ای برای این درس ثبت نشده",
-                description="اطلاعات زمان و مکان کلاس در دسترس نیست. یک Sync جدید بزنید.",
-                compact=True,
-            )
-            layout.addWidget(empty)
-            self.tabs.setTabText(4, "📅 برنامه‌ی کلاس")
-            return
-
-        for session in schedule.sessions:
-            card = ScheduleCard(session)
-            layout.addWidget(card)
-
-        self.tabs.setTabText(4, f"📅 برنامه‌ی کلاس ({len(schedule.sessions)})")
+        pill = QLabel(self._to_fa(count))
+        pill.setAlignment(Qt.AlignCenter)
+        pill.setFixedSize(26, 22)
+        pill.setStyleSheet(
+            f"color: {_c('PRIMARY', '#2AA6A3')}; "
+            f"background-color: {_c('PRIMARY_LIGHT', 'rgba(42,166,163,0.12)')}; "
+            "border-radius: 11px; font-size: 9pt; font-weight: 700;"
+        )
+        row.addWidget(pill)
+        row.addStretch()
+        return w
 
     def _make_member_row(self, member) -> QFrame:
-        """ساخت ردیف یک عضو."""
-        from src.models.member import MemberType
-
         c = CurrentTheme.colors()
-        is_dark = CurrentTheme.is_dark()
-
         frame = QFrame()
         frame.setObjectName("ContentRow")
         frame.setLayoutDirection(Qt.RightToLeft)
 
         row = QHBoxLayout(frame)
-        row.setDirection(QHBoxLayout.RightToLeft)
         row.setContentsMargins(15, 10, 15, 10)
         row.setSpacing(12)
 
-        # Avatar
+        # متادیتای نقش
+        if member.member_type == MemberType.TEACHER:
+            role, av_style = "استاد", (
+                f"background-color: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {c.PRIMARY}, stop:1 {c.PRIMARY_DARK});"
+                "color: #FFFFFF;"
+            )
+        elif member.member_type == MemberType.SUPPORT:
+            role, av_style = "پشتیبان", (
+                f"background-color: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {c.ACCENT}, stop:1 {c.ACCENT_DARK});"
+                "color: #FFFFFF;"
+            )
+        else:
+            role, av_style = "دانشجو", (
+                f"background-color: {c.BG_HOVER}; color: {c.TEXT_SECONDARY};"
+            )
+
         avatar = QLabel(member.name[0] if member.name else "?")
         avatar.setFixedSize(40, 40)
         avatar.setAlignment(Qt.AlignCenter)
-
-        # رنگ بر اساس نوع
-        if member.member_type == MemberType.TEACHER:
-            bg = "rgba(96, 165, 250, 0.25)" if is_dark else "rgba(59, 130, 246, 0.15)"
-            color = c.PRIMARY
-        elif member.member_type == MemberType.SUPPORT:
-            bg = "rgba(251, 191, 36, 0.2)" if is_dark else "rgba(245, 158, 11, 0.1)"
-            color = c.ACCENT
-        else:  # STUDENT
-            bg = "rgba(148, 163, 184, 0.2)" if is_dark else "rgba(100, 116, 139, 0.1)"
-            color = c.TEXT_SECONDARY
-
-        avatar.setStyleSheet(f"""
-            QLabel {{
-                background-color: {bg};
-                color: {color};
-                border-radius: 20px;
-                font-size: 14pt;
-                font-weight: bold;
-            }}
-        """)
+        avatar.setStyleSheet(av_style + "border-radius: 20px; font-size: 13pt; font-weight: 700;")
         row.addWidget(avatar)
 
-        # نام
-        name_label = QLabel(member.name)
-        name_label.setStyleSheet(
-            f"color: {c.TEXT_PRIMARY}; font-weight: 500; "
-            "font-size: 11pt; background: transparent;"
+        name_col = QVBoxLayout()
+        name_col.setSpacing(2)
+        name_lbl = QLabel(member.name)
+        name_lbl.setStyleSheet(
+            f"color: {c.TEXT_PRIMARY}; font-weight: 600; font-size: 10.5pt; background: transparent;"
         )
-        name_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        row.addWidget(name_label, stretch=1)
-
-        # دکمه‌ی مشاهده
-        profile_btn = QPushButton("مشاهده")
-        profile_btn.setObjectName("SecondaryButton")
-        profile_btn.setCursor(Qt.PointingHandCursor)
-        profile_btn.setFixedWidth(90)
-        profile_btn.clicked.connect(
-            lambda checked, u=member.profile_url: QDesktopServices.openUrl(QUrl(u))
+        name_col.addWidget(name_lbl)
+        role_lbl = QLabel(role)
+        role_lbl.setStyleSheet(
+            f"color: {c.TEXT_MUTED}; font-size: 8.5pt; background: transparent;"
         )
-        row.addWidget(profile_btn)
+        name_col.addWidget(role_lbl)
+        row.addLayout(name_col, stretch=1)
 
+        btn = QPushButton("مشاهده")
+        btn.setObjectName("SecondaryButton")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedSize(84, 32)
+        btn.clicked.connect(
+            lambda _checked, u=member.profile_url: QDesktopServices.openUrl(QUrl(u))
+        )
+        row.addWidget(btn)
         return frame
+
+    # --- تب فایل‌ها ---
+    def _load_contents(self) -> None:
+        if not self._course:
+            return
+        lay = self.contents_container._content_layout
+        self._clear_layout(lay)
+        try:
+            with Database(self.db_path) as db:
+                contents = ContentRepository(db).get_by_course(self._course.group_id)
+        except Exception as e:
+            lay.addWidget(QLabel(f"خطا: {e}"))
+            return
+        if not contents:
+            lay.addWidget(self._tab_empty("📄", "هنوز فایلی نیست", "استاد فایلی آپلود نکرده است."))
+            self.tabs.setTabText(3, "📄 فایل‌ها")
+            return
+
+        c = CurrentTheme.colors()
+        for content in contents:
+            icon, fg, bg = self.FILE_META.get(
+                content.content_type,
+                ("📎", c.PRIMARY, c.PRIMARY_LIGHT),
+            )
+            frame = QFrame()
+            frame.setObjectName("ContentRow")
+            frame.setLayoutDirection(Qt.RightToLeft)
+
+            row = QHBoxLayout(frame)
+            row.setContentsMargins(15, 10, 15, 10)
+            row.setSpacing(12)
+
+            icon_lbl = QLabel(icon)
+            icon_lbl.setFixedSize(40, 40)
+            icon_lbl.setAlignment(Qt.AlignCenter)
+            icon_lbl.setStyleSheet(f"background-color: {bg}; border-radius: 12px; font-size: 14pt;")
+            row.addWidget(icon_lbl)
+
+            name_lbl = QLabel(content.title)
+            name_lbl.setWordWrap(True)
+            name_lbl.setStyleSheet(
+                f"color: {c.TEXT_PRIMARY}; font-weight: 600; font-size: 10.5pt; background: transparent;"
+            )
+            row.addWidget(name_lbl, stretch=1)
+
+            type_lbl = QLabel(content.content_type.upper())
+            type_lbl.setFixedHeight(24)
+            type_lbl.setAlignment(Qt.AlignCenter)
+            type_lbl.setStyleSheet(
+                f"color: {fg}; background-color: {bg}; border-radius: 8px; "
+                "padding: 0 10px; font-size: 8pt; font-weight: 700;"
+            )
+            row.addWidget(type_lbl)
+
+            dl_btn = QPushButton("⬇")
+            dl_btn.setObjectName("SecondaryButton")
+            dl_btn.setCursor(Qt.PointingHandCursor)
+            dl_btn.setFixedSize(36, 36)
+            dl_btn.setStyleSheet("QPushButton { border-radius: 18px; font-size: 11pt; }")
+            dl_btn.clicked.connect(
+                lambda _checked, u=content.url: QDesktopServices.openUrl(QUrl(u))
+            )
+            row.addWidget(dl_btn)
+
+            lay.addWidget(frame)
+
+        self.tabs.setTabText(3, f"📄 فایل‌ها ({self._to_fa(len(contents))})")
+
+    # --- تب برنامه کلاس ---
+    def _load_schedule(self) -> None:
+        if not self._course:
+            return
+        lay = self.schedule_container._content_layout
+        self._clear_layout(lay)
+        try:
+            with Database(self.db_path) as db:
+                schedule = CourseScheduleRepository(db).get_by_id(self._course.group_id)
+        except Exception as e:
+            lay.addWidget(QLabel(f"خطا: {e}"))
+            return
+        if not schedule or not schedule.sessions:
+            lay.addWidget(self._tab_empty(
+                "📅", "برنامه‌ای ثبت نشده",
+                "اطلاعات زمان و مکان کلاس در دسترس نیست. یک Sync جدید بزن.",
+            ))
+            self.tabs.setTabText(4, "📅 برنامه کلاس")
+            return
+        for session in schedule.sessions:
+            lay.addWidget(ScheduleCard(session))
+        self.tabs.setTabText(4, f"📅 برنامه کلاس ({self._to_fa(len(schedule.sessions))})")
+
+    @staticmethod
+    def _to_fa(n: int) -> str:
+        fa = "۰۱۲۳۴۵۶۷۸۹"
+        return "".join(fa[int(d)] for d in str(n))

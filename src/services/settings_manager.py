@@ -8,10 +8,15 @@ from src.storage.database import Database
 from src.storage.repositories import SettingRepository
 
 
+from src.utils.paths import get_data_path
+
+
 class SettingsManager:
     """مدیریت تنظیمات ذخیره‌شده."""
 
-    DB_PATH = "data/lms.db"
+    @classmethod
+    def _get_db_path(cls) -> str:
+        return str(get_data_path("lms.db"))
 
     # کلیدهای تنظیمات
     KEY_THEME = "app_theme"
@@ -61,7 +66,7 @@ class SettingsManager:
     def save(cls, key: str, value: str) -> None:
         """ذخیره‌ی یک تنظیم."""
         try:
-            with Database(cls.DB_PATH) as db:
+            with Database(cls._get_db_path()) as db:
                 db.init_schema()
                 SettingRepository(db).set(key, value)
                 logger.debug(f"ذخیره: {key} = {value[:50]}")
@@ -72,7 +77,7 @@ class SettingsManager:
     def load(cls, key: str, default: str | None = None) -> str | None:
         """خواندن یک تنظیم."""
         try:
-            with Database(cls.DB_PATH) as db:
+            with Database(cls._get_db_path()) as db:
                 db.init_schema()
                 value = SettingRepository(db).get(key, default)
                 logger.debug(f"بازیابی: {key} = {value[:50] if value else None}")

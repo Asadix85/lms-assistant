@@ -1,45 +1,363 @@
-"""Settings Page: تنظیمات برنامه."""
+from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
+from PySide6.QtCore import (
+    Property,
+    QEasingCurve,
+    QPropertyAnimation,
+    Qt,
+    QTimer,
+    Signal,
+    QPoint,
+)
+from PySide6.QtGui import QColor, QPainter, QPen, QLinearGradient, QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QApplication,
+    QFileDialog,
+    QFrame,
+    QGraphicsOpacityEffect,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
-    QFrame,
-    QCheckBox,
-    QComboBox,
-    QMessageBox,
-    QFileDialog,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+    QGraphicsDropShadowEffect,
 )
-from PySide6.QtCore import Qt, Signal
 
 from config.settings import settings
 from src.storage.database import Database
-from src.storage.repositories import (
-    ChangeRepository,
-    ContentRepository,
-    CourseRepository,
-    EventRepository,
-    SettingRepository,
-)
+from src.storage.repositories import CourseRepository, SettingRepository
 from src.ui.pages.base_page import BasePage
-from src.ui.theme import Colors, CurrentTheme
+from src.ui.theme import CurrentTheme
 from src.ui.widgets.setting_card import SettingCard
-from src.ui.widgets.check_box import CustomCheckBox
 
+
+def _c(name: str, fallback: str) -> str:
+    """خواندن امن رنگ از تم فعلی."""
+    return str(getattr(CurrentTheme.colors(), name, fallback))
+
+
+# ============================================================
+#  ویجت‌های اختصاصی صفحه
+# ============================================================
+
+class _SectionHeader(QWidget):
+    """سربرگ گروه: آیکون در باکس رنگی + عنوان + توضیح کوتاه."""
+
+    def __init__(self, icon: str, title: str, subtitle: str = "", parent=None):
+        super().__init__(parent)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 15, 0, 10)
+        lay.setSpacing(15)
+
+        # آیکون با سایه و گرادینت ملایم
+        icon_container = QWidget()
+        icon_container.setFixedSize(44, 44)
+        icon_lay = QVBoxLayout(icon_container)
+        icon_lay.setContentsMargins(0, 0, 0, 0)
+
+        icon_lbl = QLabel(icon)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet(
+            f"background-color: {_c('PRIMARY', '#4F6EF7')}; color: #FFFFFF;"
+            "border-radius: 14px; font-size: 16pt;"
+        )
+        # سایه نرم برای آیکون
+        shadow = QGraphicsDropShadowEffect(icon_lbl)
+        shadow.setBlurRadius(12)
+        shadow.setColor(QColor(_c('PRIMARY', '#4F6EF7')))
+        shadow.setOffset(0, 4)
+        icon_lbl.setGraphicsEffect(shadow)
+
+        icon_lay.addWidget(icon_lbl)
+        lay.addWidget(icon_container)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(4)
+
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1E293B')}; font-size: 14pt;"
+            "font-weight: 800; background: transparent;"
+        )
+        text_col.addWidget(title_lbl)
+
+        if subtitle:
+            sub_lbl = QLabel(subtitle)
+            sub_lbl.setStyleSheet(
+                f"color: {_c('TEXT_SECONDARY', '#64748B')}; font-size: 9.5pt;"
+                "background: transparent;"
+            )
+            text_col.addWidget(sub_lbl)
+
+        lay.addLayout(text_col)
+        lay.addStretch()
+
+
+class _SyncTile(QFrame):
+    """تایل قابل‌کلیک برای انتخاب آیتم‌های سینک."""
+
+    toggled = Signal(bool)
+
+    def __init__(
+        self,
+        icon: str,
+        title: str,
+        subtitle: str = "",
+        checked: bool = False,
+        enabled: bool = True,
+        badge: str = "",
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._checked = checked
+        self._enabled = enabled
+        self._anim_scale = None
+
+        self.setObjectName("SyncTile")
+        self.setProperty("checked", checked)
+        self.setCursor(Qt.PointingHandCursor if enabled else Qt.ForbiddenCursor)
+        self.setMinimumHeight(70)
+        self.setMaximumHeight(80)
+
+        if not enabled:
+            eff = QGraphicsOpacityEffect(self)
+            eff.setOpacity(0.5)
+            self.setGraphicsEffect(eff)
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(14)
+
+        # آیکون
+        icon_lbl = QLabel(icon)
+        icon_lbl.setFixedSize(44, 44)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet(
+            f"background-color: {_c('BG_HOVER', '#F1F5F9')};"
+            f"color: {_c('TEXT_PRIMARY', '#1E293B')};"
+            "border-radius: 12px; font-size: 15pt;"
+        )
+        lay.addWidget(icon_lbl)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(4)
+
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
+
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1E293B')}; font-size: 11pt;"
+            "font-weight: 700; background: transparent;"
+        )
+        title_row.addWidget(title_lbl)
+
+        if badge:
+            badge_lbl = QLabel(badge)
+            badge_lbl.setObjectName("TileBadge")
+            badge_lbl.setStyleSheet(
+                f"color: {_c('PRIMARY', '#4F6EF7')};"
+                f"border: 1px solid {_c('PRIMARY', '#4F6EF7')};"
+                "border-radius: 6px; padding: 2px 8px; font-size: 8pt;"
+                "font-weight: 600; background: transparent;"
+            )
+            title_row.addWidget(badge_lbl)
+        title_row.addStretch()
+        text_col.addLayout(title_row)
+
+        if subtitle:
+            sub_lbl = QLabel(subtitle)
+            sub_lbl.setStyleSheet(
+                f"color: {_c('TEXT_SECONDARY', '#64748B')}; font-size: 9pt;"
+                "background: transparent;"
+            )
+            text_col.addWidget(sub_lbl)
+        lay.addLayout(text_col, stretch=1)
+
+        # چک‌مارک
+        self.check_dot = QLabel("✓")
+        self.check_dot.setFixedSize(26, 26)
+        self.check_dot.setAlignment(Qt.AlignCenter)
+        self.check_dot.setVisible(checked)
+        self.check_dot.setStyleSheet(
+            f"background-color: {_c('PRIMARY', '#4F6EF7')}; color: #FFFFFF;"
+            "border-radius: 13px; font-size: 12pt; font-weight: bold;"
+        )
+        lay.addWidget(self.check_dot)
+
+    def isChecked(self) -> bool:
+        return self._checked
+
+    def setChecked(self, value: bool) -> None:
+        if value == self._checked:
+            return
+        self._checked = value
+        self.setProperty("checked", value)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.check_dot.setVisible(value)
+        self.toggled.emit(value)
+
+    def mousePressEvent(self, event) -> None:
+        if self._enabled and event.button() == Qt.LeftButton:
+            # انیمیشن فشار کوچک
+            self._anim_scale = QPropertyAnimation(self, b"geometry")
+            # اینجا فقط برای فیدبک بصری ساده، در پروژه‌های بزرگتر از GraphicsEffect استفاده میشه
+            self.setChecked(not self._checked)
+        super().mousePressEvent(event)
+
+    def enterEvent(self, event):
+        if self._enabled:
+            self.setStyleSheet(self.styleSheet() + f"border-color: {_c('PRIMARY', '#4F6EF7')};")
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if self._enabled:
+            self.setStyleSheet("") # Reset to object name style
+        super().leaveEvent(event)
+
+
+class _StatusPill(QLabel):
+    """برچسب وضعیت گرد."""
+
+    def __init__(self, text: str, kind: str = "muted", parent=None):
+        super().__init__(text, parent)
+        self.setObjectName("StatusPill")
+        self.setProperty("kind", kind)
+        self.setAlignment(Qt.AlignCenter)
+        self.setFixedHeight(28)
+        # فونت کمی ضخیم‌تر
+        f = self.font()
+        f.setBold(True)
+        self.setFont(f)
+
+
+class _ThemeSwitch(QToolButton):
+    """سوییچ پیل‌مانند برای تغییر تم."""
+
+    def __init__(self, dark: bool, parent=None):
+        super().__init__(parent)
+        self.setObjectName("ThemeSwitch")
+        self.setCheckable(True)
+        self.setChecked(dark)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(140, 40)
+        self._sync_text()
+        self.toggled.connect(lambda _c: self._sync_text())
+
+    def _sync_text(self) -> None:
+        self.setText("🌙  تم تیره" if self.isChecked() else "☀️  تم روشن")
+
+
+class _EstimateBar(QWidget):
+    """نوار متحرک زمان تقریبی سینک."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(50)
+        self._fraction = 0.19
+        self._label = ""
+        self._anim = None
+
+    def get_fraction(self) -> float:
+        return self._fraction
+
+    def set_fraction(self, value: float) -> None:
+        self._fraction = value
+        self.update()
+
+    fraction = Property(float, get_fraction, set_fraction)
+
+    def set_value(self, seconds: int, max_seconds: int = 42, animate: bool = True) -> None:
+        target = max(0.06, min(1.0, seconds / max_seconds))
+
+        if seconds > 90:
+            minutes, secs = divmod(seconds, 60)
+            text = f"حدود {minutes} دقیقه و {secs} ثانیه"
+        elif seconds == 8:
+            text = "حدود ۸ ثانیه — سریع‌ترین حالت ⚡"
+        else:
+            text = f"حدود {seconds} ثانیه"
+
+        self._label = f"⏱  زمان تقریبی: {text}"
+
+        if animate and abs(target - self._fraction) > 0.001:
+            if self._anim:
+                self._anim.stop()
+            self._anim = QPropertyAnimation(self, b"fraction", self)
+            self._anim.setDuration(400)
+            self._anim.setStartValue(self._fraction)
+            self._anim.setEndValue(target)
+            self._anim.setEasingCurve(QEasingCurve.OutBack) # انیمیشن فنری جذاب‌تر
+            self._anim.start()
+        else:
+            self.set_fraction(target)
+
+    def paintEvent(self, _event) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+
+        primary = QColor(_c("PRIMARY", "#4F6EF7"))
+        track = QColor(_c("BORDER_LIGHT", "#E2E8F0"))
+        text_col = QColor(_c("TEXT_SECONDARY", "#64748B"))
+
+        w, h = self.width(), self.height()
+
+        # متن
+        p.setPen(QPen(text_col))
+        f = p.font()
+        f.setPointSize(9)
+        f.setBold(True)
+        p.setFont(f)
+        p.drawText(0, 0, w, h - 20, Qt.AlignRight | Qt.AlignVCenter, self._label)
+
+        # نوار پیشرفت
+        bar_h = 10
+        y = h - bar_h - 5
+
+        # پس‌زمینه نوار
+        p.setPen(Qt.NoPen)
+        p.setBrush(track)
+        p.drawRoundedRect(0, y, w, bar_h, 5, 5)
+
+        # پرشدگی نوار با گرادینت
+        fw = int(w * self._fraction)
+        if fw > 0:
+            gradient = QLinearGradient(w - fw, y, w, y)
+            gradient.setColorAt(0, primary.darker(110))
+            gradient.setColorAt(1, primary)
+            p.setBrush(gradient)
+            p.drawRoundedRect(w - fw, y, fw, bar_h, 5, 5)
+
+        p.end()
+
+
+# ============================================================
+#  صفحه‌ی تنظیمات
+# ============================================================
 
 class SettingsPage(BasePage):
-    """صفحه‌ی تنظیمات."""
+    """صفحه‌ی تنظیمات — طراحی مدرن گروه‌بندی‌شده."""
 
     settings_changed = Signal()
     theme_changed = Signal()
 
+    SYNC_SECONDS = {"contents": 7, "events": 1, "wall": 7, "members": 19}
+    BASE_SECONDS = 8
+
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
         self.db_path = db_path
+        self._first_build = True
+        self._anims: list = []
+        self._sync_tiles: dict[str, _SyncTile] = {}
         super().__init__(
             title="تنظیمات",
             subtitle="پیکربندی برنامه",
@@ -50,522 +368,501 @@ class SettingsPage(BasePage):
     def _build(self) -> None:
         super()._build()
 
-        # === Scroll ===
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.scroll_widget = QWidget()
-        self.scroll_layout = QVBoxLayout(self.scroll_widget)
-        self.scroll_layout.setSpacing(15)
-        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
+        outer = QHBoxLayout(self.scroll_widget)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addStretch(1)
+
+        inner = QWidget()
+        inner.setMaximumWidth(900)
+        self.scroll_layout = QVBoxLayout(inner)
+        self.scroll_layout.setSpacing(16)
+        self.scroll_layout.setContentsMargins(10, 10, 10, 40)
         self.scroll_layout.setAlignment(Qt.AlignTop)
 
+        outer.addWidget(inner)
+        outer.addStretch(1)
         scroll.setWidget(self.scroll_widget)
         self.content_layout.addWidget(scroll, stretch=1)
 
-        # === Cards ===
-        self._build_user_card()
-        self._build_credentials_card()
-        self._build_sync_card()
-        self._build_display_card()
-        self._build_database_card()
-        self._build_about_card()
-
-    # === Cards ===
-
-    def _build_user_card(self) -> None:
-        card = SettingCard(title="اطلاعات کاربر", icon="👤")
-
-        username = settings.lms_username or "—"
-        card.add_row("نام کاربری", username)
-
-        # آخرین Sync
-        try:
-            with Database(self.db_path) as db:
-                setting_repo = SettingRepository(db)
-                last_sync = setting_repo.get("last_sync_at", "—")
-                first_sync = setting_repo.get("first_sync_done", "false")
-        except Exception:
-            last_sync = "—"
-            first_sync = "false"
-
-        if last_sync and last_sync != "—":
-            last_sync = last_sync[:19].replace("T", " ")
-
-        card.add_row("آخرین Sync", last_sync)
-        card.add_row("اولین Sync", "✅ انجام شده" if first_sync == "true" else "❌ انجام نشده")
-
-        # دامنه‌ها
-        try:
-            with Database(self.db_path) as db:
-                course_repo = CourseRepository(db)
-                courses = course_repo.get_all()
-                domains = sorted(set(c.domain for c in courses))
-                domains_str = ", ".join(domains) if domains else "—"
-        except Exception:
-            domains_str = "—"
-
-        card.add_row("دامنه‌ها", domains_str)
-
-        self.scroll_layout.addWidget(card)
-
-    def _build_credentials_card(self) -> None:
-        """کارت مدیریت credentials."""
-        from src.services.credential_provider import CredentialProvider
-        from src.services.credentials_manager import CredentialsManager
-
-        card = SettingCard(title="اطلاعات ورود", icon="🔐")
-
-        creds = CredentialProvider.get()
-
-        # نمایش
-        username_display = creds.lms_username or "—"
-        card.add_row("نام کاربری LMS", username_display)
-
-        if creds.quera_username:
-            card.add_row("نام کاربری Quera", creds.quera_username)
-
-        # === دکمه‌ها ===
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
-
-        change_btn = QPushButton("🔄 تغییر رمز")
-        change_btn.setObjectName("SecondaryButton")
-        change_btn.clicked.connect(self._on_change_password)
-        btn_row.addWidget(change_btn)
-
-        logout_btn = QPushButton("🚪 خروج")
-        logout_btn.setObjectName("SecondaryButton")
-        logout_btn.clicked.connect(self._on_logout)
-        btn_row.addWidget(logout_btn)
-
-        btn_row.addStretch()
-
-        container = QWidget()
-        container.setLayout(btn_row)
-        card.add_widget(container)
-
-        self.scroll_layout.addWidget(card)
-
-    def _on_change_password(self) -> None:
-        """تغییر رمز از طریق Dialog."""
-        from src.services.credential_provider import CredentialProvider
-        from src.ui.dialogs.login_dialog import LoginDialog
-
-        creds = CredentialProvider.get()
-
-        dialog = LoginDialog(
-            self,
-            lms_username=creds.lms_username,
-            lms_password="",  # رمز خالی
-            quera_username=creds.quera_username,
-            quera_password="",
-        )
-
-        dialog.login_success.connect(
-            lambda lu, lp, qu, qp: CredentialProvider.update(lu, lp, qu, qp)
-        )
-
-        if dialog.exec() == LoginDialog.Accepted:
-            QMessageBox.information(self, "موفق", "اطلاعات ذخیره شد.")
-            self.refresh()
-
-    def _on_logout(self) -> None:
-        """خروج و حذف credentials."""
-        from src.services.credential_provider import CredentialProvider
-        from src.services.credentials_manager import CredentialsManager
-
-        reply = QMessageBox.question(
-            self,
-            "خروج",
-            "آیا مطمئن هستی؟ اطلاعات ورود حذف می‌شود.",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-
-        if reply != QMessageBox.Yes:
-            return
-
-        CredentialsManager.clear_all()
-        CredentialProvider.reset()
-
-        QMessageBox.information(
-            self, "خروج",
-            "اطلاعات حذف شد. برنامه را ببندید و دوباره باز کنید."
-        )
-
-        self.refresh()
-
-    def _build_sync_card(self) -> None:
-        from src.services.settings_manager import SettingsManager
-        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
-
-        card = SettingCard(title="تنظیمات Sync", icon="🔄")
-        c = CurrentTheme.colors()
-
-        # === عنوان توضیحی ===
-        info = QLabel(
-            "انتخاب کنید چه چیزهایی از LMS دریافت شوند.\n"
-            "کمتر انتخاب کنید → سریع‌تر Sync می‌شه."
-        )
-        info.setStyleSheet(
-            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
-            "background: transparent; padding: 5px 0;"
-        )
-        info.setWordWrap(True)
-        card.add_widget(info)
-
-        # === چک‌باکس‌ها ===
-        settings = SettingsManager.get_sync_settings()
-
-        self.sync_checkboxes = {}
-
-        # دروس (اجباری)
-        cb_courses = CustomCheckBox("📚  دروس (اجباری)")
-        cb_courses.setChecked(True)
-        cb_courses.setEnabled(False)
-        self.sync_checkboxes["courses"] = cb_courses
-        card.add_widget(cb_courses)
-
-        # محتوا
-        cb_contents = CustomCheckBox("📄  فایل‌ها و محتوای دروس")
-        cb_contents.setChecked(settings.get("contents", True))
-        self.sync_checkboxes["contents"] = cb_contents
-        card.add_widget(cb_contents)
-
-        # رویدادها
-        cb_events = CustomCheckBox("📅  رویدادها (جلسات آنلاین)")
-        cb_events.setChecked(settings.get("events", True))
-        self.sync_checkboxes["events"] = cb_events
-        card.add_widget(cb_events)
-
-        # wall
-        cb_wall = CustomCheckBox("📢  پیام‌ها و تکالیف (wall)")
-        cb_wall.setChecked(settings.get("wall", True))
-        self.sync_checkboxes["wall"] = cb_wall
-        card.add_widget(cb_wall)
-
-        # همکلاسی‌ها
-        cb_members = CustomCheckBox("👥  همکلاسی‌ها (کند)")
-        cb_members.setChecked(settings.get("members", False))
-        self.sync_checkboxes["members"] = cb_members
-        card.add_widget(cb_members)
-
-        # === زمان تقریبی ===
-        self.time_label = QLabel("")
-        self.time_label.setStyleSheet(
-            f"color: {c.PRIMARY}; font-weight: bold; font-size: 12pt; "
-            "background: transparent; padding: 12px 0 4px 0;"
-        )
-        self.time_label.setAlignment(Qt.AlignRight)
-        card.add_widget(self.time_label)
-
-        self._update_time_estimate()
-
-        # وصل کردن تغییرات
-        for cb in self.sync_checkboxes.values():
-            cb.toggled.connect(self._on_sync_option_changed)
-
-        self.scroll_layout.addWidget(card)
-
-        # وصل کردن تغییرات
-        for cb in self.sync_checkboxes.values():
-            cb.toggled.connect(self._on_sync_option_changed)
-
-        self.scroll_layout.addWidget(card)
-
-    def _on_sync_option_changed(self, checked: bool = False) -> None:
-        """ذخیره‌ی تنظیمات جدید + آپدیت زمان."""
-        from src.services.settings_manager import SettingsManager
-
-        settings = {
-            key: cb.isChecked()
-            for key, cb in self.sync_checkboxes.items()
-        }
-        SettingsManager.save_sync_settings(settings)
-        self._update_time_estimate()
-
-    def _add_separator(self, layout) -> None:
-        from PySide6.QtWidgets import QFrame
-        from src.ui.theme import CurrentTheme
-        c = CurrentTheme.colors()
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet(
-            f"background-color: {c.BORDER_LIGHT}; max-height: 1px;"
-        )
-        layout.addWidget(sep)
-
-    def _on_sync_option_changed(self) -> None:
-        """ذخیره‌ی تنظیمات جدید + آپدیت زمان."""
-        from src.services.settings_manager import SettingsManager
-
-        settings = {
-            key: cb.isChecked()
-            for key, cb in self.sync_checkboxes.items()
-        }
-        SettingsManager.save_sync_settings(settings)
-        self._update_time_estimate()
-
-    def _update_time_estimate(self) -> None:
-        """محاسبه‌ی زمان تقریبی Sync (بر اساس لاگ‌های واقعی)."""
-        settings = {
-            key: cb.isChecked()
-            for key, cb in self.sync_checkboxes.items()
-        }
-
-        # ⚠️ زمان‌های واقعی (از لاگ‌های اخیر):
-        # login + courses = 8s
-        # contents = 7s
-        # events = 0.8s
-        # wall = 6.5s
-        # members = 19s (متوسط)
-
-        time = 8  # login + courses (اجباری)
-        if settings.get("contents"):
-            time += 7
-        if settings.get("events"):
-            time += 1
-        if settings.get("wall"):
-            time += 7
-        if settings.get("members"):
-            time += 19  # ← دقیق‌تر شد (قبلاً 25 بود)
-
-        # نمایش
-        if time > 90:
-            minutes = time // 60
-            seconds = time % 60
-            text = f"~{minutes} دقیقه و {seconds} ثانیه"
-        else:
-            text = f"~{time} ثانیه"
-
-        # ⚠️ اگه فقط دروس → سریع
-        if time == 8:
-            text = "~8 ثانیه (سریع‌ترین)"
-
-        self.time_label.setText(f"⏱️  زمان تقریبی: {text}")
-
-    def _build_display_card(self) -> None:
-        card = SettingCard(title="نمایش", icon="🎨")
-
-        # === Theme toggle ===
-        c = CurrentTheme.colors()
-
-        theme_row = QHBoxLayout()
-        theme_row.setSpacing(10)
-
-        theme_label = QLabel("تم برنامه:")
-        theme_label.setStyleSheet(
-            f"color: {c.TEXT_SECONDARY}; font-size: 10pt; "
-            "background: transparent;"
-        )
-        theme_row.addWidget(theme_label)
-
-        theme_row.addStretch()
-
-        # ⚠️ دکمه‌ی تغییر تم
-        from PySide6.QtWidgets import QPushButton
-        self.theme_btn = QPushButton(
-            "☀️  تم روشن" if CurrentTheme.is_dark() else "🌙  تم تیره"
-        )
-        self.theme_btn.setObjectName("SecondaryButton")
-        self.theme_btn.setCursor(Qt.PointingHandCursor)
-        self.theme_btn.setMinimumWidth(160)
-        self.theme_btn.clicked.connect(self._on_theme_toggle)
-        theme_row.addWidget(self.theme_btn)
-
-        container = QWidget()
-        container.setLayout(theme_row)
-        card.add_widget(container)
-
-        self.scroll_layout.addWidget(card)
-
-    def _on_theme_toggle(self) -> None:
-        """تغییر تم برنامه."""
-        from PySide6.QtWidgets import QApplication
-        from PySide6.QtCore import QTimer
-        from src.ui.theme import (
-            CurrentTheme, ThemeMode, get_global_qss, apply_rtl_recursive,
-        )
-        from src.ui.icons import Icons
-        from src.ui.blur import enable_blur
-        from src.services.settings_manager import SettingsManager
-
-        # ۱. تغییر تم
-        new_mode = (
-            ThemeMode.DARK if not CurrentTheme.is_dark() else ThemeMode.LIGHT
-        )
-        CurrentTheme.set_mode(new_mode)
-        SettingsManager.save_theme(new_mode)
-
-        # ۲. پاک کردن کش آیکون‌ها
-        Icons.clear_cache()
-
-        # ۳. اعمال QSS جدید
-        app = QApplication.instance()
-        if app:
-            app.setStyleSheet(get_global_qss(new_mode))
-
-        # ۴. رنگ Acrylic
-        main_window = self.window()
-        if main_window:
-            if CurrentTheme.is_dark():
-                color = 0xFA0A0A0F
-                self.theme_btn.setText("☀️  تم روشن")
-            else:
-                color = 0xFAF8FAFC
-                self.theme_btn.setText("🌙  تم تیره")
-
-            enable_blur(main_window, color=color, enable=True)
-
-            # ۵. رفرش Sidebar (آیکون‌ها)
-            if hasattr(main_window, "sidebar"):
-                main_window.sidebar.refresh_icons()
-
-        # ۶. رفرش خود Settings
-        self.refresh()
-
-        # ۷. ⚠️ RTL با تأخیر کوتاه (بعد از رندر QSS جدید)
-        if main_window:
-            QTimer.singleShot(50, lambda: self._apply_rtl_to_window(main_window))
-
-    def _apply_rtl_to_window(self, window) -> None:
-        """اعمال RTL روی پنجره و همه‌ی صفحات."""
-        from src.ui.theme import apply_rtl_recursive
-
-        apply_rtl_recursive(window)
-
-        if hasattr(window, "sidebar"):
-            apply_rtl_recursive(window.sidebar)
-        if hasattr(window, "header"):
-            apply_rtl_recursive(window.header)
-        if hasattr(window, "stack"):
-            current = window.stack.currentWidget()
-            if current:
-                apply_rtl_recursive(current)
-
-    def _build_database_card(self) -> None:
-        card = SettingCard(title="دیتابیس", icon="💾")
-
-        # اندازه دیتابیس
-        size_str = "—"
-        db_path = Path(self.db_path)
-        if db_path.exists():
-            size = db_path.stat().st_size
-            if size < 1024:
-                size_str = f"{size} B"
-            elif size < 1024 * 1024:
-                size_str = f"{size / 1024:.1f} KB"
-            else:
-                size_str = f"{size / (1024 * 1024):.1f} MB"
-
-        card.add_row("حجم", size_str)
-        card.add_row("مسیر", str(db_path.absolute()))
-
-        # دکمه‌ها
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
-
-        backup_btn = QPushButton("📦 بکاپ")
-        backup_btn.setObjectName("SecondaryButton")
-        backup_btn.clicked.connect(self._on_backup)
-        btn_row.addWidget(backup_btn)
-
-        clear_btn = QPushButton("🗑️ پاک کردن دیتابیس")
-        clear_btn.setObjectName("SecondaryButton")
-        clear_btn.clicked.connect(self._on_clear_db)
-        btn_row.addWidget(clear_btn)
-
-        btn_row.addStretch()
-
-        container = QWidget()
-        container.setLayout(btn_row)
-        card.add_widget(container)
-
-        self.scroll_layout.addWidget(card)
-
-    def _build_about_card(self) -> None:
-        card = SettingCard(title="درباره", icon="ℹ️")
-
-        card.add_row("نسخه", "0.1.0")
-        card.add_row("سازنده", "شخصی (برای دانشگاه اصفهان)")
-        card.add_row("مخزن", "github.com/...")
-
-        self.scroll_layout.addWidget(card)
-
-    # === Data ===
-
     def refresh(self) -> None:
-        """رفرش داده‌ها."""
-        # پاک کردن
+        self._anims.clear()
+        self._sync_tiles = {}
+
         while self.scroll_layout.count():
             item = self.scroll_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        # بازسازی
-        self._build_user_card()
-        self._build_credentials_card()
-        self._build_sync_card()
-        self._build_display_card()
-        self._build_database_card()
-        self._build_about_card()
+        self._build_account_section()
+        self._build_sync_section()
+        self._build_notifications_section()
+        self._build_appearance_section()
+        self._build_data_section()
+        self._build_about_section()
+        self.scroll_layout.addStretch()
 
-    # === Events ===
+        if self._first_build:
+            self._animate_cards()
+            self._first_build = False
 
-    def _on_theme_changed(self, index: int) -> None:
-        """تغییر تم."""
-        if index == 1:
-            QMessageBox.information(
-                self,
-                "به‌زودی",
-                "تم تیره در نسخه بعدی اضافه می‌شود.",
-            )
-            self.theme_combo.setCurrentIndex(0)
+    def _fix_rtl(self) -> None:
+        self.setLayoutDirection(Qt.RightToLeft)
+        for obj in ("PageTitle", "PageSubtitle"):
+            lbl = self.findChild(QLabel, obj)
+            if lbl:
+                lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+    def _animate_cards(self) -> None:
+        index = 0
+        for i in range(self.scroll_layout.count()):
+            widget = self.scroll_layout.itemAt(i).widget()
+            if widget is None:
+                continue
+            effect = QGraphicsOpacityEffect(widget)
+            widget.setGraphicsEffect(effect)
+            anim = QPropertyAnimation(effect, b"opacity", self)
+            anim.setDuration(350)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.setEasingCurve(QEasingCurve.OutCubic)
+            self._anims.append(anim)
+            # تاخیر بیشتر برای حس آبشاری
+            QTimer.singleShot(index * 80, anim.start)
+            index += 1
+
+    def _btn(self, text: str, object_name: str, slot, icon: str | None = None) -> QPushButton:
+        btn = QPushButton((f"{icon}  " if icon else "") + text)
+        btn.setObjectName(object_name)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(slot)
+        # سایه کوچک برای دکمه‌ها
+        shadow = QGraphicsDropShadowEffect(btn)
+        shadow.setBlurRadius(8)
+        shadow.setColor(QColor(0, 0, 0, 20))
+        shadow.setOffset(0, 2)
+        btn.setGraphicsEffect(shadow)
+        return btn
+
+    def _wrap(self, layout) -> QWidget:
+        w = QWidget()
+        w.setLayout(layout)
+        return w
+
+    def _divider(self) -> QFrame:
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet(
+            f"background-color: {_c('BORDER_LIGHT', '#E2E8F0')};"
+            "max-height: 1px; border: none;"
+        )
+        return line
+
+    def _info_box(self, text: str, hint: bool = False) -> QLabel:
+        c = CurrentTheme.colors()
+        box = QLabel(text)
+        box.setWordWrap(True)
+        bg = _c("BG_HOVER", "#F1F5F9")
+        fg = _c("TEXT_MUTED", "#94A3B8") if hint else _c("TEXT_SECONDARY", "#64748B")
+
+        # بوردر رنگی سمت چپ برای جذابیت
+        border_color = _c("PRIMARY", "#4F6EF7") if not hint else _c("TEXT_MUTED", "#94A3B8")
+
+        box.setStyleSheet(
+            f"color: {fg}; background-color: {bg}; border-radius: 12px;"
+            f"border-left: 4px solid {border_color}; "
+            "padding: 12px 16px; font-size: 9.5pt; line-height: 1.5;"
+        )
+        return box
+
+    # --------------------------------------------------------
+    #  بخش‌ها (Account, Sync, etc) - همان منطق قبلی با ویجت‌های جدید
+    # --------------------------------------------------------
+
+    def _build_account_section(self) -> None:
+        self.scroll_layout.addWidget(_SectionHeader(
+            "👤", "حساب کاربری", "اطلاعات ورود و وضعیت همگام‌سازی"
+        ))
+
+        username = settings.lms_username or "—"
+        last_sync, first_sync, domains_str = "—", "false", "—"
+        try:
+            with Database(self.db_path) as db:
+                last_sync = SettingRepository(db).get("last_sync_at", "—")
+                first_sync = SettingRepository(db).get("first_sync_done", "false")
+                courses = CourseRepository(db).get_all()
+                domains = sorted({c.domain for c in courses})
+                if domains:
+                    domains_str = "، ".join(domains)
+        except Exception:
+            pass
+        if last_sync and last_sync != "—":
+            last_sync = last_sync[:19].replace("T", " ")
+
+        card = SettingCard(title="پروفایل", icon="")
+        card.add_row("نام کاربری", username)
+        card.add_row("آخرین سینک", last_sync)
+        card.add_row("اولین سینک",
+                     "✅ انجام شده" if first_sync == "true" else "❌ انجام نشده")
+        card.add_row("دامنه‌ها", domains_str)
+        self.scroll_layout.addWidget(card)
+
+        from src.services.credential_provider import CredentialProvider
+        creds = CredentialProvider.get()
+        card = SettingCard(title="اطلاعات ورود", icon="🔐")
+        card.add_row("نام کاربری LMS", creds.lms_username or "—")
+        if creds.quera_username:
+            card.add_row("نام کاربری Quera", creds.quera_username)
+
+        card.add_widget(self._divider())
+
+        btns = QHBoxLayout()
+        btns.setSpacing(12)
+        btns.addWidget(self._btn("تغییر رمز", "SecondaryButton",
+                                 self._on_change_password, "🔄"))
+        btns.addWidget(self._btn("خروج از حساب", "DangerButton",
+                                 self._on_logout, "🚪"))
+        btns.addStretch()
+        card.add_widget(self._wrap(btns))
+        self.scroll_layout.addWidget(card)
+
+    def _on_change_password(self) -> None:
+        from src.services.credential_provider import CredentialProvider
+        from src.ui.dialogs.login_dialog import LoginDialog
+
+        creds = CredentialProvider.get()
+        dialog = LoginDialog(
+            self,
+            lms_username=creds.lms_username,
+            lms_password="",
+            quera_username=creds.quera_username,
+            quera_password="",
+        )
+        dialog.login_success.connect(
+            lambda lu, lp, qu, qp: CredentialProvider.update(lu, lp, qu, qp)
+        )
+        if dialog.exec() == LoginDialog.Accepted:
+            QMessageBox.information(self, "موفق", "اطلاعات ذخیره شد.")
+            self.refresh()
+
+    def _on_logout(self) -> None:
+        from src.services.credential_provider import CredentialProvider
+        from src.services.credentials_manager import CredentialsManager
+
+        reply = QMessageBox.question(
+            self, "خروج از حساب",
+            "اطلاعات ورود حذف می‌شود. مطمئن هستی؟",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        CredentialsManager.clear_all()
+        CredentialProvider.reset()
+        QMessageBox.information(
+            self, "خروج",
+            "اطلاعات حذف شد. برنامه را ببند و دوباره باز کن.",
+        )
+        self.refresh()
+
+    def _build_sync_section(self) -> None:
+        from src.services.settings_manager import SettingsManager
+
+        self.scroll_layout.addWidget(_SectionHeader(
+            "🔄", "همگام‌سازی", "انتخاب کن چه داده‌هایی از LMS دریافت شوند"
+        ))
+
+        sync = SettingsManager.get_sync_settings()
+
+        card = SettingCard(title="گزینه‌های سینک", icon="")
+        card.add_widget(self._info_box(
+            "هرچه گزینه‌ی بیشتری فعال باشد، سینک طولانی‌تر می‌شود.\n"
+            "دروس همیشه دریافت می‌شوند و غیرقابل‌تغییرند."
+        ))
+
+        tiles_cfg = [
+            ("courses",  "📚", "دروس",              "فهرست دروس ترم",                 True,  False, "اجباری"),
+            ("contents", "📄", "فایل‌ها و محتوا",   "فایل‌ها و منابع هر درس",          True,  True,  ""),
+            ("events",   "📅", "رویدادها",          "جلسات آنلاین و ددلاین‌ها",        True,  True,  ""),
+            ("wall",     "📢", "پیام‌ها و تکالیف",  "wall هر درس",                     True,  True,  ""),
+            ("members",  "👥", "همکلاسی‌ها",        "لیست اعضای دروس — کندتر",       False, True,  ""),
+        ]
+
+        grid = QGridLayout()
+        grid.setSpacing(12)
+        for i, (key, icon, title, sub, checked, enabled, badge) in enumerate(tiles_cfg):
+            tile = _SyncTile(icon, title, sub,
+                             checked=checked if key != "courses" else True,
+                             enabled=enabled, badge=badge)
+            tile.toggled.connect(lambda _c, k=key: self._on_sync_option_changed(k))
+            self._sync_tiles[key] = tile
+            grid.addWidget(tile, i // 2, i % 2)
+
+        card.add_widget(self._wrap(grid))
+
+        self.estimate_bar = _EstimateBar()
+        card.add_widget(self.estimate_bar)
+        self._update_time_estimate(animate=False)
+
+        self.scroll_layout.addWidget(card)
+
+    def _on_sync_option_changed(self, _key: str | None = None) -> None:
+        from src.services.settings_manager import SettingsManager
+
+        values = {k: t.isChecked() for k, t in self._sync_tiles.items()}
+        SettingsManager.save_sync_settings(values)
+        self._update_time_estimate()
+
+    def _update_time_estimate(self, animate: bool = True) -> None:
+        seconds = self.BASE_SECONDS
+        for key, extra in self.SYNC_SECONDS.items():
+            tile = self._sync_tiles.get(key)
+            if tile and tile.isChecked():
+                seconds += extra
+        self.estimate_bar.set_value(seconds, animate=animate)
+
+    def _build_notifications_section(self) -> None:
+        from src.services.credentials_manager import CredentialsManager
+
+        self.scroll_layout.addWidget(_SectionHeader(
+            "🔔", "اعلان‌ها", "دریافت هشدارها از طریق تلگرام"
+        ))
+
+        saved_id = CredentialsManager.get_telegram_chat_id()
+
+        card = SettingCard(title="ربات تلگرام", icon="📱")
+        card.add_widget(self._info_box(
+            "برای دریافت نوتیفیکیشن‌ها، Chat ID خود را وارد کن.\n"
+            "این اتصال از ربات مشترک برنامه استفاده می‌کند."
+        ))
+        card.add_widget(self._info_box(
+            "📖 راهنما:\n"
+            "۱. در تلگرام به @userinfobot برو\n"
+            "۲. /start بزن\n"
+            "۳. عدد Id را کپی کن\n"
+            "۴. اینجا paste کن و «ذخیره» را بزن", hint=True))
+
+        input_row = QHBoxLayout()
+        input_row.setSpacing(12)
+        lbl = QLabel("💬 Chat ID")
+        lbl.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1E293B')}; font-size: 10pt;"
+            "font-weight: 600; background: transparent;"
+        )
+        input_row.addWidget(lbl)
+
+        self.telegram_input = QLineEdit()
+        self.telegram_input.setPlaceholderText("مثلاً: 1837366891")
+        self.telegram_input.setMinimumHeight(44)
+        self.telegram_input.setAlignment(Qt.AlignLeft)
+        self.telegram_input.setText(saved_id or "")
+        self.telegram_input.textChanged.connect(self._on_telegram_input_changed)
+        input_row.addWidget(self.telegram_input, stretch=1)
+        card.add_widget(self._wrap(input_row))
+
+        btns = QHBoxLayout()
+        btns.setSpacing(12)
+        btns.addWidget(self._btn("تست اتصال", "SecondaryButton",
+                                 self._on_telegram_test, "🧪"))
+        btns.addWidget(self._btn("ذخیره", "PrimaryButton",
+                                 self._on_telegram_save, "💾"))
+        btns.addWidget(self._btn("حذف", "DangerButton",
+                                 self._on_telegram_delete, "🗑️"))
+        btns.addStretch()
+        card.add_widget(self._wrap(btns))
+
+        pill = _StatusPill(
+            f"✅ متصل — {saved_id}" if saved_id else "❌ متصل نیست",
+            "success" if saved_id else "muted",
+        )
+        status_row = QHBoxLayout()
+        status_row.addStretch()
+        status_row.addWidget(pill)
+        card.add_widget(self._wrap(status_row))
+
+        self.scroll_layout.addWidget(card)
+
+    def _on_telegram_input_changed(self, text: str) -> None:
+        cleaned = "".join(ch for ch in text if ch.isdigit() or ch == "-")
+        if cleaned != text:
+            self.telegram_input.setText(cleaned)
+
+    def _on_telegram_test(self) -> None:
+        from src.services.telegram_tester import TelegramTester
+
+        chat_id = self.telegram_input.text().strip()
+        if not chat_id:
+            QMessageBox.warning(self, "خطا", "Chat ID را وارد کن.")
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            ok, message = TelegramTester.test_connection(chat_id)
+        finally:
+            QApplication.restoreOverrideCursor()
+        (QMessageBox.information if ok else QMessageBox.critical)(self, "نتیجه", message)
+
+    def _on_telegram_save(self) -> None:
+        from src.services.credentials_manager import CredentialsManager
+
+        chat_id = self.telegram_input.text().strip()
+        if not chat_id:
+            QMessageBox.warning(self, "خطا", "Chat ID را وارد کن.")
+            return
+        if CredentialsManager.save_telegram_chat_id(chat_id):
+            QMessageBox.information(self, "موفق", "Chat ID ذخیره شد.")
+            self.refresh()
+        else:
+            QMessageBox.critical(self, "خطا", "ذخیره ناموفق بود.")
+
+    def _on_telegram_delete(self) -> None:
+        from src.services.credentials_manager import CredentialsManager
+
+        reply = QMessageBox.question(
+            self, "حذف", "Chat ID حذف شود؟",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        CredentialsManager.delete_telegram_chat_id()
+        self.refresh()
+
+    def _build_appearance_section(self) -> None:
+        self.scroll_layout.addWidget(_SectionHeader(
+            "🎨", "ظاهر", "شخصی‌سازی رابط کاربری"
+        ))
+
+        card = SettingCard(title="تم برنامه", icon="")
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        desc = QLabel("تغییر بلافاصله و بدون نیاز به ری‌استارت اعمال می‌شود.")
+        desc.setStyleSheet(
+            f"color: {_c('TEXT_SECONDARY', '#64748B')}; font-size: 9.5pt;"
+            "background: transparent;"
+        )
+        row.addWidget(desc, stretch=1)
+
+        self.theme_switch = _ThemeSwitch(dark=CurrentTheme.is_dark())
+        self.theme_switch.toggled.connect(self._on_theme_toggle)
+        row.addWidget(self.theme_switch)
+
+        card.add_widget(self._wrap(row))
+        self.scroll_layout.addWidget(card)
+
+    def _on_theme_toggle(self, checked: bool) -> None:
+        from src.services.settings_manager import SettingsManager
+        from src.ui.blur import enable_blur
+        from src.ui.icons import Icons
+        from src.ui.theme import (
+            CurrentTheme,
+            ThemeMode,
+            apply_rtl_recursive,
+            get_global_qss,
+        )
+
+        new_mode = ThemeMode.DARK if checked else ThemeMode.LIGHT
+        CurrentTheme.set_mode(new_mode)
+        SettingsManager.save_theme(new_mode)
+
+        Icons.clear_cache()
+
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(get_global_qss(new_mode))
+
+        main_window = self.window()
+        if main_window:
+            color = 0xFA0A0A0F if CurrentTheme.is_dark() else 0xFAF8FAFC
+            enable_blur(main_window, color=color, enable=True)
+            if hasattr(main_window, "sidebar"):
+                main_window.sidebar.refresh_icons()
+
+        # ✅ refresh خود settings page
+        self.refresh()
+
+        # ✅ refresh همه صفحات دیگر
+        if main_window and hasattr(main_window, 'refresh_all_pages_theme'):
+            main_window.refresh_all_pages_theme()
+
+        if main_window:
+            QTimer.singleShot(
+                50, lambda: self._apply_rtl_to_window(main_window))
+
+    def _apply_rtl_to_window(self, window) -> None:
+        from src.ui.theme import apply_rtl_recursive
+        apply_rtl_recursive(window)
+        for part in ("sidebar", "header"):
+            if hasattr(window, part):
+                apply_rtl_recursive(getattr(window, part))
+        if hasattr(window, "stack"):
+            current = window.stack.currentWidget()
+            if current:
+                apply_rtl_recursive(current)
+
+    def _build_data_section(self) -> None:
+        self.scroll_layout.addWidget(_SectionHeader(
+            "💾", "داده‌ها", "مدیریت دیتابیس محلی"
+        ))
+
+        db_path = Path(self.db_path)
+        if db_path.exists():
+            size = db_path.stat().st_size
+            if size < 1024:
+                size_str = f"{size} B"
+            elif size < 1024 ** 2:
+                size_str = f"{size / 1024:.1f} KB"
+            else:
+                size_str = f"{size / (1024 ** 2):.1f} MB"
+        else:
+            size_str = "—"
+
+        card = SettingCard(title="دیتابیس", icon="")
+        card.add_row("حجم", size_str)
+        card.add_row("مسیر", str(db_path.absolute()))
+
+        btns = QHBoxLayout()
+        btns.setSpacing(12)
+        btns.addWidget(self._btn("بکاپ", "SecondaryButton",
+                                 self._on_backup, "📦"))
+        btns.addWidget(self._btn("پاک کردن دیتابیس", "DangerButton",
+                                 self._on_clear_db, "🗑️"))
+        btns.addStretch()
+        card.add_widget(self._wrap(btns))
+
+        self.scroll_layout.addWidget(card)
 
     def _on_backup(self) -> None:
-        """بکاپ دیتابیس."""
         src = Path(self.db_path)
         if not src.exists():
             QMessageBox.warning(self, "خطا", "دیتابیس پیدا نشد.")
             return
-
         dest, _ = QFileDialog.getSaveFileName(
-            self,
-            "ذخیره بکاپ",
+            self, "ذخیره بکاپ",
             str(src.parent / "lms_backup.db"),
             "Database (*.db)",
         )
         if not dest:
             return
-
-        import shutil
         try:
             shutil.copy2(src, dest)
-            QMessageBox.information(
-                self,
-                "✅ موفق",
-                f"بکاپ ذخیره شد:\n{dest}",
-            )
+            QMessageBox.information(self, "✅ موفق", f"بکاپ ذخیره شد:\n{dest}")
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"خطا در بکاپ:\n{e}")
 
     def _on_clear_db(self) -> None:
-        """پاک کردن دیتابیس."""
         reply = QMessageBox.question(
-            self,
-            "🗑️ پاک کردن دیتابیس",
-            "آیا مطمئن هستی؟ همه‌ی داده‌ها پاک می‌شوند.\n"
-            "(بعد از پاک کردن، باید دوباره Sync بزنی.)",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,  # ⚠️ پیش‌فرض No
+            self, "🗑️ پاک کردن دیتابیس",
+            "همه‌ی داده‌ها پاک می‌شوند و باید دوباره سینک بزنی.\nمطمئن هستی؟",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
         )
         if reply != QMessageBox.Yes:
             return
-
-        db_path = Path(self.db_path)
         try:
+            db_path = Path(self.db_path)
             if db_path.exists():
                 db_path.unlink()
             QMessageBox.information(self, "موفق", "دیتابیس پاک شد.")
@@ -573,3 +870,47 @@ class SettingsPage(BasePage):
             self.settings_changed.emit()
         except Exception as e:
             QMessageBox.critical(self, "خطا", f"خطا در پاک کردن:\n{e}")
+
+    def _build_about_section(self) -> None:
+        self.scroll_layout.addWidget(_SectionHeader("ℹ️", "درباره"))
+
+        card = SettingCard(title="", icon="")
+
+        col = QVBoxLayout()
+        col.setSpacing(12)
+        col.setContentsMargins(20, 20, 20, 20)
+
+        name = QLabel("LMS Desktop")
+        name.setAlignment(Qt.AlignCenter)
+        name.setStyleSheet(
+            f"color: {_c('TEXT_PRIMARY', '#1E293B')}; font-size: 18pt;"
+            "font-weight: 900; background: transparent;"
+        )
+        col.addWidget(name)
+
+        version_row = QHBoxLayout()
+        version_row.addStretch()
+        version_row.addWidget(_StatusPill("v0.1.0", "info"))
+        version_row.addWidget(_StatusPill("دانشگاه اصفهان", "muted"))
+        version_row.addStretch()
+        col.addLayout(version_row)
+
+        desc = QLabel("کلاینت دسکتاپ شخصی برای مدیریت دروس، فایل‌ها و ددلاین‌های LMS")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setWordWrap(True)
+        desc.setStyleSheet(
+            f"color: {_c('TEXT_SECONDARY', '#64748B')}; font-size: 10pt;"
+            "background: transparent;"
+        )
+        col.addWidget(desc)
+
+        repo = QLabel("https://github.com/Asadix85")
+        repo.setAlignment(Qt.AlignCenter)
+        repo.setStyleSheet(
+            f"color: {_c('PRIMARY', '#4F6EF7')}; font-size: 10pt;"
+            "background: transparent;"
+        )
+        col.addWidget(repo)
+
+        card.add_widget(self._wrap(col))
+        self.scroll_layout.addWidget(card)

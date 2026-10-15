@@ -164,8 +164,13 @@ class Fonts:
     SIZE_HERO = 32
 
     @classmethod
-    def load(cls, fonts_dir: Path | str = "assets/fonts/vazirmatn") -> bool:
-        fonts_dir = Path(fonts_dir)
+    def load(cls, fonts_dir: Path | str | None = None) -> bool:
+        if fonts_dir is None:
+            from src.utils.paths import get_asset_path
+            fonts_dir = get_asset_path("fonts/vazirmatn")
+        else:
+            fonts_dir = Path(fonts_dir)
+
         if not fonts_dir.exists():
             print(f"❌ پوشه فونت پیدا نشد: {fonts_dir}")
             return False
@@ -543,9 +548,10 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QLabel#StatValue {{
         font-size: {f.SIZE_HERO}pt;
         font-weight: 700;
-        color: {c.TEXT_PRIMARY};  /* ← برای مقادیر عادی */
+        color: {c.TEXT_PRIMARY};
         background: transparent;
     }}
+
     QLabel#StatValueAccent {{
         font-size: {f.SIZE_HERO}pt;
         font-weight: 700;
@@ -746,7 +752,138 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QMessageBox QPushButton:hover {{
         background-color: {c.PRIMARY_DARK};
     }}
+
+    # ... (بخش‌های بالای فایل مثل LightColors, DarkColors ثابت می‌مونند) ...
+
+def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
+    c = LightColors if mode == ThemeMode.LIGHT else DarkColors
+    f = Fonts
+
+    return f
+    /* === Base === */
+    QWidget {{
+        font-family: "{f.FAMILY}", "{f.FALLBACK}", sans-serif;
+        font-size: {f.SIZE_BASE}pt;
+        color: {c.TEXT_PRIMARY};
+        background: transparent;
+    }}
+    
+    /* ... سایر استایل‌های پایه ... */
+
+    /* === Filter Buttons (Modern Pill) === */
+    QPushButton#FilterButton {{
+        background-color: {c.GLASS_BG};
+        border: 1px solid {c.GLASS_BORDER};
+        border-radius: 20px; /* گردتر */
+        padding: 8px 16px;
+        color: {c.TEXT_PRIMARY};
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }}
+    QPushButton#FilterButton:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        border-color: {c.PRIMARY};
+        color: {c.PRIMARY};
+    }}
+    QPushButton#FilterButton:checked {{
+        background-color: {c.PRIMARY};
+        color: white;
+        border-color: {c.PRIMARY};
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }}
+
+    /* === Sync Tile Improvements === */
+    QFrame#SyncTile {{
+        background-color: {c.GLASS_BG};
+        border: 1.5px solid {c.GLASS_BORDER};
+        border-radius: 16px;
+        transition: border-color 0.2s;
+    }}
+    QFrame#SyncTile:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        border-color: {c.PRIMARY};
+    }}
+    QFrame#SyncTile[checked="true"] {{
+        border-color: {c.PRIMARY};
+        background-color: {c.PRIMARY_LIGHT};
+    }}
+
+    /* === Scroll Bar Gradient === */
+    QScrollBar::handle:vertical {{
+        background: qlineargradient(
+            x1:0, y1:0, x2:1, y2:0,
+            stop:0 {c.PRIMARY},
+            stop:1 {c.PRIMARY_DARK}
+        );
+        border-radius: 6px;
+        min-height: 40px;
+        margin: 0px 4px;
+    }}
+    QFrame#SyncTile:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        border-color: {c.GLASS_BORDER_HOVER};
+    }}
+    QFrame#SyncTile[checked="true"] {{
+        border-color: {c.PRIMARY};
+        background-color: {c.PRIMARY_LIGHT};
+    }}
+
+    QToolButton#ThemeSwitch {{
+        background-color: {c.GLASS_BG};
+        color: {c.TEXT_PRIMARY};
+        border: 1.5px solid {c.GLASS_BORDER};
+        border-radius: 18px;
+        font-size: {f.SIZE_BASE}pt;
+        font-weight: 700;
+    }}
+    QToolButton#ThemeSwitch:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        border-color: {c.GLASS_BORDER_HOVER};
+    }}
+    QToolButton#ThemeSwitch:checked {{
+        background-color: {c.PRIMARY};
+        color: {c.TEXT_WHITE};
+        border-color: {c.PRIMARY};
+    }}
+
+    QLabel#StatusPill {{
+        border-radius: 13px;
+        padding: 0 14px;
+        font-size: {f.SIZE_SM}pt;
+        font-weight: 700;
+    }}
+    QLabel#StatusPill[kind="success"] {{
+        color: {c.SUCCESS};
+        background-color: {c.PRIMARY_LIGHT};
+    }}
+    QLabel#StatusPill[kind="danger"] {{
+        color: {c.ERROR};
+        background-color: rgba(255, 59, 48, 0.12);
+    }}
+    QLabel#StatusPill[kind="info"] {{
+        color: {c.PRIMARY};
+        background-color: {c.PRIMARY_LIGHT};
+    }}
+    QLabel#StatusPill[kind="muted"] {{
+        color: {c.TEXT_MUTED};
+        background-color: {c.BG_HOVER};
+    }}
+
+    QPushButton#DangerButton {{
+        background-color: transparent;
+        color: {c.ERROR};
+        border: 1.5px solid {c.ERROR};
+        border-radius: 12px;
+        padding: 10px 18px;
+        font-weight: 600;
+    }}
+    QPushButton#DangerButton:hover {{
+        background-color: rgba(255, 59, 48, 0.10);
+    }}
     """
+
+
 
 
 def apply_rtl_recursive(widget):

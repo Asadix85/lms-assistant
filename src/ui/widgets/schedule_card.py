@@ -30,7 +30,6 @@ class ScheduleCard(QFrame):
     def _build(self) -> None:
         c = CurrentTheme.colors()
 
-        # === Layout اصلی (افقی) ===
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(20)
@@ -60,62 +59,34 @@ class ScheduleCard(QFrame):
         day_label.setAlignment(Qt.AlignCenter)
         day_layout.addWidget(day_label)
 
-        # ⚠️ در RTL، اولین widget = راست‌ترین
         layout.addWidget(day_box)
 
         # ============================================
-        # ۲. اطلاعات (وسط)
+        # ۲. اطلاعات (وسط) — هر ردیف با QLabel آیکون جدا
         # ============================================
         content_col = QVBoxLayout()
-        content_col.setSpacing(10)
+        content_col.setSpacing(8)
         content_col.setAlignment(Qt.AlignVCenter)
-        content_col.setDirection(QVBoxLayout.TopToBottom)
 
         # === ساعت ===
-        time_row = QHBoxLayout()
-        time_row.setSpacing(8)
-        time_row.setDirection(QHBoxLayout.RightToLeft)  # ← راست به چپ
-
-        # ⚠️ در RTL: اول آیکون (راست)، بعد متن (چپ)
-        time_icon = QLabel("⏰")
-        time_icon.setStyleSheet("font-size: 13pt; background: transparent;")
-        time_icon.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        time_icon.setFixedWidth(25)
-        time_row.addWidget(time_icon)
-
         time_text = self._session.time_range or "—"
-        time_label = QLabel(time_text)
+        time_label = QLabel(f"⏰  {time_text}")
         time_label.setStyleSheet(
             f"font-size: 12pt; font-weight: bold; color: {c.TEXT_PRIMARY}; "
             "background: transparent;"
         )
         time_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        time_row.addWidget(time_label, stretch=1)
-
-        content_col.addLayout(time_row)
+        content_col.addWidget(time_label)
 
         # === مکان ===
         if self._session.location:
-            location_row = QHBoxLayout()
-            location_row.setSpacing(8)
-            location_row.setDirection(QHBoxLayout.RightToLeft)  # ← راست به چپ
-
-            # ⚠️ در RTL: اول آیکون (راست)، بعد متن (چپ)
-            loc_icon = QLabel("📍")
-            loc_icon.setStyleSheet("font-size: 13pt; background: transparent;")
-            loc_icon.setAlignment(Qt.AlignRight | Qt.AlignTop)
-            loc_icon.setFixedWidth(25)
-            location_row.addWidget(loc_icon)
-
-            location_label = QLabel(self._session.location)
+            location_label = QLabel(f"📍  {self._session.location}")
             location_label.setStyleSheet(
                 f"font-size: 10pt; color: {c.TEXT_SECONDARY}; "
                 "background: transparent;"
             )
             location_label.setWordWrap(True)
             location_label.setAlignment(Qt.AlignRight | Qt.AlignTop)
-            location_row.addWidget(location_label, stretch=1)
-
-            content_col.addLayout(location_row)
+            content_col.addWidget(location_label)
 
         layout.addLayout(content_col, stretch=1)

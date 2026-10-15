@@ -11,9 +11,6 @@ from src.ui.theme import CurrentTheme
 
 class Icons:
     """مدیریت آیکون‌ها."""
-
-    ICONS_DIR = Path("assets/icons")
-
     DASHBOARD = "chart-pie"
     CALENDAR = "calendar-days"
     COURSES = "book"
@@ -49,15 +46,13 @@ class Icons:
 
     @classmethod
     def get(cls, name: str, size: int = 24, color: str | None = None) -> QIcon:
-        """دریافت آیکون به عنوان QIcon.
-
-        اگر color=None باشد، از TEXT_PRIMARY تم فعلی استفاده می‌شود.
-        """
+        """دریافت آیکون به عنوان QIcon."""
         key = f"{name}_{size}_{color}"
         if key in cls._cache:
             return cls._cache[key]
 
-        icon_path = cls.ICONS_DIR / f"{name}.svg"
+        from src.utils.paths import get_asset_path
+        icon_path = get_asset_path(f"icons/{name}.svg")
         if not icon_path.exists():
             print(f"⚠️ آیکون پیدا نشد: {icon_path}")
             return QIcon()

@@ -20,8 +20,6 @@ class BasePage(QWidget):
 
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAutoFillBackground(False)
-
-        # جهت کل صفحه
         self.setLayoutDirection(Qt.RightToLeft)
 
         self._build()
@@ -70,3 +68,20 @@ class BasePage(QWidget):
     def refresh(self) -> None:
         """بازخوانی داده‌ها."""
         pass
+
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم، استایل‌ها رو به‌روز کن.
+
+        این متد در کلاس‌های فرزند override می‌شه.
+        """
+        # به‌روزرسانی separator
+        for child in self.findChildren(QFrame):
+            if child.frameShape() == QFrame.HLine:
+                child.setStyleSheet("background-color: rgba(148, 163, 184, 0.2); max-height: 1px;")
+
+        # به‌روزرسانی title و subtitle
+        for obj_name in ("PageTitle", "PageSubtitle"):
+            lbl = self.findChild(QLabel, obj_name)
+            if lbl:
+                # استایل از QSS global میاد، فقط alignment رو دوباره set کن
+                lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)

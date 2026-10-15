@@ -32,12 +32,22 @@ from src.ui.worker import SyncWorker
 class MainWindow(QMainWindow):
     """پنجره اصلی با Sidebar راست + System Tray."""
 
-    DB_PATH = "data/lms.db"
+    @property
+    def DB_PATH(self) -> str:
+        from src.utils.paths import get_data_path
+        return str(get_data_path("lms.db"))
 
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
         self.resize(1300, 850)
+
+        if hasattr(self, 'settings_page'):
+            self.settings_page.theme_changed.connect(self._on_theme_changed)
+
+        def _on_theme_changed(self):
+            """بعد از تغییر تم از settings page."""
+            self.refresh_all_pages_theme()
 
         # شفاف کردن پنجره
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -237,6 +247,17 @@ class MainWindow(QMainWindow):
 
     def _load_data(self) -> None:
         """بارگذاری صفحات."""
+        # ⚠️ مهم: init_schema قبل از همه چیز
+        print(f"📂 DB_PATH: {self.DB_PATH}")
+
+        from src.storage.database import Database
+        try:
+            with Database(self.DB_PATH) as db:
+                db.init_schema()
+            print(f"✅ Schema آماده: {self.DB_PATH}")
+        except Exception as e:
+            print(f"❌ خطا در init_schema: {e}")
+
         from src.ui.pages.dashboard_page import DashboardPage
         from src.ui.pages.courses_page import CoursesPage
         from src.ui.pages.events_page import EventsPage
@@ -368,28 +389,46 @@ class MainWindow(QMainWindow):
     # ============================================================
 
     def _on_update_clicked(self) -> None:
+        print("🔘 دکمه‌ی Sync کلیک شد!")
+
         from src.services.credential_provider import CredentialProvider
 
         creds = CredentialProvider.get()
+
+        print(f"🔍 lms_username: {bool(creds.lms_username)}")
+        print(f"🔍 lms_password: {bool(creds.lms_password)}")
 
         has_lms = bool(creds.lms_username and creds.lms_password)
         has_quera = bool(creds.quera_username and creds.quera_password)
 
         if not has_lms and not has_quera:
-            # باز کردن Dialog
+            print("❌ credentials نیست — Dialog باز می‌شه")
             self._show_login_dialog()
             return
+
+        print(f"✅ شروع Sync برای {creds.lms_username}")
 
         self.header.set_busy(True, "در حال Sync...")
         self.status_bar.showMessage("🔄 در حال Sync...")
 
         self._thread = QThread()
         self._worker = SyncWorker(
-            username=creds.lms_username,
+            username=creds.lms_username,  # ← از creds
             password=creds.lms_password,
             db_path=self.DB_PATH,
             notify=True,
         )
+        self._worker.moveToThread(self._thread)
+
+        self._thread.started.connect(self._worker.run)
+        self._worker.progress.connect(self._on_progress)
+        self._worker.finished.connect(self._on_sync_finished)
+        self._worker.error.connect(self._on_sync_error)
+        self._worker.finished.connect(self._thread.quit)
+        self._worker.error.connect(self._thread.quit)
+        self._thread.finished.connect(self._on_thread_finished)
+
+        self._thread.start()
 
     def _show_login_dialog(self) -> None:
         """باز کردن Dialog ورود."""
@@ -413,18 +452,6 @@ class MainWindow(QMainWindow):
         if dialog.exec() == LoginDialog.Accepted:
             self.status_bar.showMessage("✅ اطلاعات ذخیره شد")
 
-        self._worker.moveToThread(self._thread)
-
-        self._thread.started.connect(self._worker.run)
-        self._worker.progress.connect(self._on_progress)
-        self._worker.finished.connect(self._on_sync_finished)
-        self._worker.error.connect(self._on_sync_error)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.error.connect(self._thread.quit)
-        self._thread.finished.connect(self._on_thread_finished)
-
-        self._thread.start()
-
     def _on_progress(self, progress) -> None:
         """دریافت progress از worker."""
         from src.services.sync_progress import SyncProgress
@@ -440,6 +467,30 @@ class MainWindow(QMainWindow):
         if progress.elapsed > 0:
             status_text += f"  |  ⏱️ {progress.elapsed_text}"
         self.status_bar.showMessage(status_text)
+
+    class MainWindow(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            # ... کدهای قبلی ...
+            pass
+
+        def refresh_all_pages_theme(self) -> None:
+            """بعد از تغییر تم، همه صفحات رو به‌روز کن."""
+            pages = [
+                getattr(self, 'dashboard_page', None),
+                getattr(self, 'calendar_page', None),
+                getattr(self, 'courses_page', None),
+                getattr(self, 'assignments_page', None),
+                getattr(self, 'events_page', None),
+                getattr(self, 'analytics_page', None),
+                getattr(self, 'changes_page', None),
+                getattr(self, 'settings_page', None),
+            ]
+
+            for page in pages:
+                if page and hasattr(page, 'refresh_theme'):
+                    page.refresh_theme()
+
 
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.header.set_busy(False, "آماده")

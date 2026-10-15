@@ -7,7 +7,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QLocale
 from PySide6.QtWidgets import QApplication
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+if not getattr(sys, "frozen", False):
+    sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.services.credential_provider import CredentialProvider
 from src.services.settings_manager import SettingsManager

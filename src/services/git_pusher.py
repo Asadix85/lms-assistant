@@ -48,6 +48,13 @@ class GitPusher:
 
     def push_db(self) -> bool:
         """Push دیتابیس به GitHub (شاخه‌ی فعلی)."""
+        # ⚠️ توی EXE کار نکن (فقط نسخه‌ی دسکتاپ)
+        from src.utils.paths import is_frozen
+
+        if is_frozen():
+            logger.info("ℹ️ GitPusher توی EXE غیرفعاله")
+            return False
+
         db = self.repo_root / self.DB_PATH
         if not db.exists():
             logger.warning(f"دیتابیس پیدا نشد: {db}")
