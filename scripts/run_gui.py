@@ -24,6 +24,14 @@ def main() -> int:
     app.setLayoutDirection(Qt.RightToLeft)
     app.setStyle("Fusion")
 
+    # === RTL: فیلتر سطح-اپلیکیشن + ترجمه رسمی Qt فارسی ===
+    # هر ویجت تازه‌ساخته‌شده (کارت‌های داینامیک بعد از همگام‌سازی، دیالوگ‌ها،
+    # Toast و...) خودکار RTL می‌شود؛ نیازی به فراخوانی دستی نیست.
+    from src.ui.rtl import install_rtl_event_filter, load_qt_translations
+
+    install_rtl_event_filter(app)
+    load_qt_translations(app)
+
     Fonts.load()
 
     saved_theme = SettingsManager.load_theme(default=ThemeMode.LIGHT)
