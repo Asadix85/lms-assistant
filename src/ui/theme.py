@@ -753,32 +753,14 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.PRIMARY_DARK};
     }}
 
-    # ... (بخش‌های بالای فایل مثل LightColors, DarkColors ثابت می‌مونند) ...
-
-def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
-    c = LightColors if mode == ThemeMode.LIGHT else DarkColors
-    f = Fonts
-
-    return f
-    /* === Base === */
-    QWidget {{
-        font-family: "{f.FAMILY}", "{f.FALLBACK}", sans-serif;
-        font-size: {f.SIZE_BASE}pt;
-        color: {c.TEXT_PRIMARY};
-        background: transparent;
-    }}
-    
-    /* ... سایر استایل‌های پایه ... */
-
     /* === Filter Buttons (Modern Pill) === */
     QPushButton#FilterButton {{
         background-color: {c.GLASS_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 20px; /* گردتر */
+        border-radius: 20px;
         padding: 8px 16px;
         color: {c.TEXT_PRIMARY};
         font-weight: 500;
-        transition: all 0.2s ease;
     }}
     QPushButton#FilterButton:hover {{
         background-color: {c.GLASS_BG_HOVER};
@@ -787,18 +769,16 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     }}
     QPushButton#FilterButton:checked {{
         background-color: {c.PRIMARY};
-        color: white;
+        color: {c.TEXT_WHITE};
         border-color: {c.PRIMARY};
         font-weight: bold;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }}
 
-    /* === Sync Tile Improvements === */
+    /* === Sync Tile === */
     QFrame#SyncTile {{
         background-color: {c.GLASS_BG};
         border: 1.5px solid {c.GLASS_BORDER};
         border-radius: 16px;
-        transition: border-color 0.2s;
     }}
     QFrame#SyncTile:hover {{
         background-color: {c.GLASS_BG_HOVER};
@@ -809,26 +789,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.PRIMARY_LIGHT};
     }}
 
-    /* === Scroll Bar Gradient === */
-    QScrollBar::handle:vertical {{
-        background: qlineargradient(
-            x1:0, y1:0, x2:1, y2:0,
-            stop:0 {c.PRIMARY},
-            stop:1 {c.PRIMARY_DARK}
-        );
-        border-radius: 6px;
-        min-height: 40px;
-        margin: 0px 4px;
-    }}
-    QFrame#SyncTile:hover {{
-        background-color: {c.GLASS_BG_HOVER};
-        border-color: {c.GLASS_BORDER_HOVER};
-    }}
-    QFrame#SyncTile[checked="true"] {{
-        border-color: {c.PRIMARY};
-        background-color: {c.PRIMARY_LIGHT};
-    }}
-
+    /* === Theme Switch === */
     QToolButton#ThemeSwitch {{
         background-color: {c.GLASS_BG};
         color: {c.TEXT_PRIMARY};
@@ -847,6 +808,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         border-color: {c.PRIMARY};
     }}
 
+    /* === Status Pill === */
     QLabel#StatusPill {{
         border-radius: 13px;
         padding: 0 14px;
@@ -870,6 +832,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.BG_HOVER};
     }}
 
+    /* === Danger Button === */
     QPushButton#DangerButton {{
         background-color: transparent;
         color: {c.ERROR};
@@ -882,8 +845,6 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: rgba(255, 59, 48, 0.10);
     }}
     """
-
-
 
 
 def apply_rtl_recursive(widget):

@@ -42,12 +42,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
         self.resize(1300, 850)
 
-        if hasattr(self, 'settings_page'):
-            self.settings_page.theme_changed.connect(self._on_theme_changed)
-
-        def _on_theme_changed(self):
-            """بعد از تغییر تم از settings page."""
-            self.refresh_all_pages_theme()
+        # ⚠️ باگ قبلی: اتصال theme_changed داخل __init__ و قبل از ساخت
+        # settings_page انجام می‌شد (هرگز اجرا نمی‌شد) و هندلر به‌صورت
+        # تابع تو در تعریف شده بود. اتصال درست بعد از _load_data انجام می‌شود.
 
         # شفاف کردن پنجره
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -327,6 +324,9 @@ class MainWindow(QMainWindow):
         self._pages["about"] = self.about_page
         self.stack.addWidget(self.about_page)
 
+        # ✅ اتصال صحیح سیگنال تغییر تم (بعد از ساخت صفحات)
+        self.settings_page.theme_changed.connect(self._on_theme_changed)
+
         # بازیابی آخرین صفحه
         last_page = SettingsManager.load_last_page(default="dashboard")
         if last_page in self._pages:
@@ -468,29 +468,28 @@ class MainWindow(QMainWindow):
             status_text += f"  |  ⏱️ {progress.elapsed_text}"
         self.status_bar.showMessage(status_text)
 
-    class MainWindow(QMainWindow):
-        def __init__(self):
-            super().__init__()
-            # ... کدهای قبلی ...
-            pass
+    # ============================================================
+    # Theme
+    # ============================================================
 
-        def refresh_all_pages_theme(self) -> None:
-            """بعد از تغییر تم، همه صفحات رو به‌روز کن."""
-            pages = [
-                getattr(self, 'dashboard_page', None),
-                getattr(self, 'calendar_page', None),
-                getattr(self, 'courses_page', None),
-                getattr(self, 'assignments_page', None),
-                getattr(self, 'events_page', None),
-                getattr(self, 'analytics_page', None),
-                getattr(self, 'changes_page', None),
-                getattr(self, 'settings_page', None),
-            ]
+    def _on_theme_changed(self) -> None:
+        """بعد از تغییر تم از settings page."""
+        self.refresh_all_pages_theme()
+        self._apply_rtl_to_all()
 
-            for page in pages:
-                if page and hasattr(page, 'refresh_theme'):
+    def refresh_all_pages_theme(self) -> None:
+        """بعد از تغییر تم، همه صفحات رو به‌روز کن.
+
+        ⚠️ باگ قبلی: این متد داخل یک کلاس MainWindow تودرتو تعریف شده بود
+        که باعث می‌شد نسخه‌ی اصلی کلاس این متد را نداشته باشد و فراخوانی آن
+        با AttributeError یا skip کامل مواجه شود.
+        """
+        for page in self._pages.values():
+            if hasattr(page, "refresh_theme"):
+                try:
                     page.refresh_theme()
-
+                except Exception as e:  # noqa: BLE001
+                    print(f"⚠️ خطا در refresh_theme صفحه‌ی {type(page).__name__}: {e}")
 
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.header.set_busy(False, "آماده")
