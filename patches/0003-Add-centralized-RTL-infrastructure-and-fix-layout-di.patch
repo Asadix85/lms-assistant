@@ -1,0 +1,828 @@
+From cbac10723c525a8f8bcc76ead93f54616a407d14 Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Fri, 16 Oct 2026 07:26:08 +0000
+Subject: [PATCH 3/6] Add centralized RTL infrastructure and fix layout
+ direction issues across all UI widgets - New src/ui/rtl.py: Implements
+ three-layer RTL solution (app-level event filter, widget mixin, recursive
+ cleanup) to handle dynamic cards and orphaned widgets correctly. - Updated
+ src/ui/theme.py: Refactored apply_rtl_recursive to delegate to new rtl
+ module, fixing bugs where AlignCenter was broken and LTR-forced elements were
+ incorrectly mirrored. - Modified src/ui/widgets/*.py: Applied RTLWidgetMixin
+ to CourseCard, AssignmentCard, EventCard, PostCard, SettingCard,
+ TimelineItem, UpcomingCard, and others to ensure self-initialization of
+ RightToLeft direction. - Updated src/ui/pages/settings_page.py: Integrated
+ mark_ltr for Telegram Chat ID input to preserve Latin numeric alignment while
+ maintaining page-wide RTL context.
+
+---
+ .gitignore                              |   6 +-
+ src/ui/pages/settings_page.py           |   4 +
+ src/ui/rtl.py                           | 306 ++++++++++++++++++++++++
+ src/ui/theme.py                         |  39 +--
+ src/ui/widgets/assignment_card.py       |   3 +-
+ src/ui/widgets/calendar_day_cell.py     |   3 +-
+ src/ui/widgets/calendar_event_item.py   |   3 +-
+ src/ui/widgets/change_card.py           |   3 +-
+ src/ui/widgets/course_card.py           |   3 +-
+ src/ui/widgets/course_info_card.py      |   3 +-
+ src/ui/widgets/course_stats_cards.py    |   3 +-
+ src/ui/widgets/dashboard_stat.py        |   3 +-
+ src/ui/widgets/empty_state.py           |   3 +-
+ src/ui/widgets/event_card.py            |   3 +-
+ src/ui/widgets/pill_progress.py         |   3 +-
+ src/ui/widgets/post_card.py             |   3 +-
+ src/ui/widgets/quera_assignment_card.py |   3 +-
+ src/ui/widgets/quera_course_card.py     |   3 +-
+ src/ui/widgets/recent_post.py           |   3 +-
+ src/ui/widgets/schedule_card.py         |   3 +-
+ src/ui/widgets/setting_card.py          |   6 +-
+ src/ui/widgets/timeline.py              |   5 +-
+ src/ui/widgets/upcoming_card.py         |   5 +-
+ 23 files changed, 368 insertions(+), 51 deletions(-)
+ create mode 100644 src/ui/rtl.py
+
+diff --git a/.gitignore b/.gitignore
+index 98e6ef6..46e6e7c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1,5 @@
+-*.db
++__pycache__/
++*.pyc
++.env
++.env.local
++.env.*.local
+diff --git a/src/ui/pages/settings_page.py b/src/ui/pages/settings_page.py
+index 586f57f..69b6f8a 100644
+--- a/src/ui/pages/settings_page.py
++++ b/src/ui/pages/settings_page.py
+@@ -35,6 +35,7 @@ from config.settings import settings
+ from src.storage.database import Database
+ from src.storage.repositories import CourseRepository, SettingRepository
+ from src.ui.pages.base_page import BasePage
++from src.ui.rtl import mark_ltr
+ from src.ui.theme import CurrentTheme
+ from src.ui.widgets.setting_card import SettingCard
+ 
+@@ -658,6 +659,9 @@ class SettingsPage(BasePage):
+         self.telegram_input = QLineEdit()
+         self.telegram_input.setPlaceholderText("مثلاً: 1837366891")
+         self.telegram_input.setMinimumHeight(44)
++        # Chat ID تلگرام عدد/متن لاتین است → عمداً LTR می‌ماند تا
++        # apply_rtl_recursive آن را راست‌تراز و معکوس نکند.
++        mark_ltr(self.telegram_input)
+         self.telegram_input.setAlignment(Qt.AlignLeft)
+         self.telegram_input.setText(saved_id or "")
+         self.telegram_input.textChanged.connect(self._on_telegram_input_changed)
+diff --git a/src/ui/rtl.py b/src/ui/rtl.py
+new file mode 100644
+index 0000000..31819e8
+--- /dev/null
++++ b/src/ui/rtl.py
+@@ -0,0 +1,306 @@
++"""زیرساخت مرکزی RTL برای کل رابط کاربری.
++
++چرا این ماژول لازم است؟
++در Qt، جهت چیدمان (LayoutDirection) به‌صورت "ميراثی" از والد به فرزندان
++جاری می‌شود — اما دو حالت وجود دارد که در آن میراث قطع می‌شود و عناصر
++سمت‌چپ می‌مانند:
++
++1. ویجت‌هایی که بعداً به صفحه اضافه می‌شوند (کارت‌های داینامیک، ردیف‌های
++   جدول، لیست‌های پس از همگام‌سازی) — اگر در زمان ساخت، والد نداشتند،
++   جهت پیش‌فرض چپ‌به‌راست را گرفته و دیگر تصحیح نمی‌شوند.
++2. توست‌ها (Toasts)، دیالوگ‌ها و منوهایی که مستقیماً فرزند پنجره اصلی
++   نیستند یا parent=None ساخته می‌شوند.
++
++راه‌حل سه‌لایه:
++- لایه ۱ (اپلیکیشن): ``app.setLayoutDirection(RightToLeft)`` + فیلتر رویداد
++  QEvent.ChildAdded در ``install_rtl_event_filter(app)`` که هر ویجت جدیدی
++  را بلافاصله RTL می‌کند (هزینه O(1) در هر افزودن).
++- لایه ۲ (ویجت‌ها): کلاس پایه ``RTLWidgetMixin`` که در ``__init__`` خودش
++  را RTL می‌کند — حتی وقتی parent ندارد (مثل Toast).
++- لایه ۳ (تمیزسازی): ``apply_rtl_recursive`` با اصلاحات زیر نسبت به نسخه
++  قبلی: حفظ AlignCenter، احترام به فلگ صریح LTR (برای ساعت/عدد لاتین)،
++  و اعمال LayoutDirection روی خود layoutها.
++"""
++
++from __future__ import annotations
++
++from PySide6.QtCore import (
++    QEvent,
++    QObject,
++    QPersistentModelIndex,
++    Qt,
++    QTranslator,
++)
++from PySide6.QtGui import QAbstractTextDocumentLayout, QPalette, QTextDocument
++from PySide6.QtWidgets import (
++    QAbstractItemView,
++    QCheckBox,
++    QComboBox,
++    QLabel,
++    QLineEdit,
++    QPlainTextEdit,
++    QPushButton,
++    QRadioButton,
++    QScrollArea,
++    QSizePolicy,
++    QTableView,
++    QTextEdit,
++    QVBoxLayout,
++    QWidget,
++)
++
++
++def is_ltr_forced(widget: QWidget) -> bool:
++    """آیا روی ویجت به‌صورت صریح «LTR بمان» علامت زده شده است؟
++
++    برای عناصری مثل ساعت (14:30)، شماره تلفن، Chat ID تلگرام و متن‌های
++    لاتین باید Qt.AlignLeft | Qt.LayoutDirectionMixed ست شود تا توابع RTL
++    آن‌ها را دست‌نخورده رها کنند.
++    """
++    return bool(widget.property("_rtl_force_ltr"))
++
++
++def mark_ltr(widget: QWidget) -> QWidget:
++    """علامت‌گذاری یک ویجت برای ماندن در حالت چپ‌به‌راست (ساعت/عدد لاتین)."""
++    widget.setProperty("_rtl_force_ltr", True)
++    widget.setLayoutDirection(Qt.LeftToRight)
++    return widget
++
++
++class RTLWidgetMixin:
++    """میکسین RTL برای همه ویجت‌های سفارشی (کارت‌ها، توست‌ها، دیالوگ‌ها).
++
++    استفاده::
++
++        class CourseCard(RTLWidgetMixin, QFrame):
++            ...
++
++    ترتیب MRO مهم است: میکسین باید قبل از کلاس پایه Qt بیاید.
++    با فراخوانی معمول ``super().__init__(parent)`` در کلاس فرزند نیز
++    درست کار می‌کند (parent=None ارسال نمی‌شود).
++    """
++
++    def __init__(self, *args, **kwargs) -> None:
++        super().__init__(*args, **kwargs)
++        if not is_ltr_forced(self):
++            self.setLayoutDirection(Qt.RightToLeft)
++
++
++def ensure_rtl(widget: QWidget) -> QWidget:
++    """RTL کردن یک ویجت خاص به‌همراه فرزندان مستقیم موجود (بدون دست‌زدن
++    به AlignCenter و موارد mark_ltr شده). برای کارت‌هایی که در زمان ساخت
++    parent ندارند کافی است؛ فیلتر ChildAdded بقیه را می‌گیرد."""
++    _apply_one(widget)
++    for child in widget.findChildren(QWidget):
++        _apply_one(child)
++    return widget
++
++
++class RTLLabel(QLabel):
++    """برچسب RTL-aware: مرکزِ خالی (AlignCenter) حفظ می‌شود و فقط برچسب‌های
++    واقعاً سمت‌چپ به راست منتقل می‌گردند. با فلگ صریح LTR کار نمی‌کند."""
++
++    def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
++        super().__init__(text, parent)
++        self.setLayoutDirection(Qt.RightToLeft)
++        # راست‌تراز کردن اولیه فقط اگر کاربر align نداده باشد
++        if not (self.alignment() & Qt.AlignHorizontal_Mask):
++            self.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
++
++    def setAlignment(self, flag) -> None:  # noqa: N802 (APIQt)
++        super().setAlignment(flag)
++        # اگر صراحتاً LTR خواسته شد، جهت چیدمان را هم قفل کن
++        if isinstance(flag, int) and flag & Qt.AlignLeft:
++            self.setProperty("_rtl_force_ltr", True)
++            self.setLayoutDirection(Qt.LeftToRight)
++
++
++class _ChildAddedFilter(QObject):
++    """فیلتر رویداد: هر ویجت تازه‌متولد/منتقل‌شده را فوری RTL می‌کند.
++
++    این فیلتر روی QApplication نصب می‌شود و مشکل «کارت‌های داینامیک
++    سمت‌چپ» را ریشه‌ای حل می‌کند — بدون نیاز به فراخوانی دستی بعد از
++    هر addWidget.
++    """
++
++    def eventFilter(self, obj, event) -> bool:  # noqa: ANN001
++        if event.type() == QEvent.ChildAdded:
++            child = event.child()
++            if isinstance(child, QWidget):
++                w: QWidget = child
++                if not is_ltr_forced(w):
++                    w.setLayoutDirection(Qt.RightToLeft)
++                    # children-i که داخل layout خودشان ساخته شده‌اند هنوز
++                    # parent ندارند؛ یک پاس کوچک روی مستقیم‌ترین فرزندانشان
++                    for sub in w.findChildren(QWidget):
++                        if not is_ltr_forced(sub):
++                            sub.setLayoutDirection(Qt.RightToLeft)
++        return False
++
++
++def install_rtl_event_filter(app) -> _ChildAddedFilter:
++    """نصب فیلتر ChildAdded روی کل اپلیکیشن. یک‌بار در نقطه ورود صدا زده شود."""
++    f = _ChildAddedFilter(app)
++    app.installEventFilter(f)
++    return f
++
++
++def load_qt_translations(app) -> None:
++    """بارگذاری ترجمه رسمی Qt فارسی (OK/Cancel/… و نام ماه‌های شمسی).
++
++    فایل‌های qm در مجله‌ی translations کنار PySide6 بسته‌شده‌اند. اگر
++    پیدا نشوند بی‌صدا رد می‌شویم (مثلاً در محیط تست).
++    """
++    import sys
++    from pathlib import Path
++
++    candidates: list[Path] = []
++    try:
++        import PySide6
++
++        pkg_dir = Path(PySide6.__file__).parent / "translations"
++        candidates.append(pkg_dir)
++    except Exception:
++        pass
++    if getattr(sys, "frozen", False):
++        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
++        candidates.append(base / "_internal" / "PySide6" / "translations")
++        candidates.append(base / "translations")
++
++    translator = QTranslator(app)
++    for d in candidates:
++        for name in ("qtbase_fa", "qt_fa"):
++            f = d / f"{name}.qm"
++            if f.exists() and translator.load(str(f)):
++                app.installTranslator(translator)
++                return
++
++
++def apply_rtl_recursive(widget: QWidget | None) -> None:
++    """اعمال RTL روی ویجت و همه فرزندان — نسخه اصلاح‌شده.
++
++    تفاوت‌های کلیدی با نسخه قبلی:
++    - AlignCenter دیگر خراب نمی‌شود (نسخه قبلی با ماسک AlignRight،
++      مرکزِ آیکون‌ها/پیل‌ها/بَج‌ها را به راست می‌پراند).
++    - ویجت‌های علامت‌گذاری‌شده با ``mark_ltr`` (ساعت، عدد لاتین، Chat ID)
++      دست‌نخورده می‌مانند.
++    - LayoutDirection روی خودِ layout آبجکت‌ها هم ست می‌شود (سازگار با
++      QSS و رفتار صحیح stretch در Fusion).
++    - تراز پیش‌فرض برچسب خالی → راست (نه اینکه تغییر نکند).
++    """
++    if widget is None:
++        return
++
++    _apply_one(widget)
++    for child in widget.findChildren(QWidget):
++        _apply_one(child)
++
++    # layoutهای داخلی (روی خود widget و فرزندان)
++    applied_layouts: set[int] = set()
++    for holder in [widget, *widget.findChildren(QWidget)]:
++        lay = holder.layout()
++        while lay is not None and id(lay) not in applied_layouts:
++            applied_layouts.add(id(lay))
++            lay.setDirection(_layout_direction_for(holder))
++            parent_item = lay.parent()
++            lay = parent_item.layout() if parent_item is not None else None
++
++
++def _layout_direction_for(holder: QWidget):
++    return (
++        Qt.RightToLeft
++        if holder.layoutDirection() == Qt.RightToLeft
++        else Qt.LeftToRight
++    )
++
++
++def _apply_one(w: QWidget) -> None:
++    if is_ltr_forced(w):
++        return
++
++    w.setLayoutDirection(Qt.RightToLeft)
++
++    # لیبل‌ها: فقط افقی را عوض کن، عمودی و center حفظ شود
++    if isinstance(w, QLabel):
++        a = w.alignment()
++        if not a & Qt.AlignHorizontal_Mask or a & Qt.AlignLeft:
++            w.setAlignment((a & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight)
++
++    elif isinstance(w, (QLineEdit, QTextEdit, QPlainTextEdit)):
++        doc = _document_of(w)
++        if doc is not None:
++            doc.setDefaultTextOption(_persian_text_option(doc.defaultTextOption()))
++        a = w.alignment()
++        if not a & Qt.AlignHorizontal_Mask or a & Qt.AlignLeft:
++            w.setAlignment((a & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight)
++
++    elif isinstance(w, QCheckBox):
++        # تیک‌باکس RTL: جعبه در سمت راست متن
++        w.setLayoutDirection(Qt.RightToLeft)
++
++    elif isinstance(w, QRadioButton):
++        w.setLayoutDirection(Qt.RightToLeft)
++
++    elif isinstance(w, QComboBox):
++        w.setLayoutDirection(Qt.RightToLeft)
++
++    elif isinstance(w, QAbstractItemView):
++        header = w.horizontalHeader()
++        if header is not None:
++            header.setLayoutDirection(Qt.RightToLeft)
++        v = w.verticalScrollBar()
++        h = w.horizontalScrollBar()
++        if v is not None:
++            v.setLayoutDirection(Qt.RightToLeft)
++        if h is not None:
++            h.setLayoutDirection(Qt.RightToLeft)
++
++    elif isinstance(w, QScrollArea):
++        # اسکرول‌بار عمودی در RTL باید سمت چپ باشد؛ Fusion این را خودش
++        # مدیریت می‌کند، فقط مطمئن شویم جهت درست ست شده
++        w.setLayoutDirection(Qt.RightToLeft)
++
++
++def _document_of(w):
++    if isinstance(w, QLineEdit):
++        return w.document() if hasattr(w, "document") else None
++    if isinstance(w, (QTextEdit, QPlainTextEdit)):
++        return w.document() if hasattr(w, "document") else None
++    return None
++
++
++def _persian_text_option(option: QTextDocument.TextOption) -> QTextDocument.TextOption:
++    """افزودن پرچم‌های فارسی به TextOption بدون خراب کردن تنظیمات دیگر."""
++    option.setFlags(
++        option.flags()
++        | QTextDocument.TextOption.UsePersianLineSeparators
++        | QTextDocument.TextOption.UsePersianShortDate
++    )
++    return option
++
++
++def fix_table_view(tv: QTableView) -> None:
++    """اصلاح کامل RTL برای جداول: هدر، اسکرول‌بار و تراز سلول‌ها.
++
++    توجه: Qt هنگام RTL بودن view، منطق section را معکوس می‌کند؛ پس در
++    delegate/overlay نباید دوباره x را معکوس کرد (باگ شناخته‌شده قدیمی).
++    """
++    tv.setLayoutDirection(Qt.RightToLeft)
++    hdr = tv.horizontalHeader()
++    if hdr is not None:
++        hdr.setLayoutDirection(Qt.RightToLeft)
++    tv.verticalScrollBar().setLayoutDirection(Qt.RightToLeft)
++    tv.horizontalScrollBar().setLayoutDirection(Qt.RightToLeft)
++    tv.setStyleSheet(
++        tv.styleSheet()
++        + "\nQHeaderView::section { border-left: none; }\n"
++    )
++
++
++def rtl_grid_position(grid_layout, row: int, col: int, total_cols: int):
++    """محاسبه موقعیت ستون در QGridLayout برای چیدمان شطرنجی RTL.
++
++    در RTL اولین آیتم باید راست‌ترین ستون باشد؛ اگر دستی addItem می‌کنید
++    از این تابع برای نگاشت col → ستون فیزیکی استفاده کنید.
++    """
++    return row, (total_cols - 1 - col)
+diff --git a/src/ui/theme.py b/src/ui/theme.py
+index 426d2ac..262db5a 100644
+--- a/src/ui/theme.py
++++ b/src/ui/theme.py
+@@ -848,33 +848,12 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
+ 
+ 
+ def apply_rtl_recursive(widget):
+-    """اعمال RTL روی widget و همه‌ی فرزندان (recursive)."""
+-    from PySide6.QtCore import Qt
+-    from PySide6.QtWidgets import (
+-        QLabel, QWidget, QPushButton, QLineEdit,
+-        QCheckBox, QRadioButton, QComboBox, QTextEdit,
+-        QPlainTextEdit, QListWidget, QTableWidget,
+-    )
+-
+-    if widget is None:
+-        return
+-
+-    widget.setLayoutDirection(Qt.RightToLeft)
+-
+-    if isinstance(widget, QLabel):
+-        widget.setAlignment(
+-            (widget.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
+-        )
+-
+-    if isinstance(widget, (QLineEdit, QTextEdit, QPlainTextEdit)):
+-        widget.setAlignment(Qt.AlignRight)
+-
+-    for child in widget.findChildren(QWidget):
+-        child.setLayoutDirection(Qt.RightToLeft)
+-
+-        if isinstance(child, QLabel):
+-            child.setAlignment(
+-                (child.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
+-            )
+-        elif isinstance(child, (QLineEdit, QTextEdit, QPlainTextEdit)):
+-            child.setAlignment(Qt.AlignRight)
+\ No newline at end of file
++    """اعمال RTL روی widget و همه‌ی فرزندان (recursive).
++
++    این تابع به ماژول src.ui.rtl منتقل شده است. نسخه قبلی دو باگ
++    داشت: ۱) AlignCenter برچسب‌ها/آیکون‌ها را به راست می‌پراند ۲) عناصر
++    عمداً LTR (ساعت، Chat ID) را هم راست‌تراز می‌کرد. نسخه جدید در
++    `src/ui/rtl.py` هر دو را اصلاح کرده و فیلتر ChildAdded هم دارد.
++    """
++    from src.ui.rtl import apply_rtl_recursive as _apply
++    _apply(widget)
+diff --git a/src/ui/widgets/assignment_card.py b/src/ui/widgets/assignment_card.py
+index dad31c5..0961c87 100644
+--- a/src/ui/widgets/assignment_card.py
++++ b/src/ui/widgets/assignment_card.py
+@@ -17,13 +17,14 @@ from PySide6.QtWidgets import (
+ 
+ from src.models.assignment import Assignment
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class AssignmentCard(QFrame):
++class AssignmentCard(RTLWidgetMixin, QFrame):
+     """کارت نمایش یک تکلیف با نوار زمانی و پیل وضعیت."""
+ 
+     submit_clicked = Signal(str)
+diff --git a/src/ui/widgets/calendar_day_cell.py b/src/ui/widgets/calendar_day_cell.py
+index 9040b0a..bf4c1fd 100644
+--- a/src/ui/widgets/calendar_day_cell.py
++++ b/src/ui/widgets/calendar_day_cell.py
+@@ -14,13 +14,14 @@ from PySide6.QtWidgets import (
+ from src.models.assignment import Assignment
+ from src.ui.theme import CurrentTheme
+ from src.ui.widgets.calendar_event_item import CalendarEventItem
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class CalendarDayCell(QFrame):
++class CalendarDayCell(RTLWidgetMixin, QFrame):
+     """سلول یک روز با افکت شیشه‌ای و نشانگر امروز."""
+ 
+     day_clicked = Signal(object)
+diff --git a/src/ui/widgets/calendar_event_item.py b/src/ui/widgets/calendar_event_item.py
+index 5d45508..81b946d 100644
+--- a/src/ui/widgets/calendar_event_item.py
++++ b/src/ui/widgets/calendar_event_item.py
+@@ -9,13 +9,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
+ 
+ from src.models.assignment import Assignment
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class CalendarEventItem(QFrame):
++class CalendarEventItem(RTLWidgetMixin, QFrame):
+     """آیتم ددلاین با نوار رنگی بر اساس وضعیت."""
+ 
+     clicked = Signal(str)
+diff --git a/src/ui/widgets/change_card.py b/src/ui/widgets/change_card.py
+index bee8a94..6d1c66a 100644
+--- a/src/ui/widgets/change_card.py
++++ b/src/ui/widgets/change_card.py
+@@ -7,13 +7,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+ 
+ from src.models.change import Change, ChangeType, EntityType
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class ChangeCard(QFrame):
++class ChangeCard(RTLWidgetMixin, QFrame):
+     """کارت نمایش یک تغییر با آیکون رنگی و پیل نوع."""
+ 
+     TYPE_META = {
+diff --git a/src/ui/widgets/course_card.py b/src/ui/widgets/course_card.py
+index 341a48e..f1967c1 100644
+--- a/src/ui/widgets/course_card.py
++++ b/src/ui/widgets/course_card.py
+@@ -9,13 +9,14 @@ from PySide6.QtWidgets import (
+ 
+ from src.models.course import Course, CourseStatus
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class CourseCard(QFrame):
++class CourseCard(RTLWidgetMixin, QFrame):
+     """کارت نمایش یک درس LMS."""
+ 
+     clicked = Signal(str)
+diff --git a/src/ui/widgets/course_info_card.py b/src/ui/widgets/course_info_card.py
+index 438d06a..034b326 100644
+--- a/src/ui/widgets/course_info_card.py
++++ b/src/ui/widgets/course_info_card.py
+@@ -7,13 +7,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+ 
+ from src.models.course import Course
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class CourseInfoCard(QFrame):
++class CourseInfoCard(RTLWidgetMixin, QFrame):
+     """کارت اطلاعات درس (استاد با آواتار گرادیانتی)."""
+ 
+     DOMAIN_META = {
+diff --git a/src/ui/widgets/course_stats_cards.py b/src/ui/widgets/course_stats_cards.py
+index 8db73b6..8f39c1e 100644
+--- a/src/ui/widgets/course_stats_cards.py
++++ b/src/ui/widgets/course_stats_cards.py
+@@ -14,6 +14,7 @@ from src.storage.repositories import (
+     PostRepository,
+ )
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+@@ -82,7 +83,7 @@ class CourseStatCard(QFrame):
+         """)
+ 
+ 
+-class CourseStatsCards(QWidget):
++class CourseStatsCards(RTLWidgetMixin, QWidget):
+     """ردیف کارت‌های آمار درس."""
+ 
+     def __init__(self, db_path: str, course_id: str, parent: QWidget | None = None) -> None:
+diff --git a/src/ui/widgets/dashboard_stat.py b/src/ui/widgets/dashboard_stat.py
+index 7acb9c4..14c576b 100644
+--- a/src/ui/widgets/dashboard_stat.py
++++ b/src/ui/widgets/dashboard_stat.py
+@@ -6,13 +6,14 @@ from PySide6.QtCore import Qt
+ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
+ 
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class DashboardStat(QFrame):
++class DashboardStat(RTLWidgetMixin, QFrame):
+     """کارت آماری با آیکون گرادیانتی و افکت hover."""
+ 
+     ACCENT_MAP = {
+diff --git a/src/ui/widgets/empty_state.py b/src/ui/widgets/empty_state.py
+index 27ab9ab..17e2230 100644
+--- a/src/ui/widgets/empty_state.py
++++ b/src/ui/widgets/empty_state.py
+@@ -10,9 +10,10 @@ from PySide6.QtCore import Qt, Signal
+ 
+ from src.ui.icons import Icons
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+-class EmptyState(QWidget):
++class EmptyState(RTLWidgetMixin, QWidget):
+     """Empty State زیبا با آیکون + پیام + دکمه‌ی action."""
+ 
+     action_clicked = Signal()
+diff --git a/src/ui/widgets/event_card.py b/src/ui/widgets/event_card.py
+index f9a8468..1828447 100644
+--- a/src/ui/widgets/event_card.py
++++ b/src/ui/widgets/event_card.py
+@@ -15,13 +15,14 @@ from PySide6.QtWidgets import (
+ 
+ from src.models.event import Event, EventType
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class EventCard(QFrame):
++class EventCard(RTLWidgetMixin, QFrame):
+     """کارت رویداد با نوار زمانی گرادیانتی و پیل نوع."""
+ 
+     join_clicked = Signal(str)
+diff --git a/src/ui/widgets/pill_progress.py b/src/ui/widgets/pill_progress.py
+index 71368d4..8ac27d9 100644
+--- a/src/ui/widgets/pill_progress.py
++++ b/src/ui/widgets/pill_progress.py
+@@ -9,9 +9,10 @@ from PySide6.QtCore import (
+ )
+ from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath
+ from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+-class PillProgressButton(QWidget):
++class PillProgressButton(RTLWidgetMixin, QWidget):
+     """دکمه‌ی بیضی با حلقه‌ی progress دور آن.
+ 
+     - حلقه‌ی بیرونی: درصد پیشرفت (0-100) پادساعتگرد
+diff --git a/src/ui/widgets/post_card.py b/src/ui/widgets/post_card.py
+index fc8151f..dd4559e 100644
+--- a/src/ui/widgets/post_card.py
++++ b/src/ui/widgets/post_card.py
+@@ -17,13 +17,14 @@ from PySide6.QtWidgets import (
+ 
+ from src.models.post import Post
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class PostCard(QFrame):
++class PostCard(RTLWidgetMixin, QFrame):
+     """کارت پیام با آواتار گرادیانتی، هدر زیبا و پشتیبانی از پیوست."""
+ 
+     def __init__(self, post: Post, parent: QWidget | None = None) -> None:
+diff --git a/src/ui/widgets/quera_assignment_card.py b/src/ui/widgets/quera_assignment_card.py
+index 8051589..070d80a 100644
+--- a/src/ui/widgets/quera_assignment_card.py
++++ b/src/ui/widgets/quera_assignment_card.py
+@@ -16,13 +16,14 @@ from PySide6.QtWidgets import (
+ 
+ from src.models.quera_assignment import QueraAssignment
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class QueraAssignmentCard(QFrame):
++class QueraAssignmentCard(RTLWidgetMixin, QFrame):
+     """کارت تمرین Quera با نوار پیشرفت و هویت رنگی Accent."""
+ 
+     def __init__(self, assignment: QueraAssignment, parent: QWidget | None = None) -> None:
+diff --git a/src/ui/widgets/quera_course_card.py b/src/ui/widgets/quera_course_card.py
+index 0c7044d..9b73674 100644
+--- a/src/ui/widgets/quera_course_card.py
++++ b/src/ui/widgets/quera_course_card.py
+@@ -10,13 +10,14 @@ from PySide6.QtWidgets import (
+ 
+ from src.models.quera_course import QueraCourse
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class QueraCourseCard(QFrame):
++class QueraCourseCard(RTLWidgetMixin, QFrame):
+     """کارت کلاس Quera — با هویت رنگی متمایز (Accent)."""
+ 
+     clicked = Signal(str)
+diff --git a/src/ui/widgets/recent_post.py b/src/ui/widgets/recent_post.py
+index 4c78e88..d829435 100644
+--- a/src/ui/widgets/recent_post.py
++++ b/src/ui/widgets/recent_post.py
+@@ -7,13 +7,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
+ 
+ from src.models.post import Post
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class RecentPost(QFrame):
++class RecentPost(RTLWidgetMixin, QFrame):
+     """کارت compact پست با آواتار گرادیانتی."""
+ 
+     clicked = Signal(str)
+diff --git a/src/ui/widgets/schedule_card.py b/src/ui/widgets/schedule_card.py
+index 2dc1597..07448ce 100644
+--- a/src/ui/widgets/schedule_card.py
++++ b/src/ui/widgets/schedule_card.py
+@@ -11,9 +11,10 @@ from PySide6.QtCore import Qt
+ 
+ from src.models.course_schedule import ClassSession
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+-class ScheduleCard(QFrame):
++class ScheduleCard(RTLWidgetMixin, QFrame):
+     """کارت نمایش یک جلسه‌ی کلاس."""
+ 
+     def __init__(
+diff --git a/src/ui/widgets/setting_card.py b/src/ui/widgets/setting_card.py
+index 86593ef..1b5df17 100644
+--- a/src/ui/widgets/setting_card.py
++++ b/src/ui/widgets/setting_card.py
+@@ -11,9 +11,10 @@ from PySide6.QtCore import Qt
+ from PySide6.QtGui import QColor, QPainter, QPen
+ 
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin, mark_ltr
+ 
+ 
+-class SettingCard(QFrame):
++class SettingCard(RTLWidgetMixin, QFrame):
+     """کارت گروهی برای تنظیمات."""
+ 
+     def __init__(
+@@ -105,6 +106,9 @@ class SettingCard(QFrame):
+             f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
+             "font-size: 11pt; background: transparent;"
+         )
++        # مقدار عمداً LTR می‌ماند: اعداد لاتین، مسیرها و مقادیر فنی مثل
++        # "1404/07/24" یا "https://..." نباید با RTL به‌هم بریزند.
++        mark_ltr(value_widget)
+         value_widget.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         value_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
+         row.addWidget(value_widget)
+diff --git a/src/ui/widgets/timeline.py b/src/ui/widgets/timeline.py
+index f3a71e4..03dc49f 100644
+--- a/src/ui/widgets/timeline.py
++++ b/src/ui/widgets/timeline.py
+@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
+ from PySide6.QtCore import Qt, Signal
+ 
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin
+ 
+ 
+-class TimelineItem(QFrame):
++class TimelineItem(RTLWidgetMixin, QFrame):
+     """یک آیتم در تایم‌لاین افقی."""
+ 
+     clicked = Signal(str)
+@@ -128,7 +129,7 @@ class TimelineItem(QFrame):
+         super().mousePressEvent(event)
+ 
+ 
+-class HorizontalTimeline(QWidget):
++class HorizontalTimeline(RTLWidgetMixin, QWidget):
+     """تایم‌لاین افقی (مثل یونیکو اما با هویت ما)."""
+ 
+     item_clicked = Signal(str)
+diff --git a/src/ui/widgets/upcoming_card.py b/src/ui/widgets/upcoming_card.py
+index 0597d27..42e74b8 100644
+--- a/src/ui/widgets/upcoming_card.py
++++ b/src/ui/widgets/upcoming_card.py
+@@ -10,13 +10,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+ from src.models.assignment import Assignment
+ from src.models.event import Event
+ from src.ui.theme import CurrentTheme
++from src.ui.rtl import RTLWidgetMixin, mark_ltr
+ 
+ 
+ def _c(name: str, fallback: str) -> str:
+     return str(getattr(CurrentTheme.colors(), name, fallback))
+ 
+ 
+-class UpcomingCard(QFrame):
++class UpcomingCard(RTLWidgetMixin, QFrame):
+     """کارت رویداد/مهلت با نوار رنگی وضعیت."""
+ 
+     clicked = Signal(str)
+@@ -95,6 +96,8 @@ class UpcomingCard(QFrame):
+         time_lbl = QLabel(time_text)
+         time_lbl.setStyleSheet(f"color: {status_color}; font-weight: 800; font-size: 10pt; background: transparent;")
+         time_lbl.setMinimumWidth(80)
++        # ساعت/تاریخ لاتین عمداً LTR: "14:30" نباید معکوس نمایش داده شود
++        mark_ltr(time_lbl)
+         time_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         content_lay.addWidget(time_lbl)
+ 
+-- 
+2.39.5
+
