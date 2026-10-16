@@ -8,6 +8,7 @@ from typing import Any, Iterator
 from loguru import logger
 
 from src.core.exceptions import StorageError
+from src.storage.migrations import get_version
 
 
 class Database:
@@ -67,6 +68,12 @@ class Database:
 
         try:
             self.connection.executescript(schema)
+            # ثبت نسخه‌ی اولیه و اعمال مهاجرت‌های انجام‌نشده
+            from src.storage.migrations import INITIAL_VERSION, migrate, set_version
+
+            if get_version(self.connection) == 0:
+                set_version(self.connection, INITIAL_VERSION)
+            migrate(self.connection)
             self.connection.commit()
             logger.info(f"✅ Schema ساخته شد: {schema_path.name}")
         except sqlite3.Error as e:

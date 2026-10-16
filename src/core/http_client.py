@@ -1,7 +1,11 @@
+import time
 from typing import Any
 
 import httpx
 from loguru import logger
+
+# وضعیت‌های HTTP که تلاش مجدد معنادار هستند
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
 class LMSHttpClient:
@@ -49,11 +53,7 @@ class LMSHttpClient:
 
                 return response
 
-            except (
-                httpx.TimeoutException,
-                httpx.NetworkError,
-                httpx.HTTPStatusError,
-            ) as exc:
+            except (httpx.TimeoutException, httpx.NetworkError) as exc:
                 if attempt == self.max_retries - 1:
                     raise
 
@@ -67,7 +67,30 @@ class LMSHttpClient:
                     exc,
                 )
 
-                import time
+                time.sleep(delay)
+
+            except httpx.HTTPStatusError as exc:
+                status = exc.response.status_code
+                # فقط روی خطاهای موقت retry کن؛ خطاهای 4xx (به‌جز 429) قطعی هستند
+                if status not in RETRYABLE_STATUS or attempt == self.max_retries - 1:
+                    raise
+
+                delay = 2**attempt
+                retry_after = exc.response.headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        delay = max(delay, float(retry_after))
+                    except ValueError:
+                        pass
+
+                logger.warning(
+                    "HTTP {} for {} {} | retry in {}s",
+                    status,
+                    method,
+                    url,
+                    delay,
+                )
+
                 time.sleep(delay)
 
         raise RuntimeError("HTTP request failed")
@@ -98,5 +121,16 @@ class LMSHttpClient:
     def cookies(self):
         return self._client.cookies
 
+    @property
+    def is_closed(self) -> bool:
+        """آیا کلاینت بسته شده است؟"""
+        return self._client.is_closed
+
     def close(self):
         self._client.close()
+
+    def __enter__(self) -> "LMSHttpClient":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
