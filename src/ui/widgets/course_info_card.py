@@ -7,13 +7,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.models.course import Course
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class CourseInfoCard(QFrame):
+class CourseInfoCard(RTLWidgetMixin, QFrame):
     """کارت اطلاعات درس (استاد با آواتار گرادیانتی)."""
 
     DOMAIN_META = {

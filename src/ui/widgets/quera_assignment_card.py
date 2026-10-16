@@ -16,13 +16,14 @@ from PySide6.QtWidgets import (
 
 from src.models.quera_assignment import QueraAssignment
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class QueraAssignmentCard(QFrame):
+class QueraAssignmentCard(RTLWidgetMixin, QFrame):
     """کارت تمرین Quera با نوار پیشرفت و هویت رنگی Accent."""
 
     def __init__(self, assignment: QueraAssignment, parent: QWidget | None = None) -> None:

@@ -10,13 +10,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from src.models.assignment import Assignment
 from src.models.event import Event
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin, mark_ltr
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class UpcomingCard(QFrame):
+class UpcomingCard(RTLWidgetMixin, QFrame):
     """کارت رویداد/مهلت با نوار رنگی وضعیت."""
 
     clicked = Signal(str)
@@ -95,6 +96,8 @@ class UpcomingCard(QFrame):
         time_lbl = QLabel(time_text)
         time_lbl.setStyleSheet(f"color: {status_color}; font-weight: 800; font-size: 10pt; background: transparent;")
         time_lbl.setMinimumWidth(80)
+        # ساعت/تاریخ لاتین عمداً LTR: "14:30" نباید معکوس نمایش داده شود
+        mark_ltr(time_lbl)
         time_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         content_lay.addWidget(time_lbl)
 

@@ -7,13 +7,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from src.models.change import Change, ChangeType, EntityType
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class ChangeCard(QFrame):
+class ChangeCard(RTLWidgetMixin, QFrame):
     """کارت نمایش یک تغییر با آیکون رنگی و پیل نوع."""
 
     TYPE_META = {

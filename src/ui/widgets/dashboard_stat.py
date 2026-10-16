@@ -6,13 +6,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class DashboardStat(QFrame):
+class DashboardStat(RTLWidgetMixin, QFrame):
     """کارت آماری با آیکون گرادیانتی و افکت hover."""
 
     ACCENT_MAP = {

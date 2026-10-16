@@ -17,13 +17,14 @@ from PySide6.QtWidgets import (
 
 from src.models.assignment import Assignment
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class AssignmentCard(QFrame):
+class AssignmentCard(RTLWidgetMixin, QFrame):
     """کارت نمایش یک تکلیف با نوار زمانی و پیل وضعیت."""
 
     submit_clicked = Signal(str)

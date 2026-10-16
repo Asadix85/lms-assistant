@@ -14,6 +14,7 @@ from src.storage.repositories import (
     PostRepository,
 )
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
@@ -82,7 +83,7 @@ class CourseStatCard(QFrame):
         """)
 
 
-class CourseStatsCards(QWidget):
+class CourseStatsCards(RTLWidgetMixin, QWidget):
     """ردیف کارت‌های آمار درس."""
 
     def __init__(self, db_path: str, course_id: str, parent: QWidget | None = None) -> None:

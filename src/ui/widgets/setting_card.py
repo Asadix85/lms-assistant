@@ -11,9 +11,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin, mark_ltr
 
 
-class SettingCard(QFrame):
+class SettingCard(RTLWidgetMixin, QFrame):
     """کارت گروهی برای تنظیمات."""
 
     def __init__(
@@ -105,6 +106,9 @@ class SettingCard(QFrame):
             f"color: {c.TEXT_PRIMARY}; font-weight: bold; "
             "font-size: 11pt; background: transparent;"
         )
+        # مقدار عمداً LTR می‌ماند: اعداد لاتین، مسیرها و مقادیر فنی مثل
+        # "1404/07/24" یا "https://..." نباید با RTL به‌هم بریزند.
+        mark_ltr(value_widget)
         value_widget.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         value_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
         row.addWidget(value_widget)

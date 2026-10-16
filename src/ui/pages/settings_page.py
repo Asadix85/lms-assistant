@@ -35,6 +35,7 @@ from config.settings import settings
 from src.storage.database import Database
 from src.storage.repositories import CourseRepository, SettingRepository
 from src.ui.pages.base_page import BasePage
+from src.ui.rtl import mark_ltr
 from src.ui.theme import CurrentTheme
 from src.ui.widgets.setting_card import SettingCard
 
@@ -658,6 +659,9 @@ class SettingsPage(BasePage):
         self.telegram_input = QLineEdit()
         self.telegram_input.setPlaceholderText("مثلاً: 1837366891")
         self.telegram_input.setMinimumHeight(44)
+        # Chat ID تلگرام عدد/متن لاتین است → عمداً LTR می‌ماند تا
+        # apply_rtl_recursive آن را راست‌تراز و معکوس نکند.
+        mark_ltr(self.telegram_input)
         self.telegram_input.setAlignment(Qt.AlignLeft)
         self.telegram_input.setText(saved_id or "")
         self.telegram_input.textChanged.connect(self._on_telegram_input_changed)

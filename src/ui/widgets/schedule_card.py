@@ -11,9 +11,10 @@ from PySide6.QtCore import Qt
 
 from src.models.course_schedule import ClassSession
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
-class ScheduleCard(QFrame):
+class ScheduleCard(RTLWidgetMixin, QFrame):
     """کارت نمایش یک جلسه‌ی کلاس."""
 
     def __init__(

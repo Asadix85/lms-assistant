@@ -848,33 +848,12 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
 
 
 def apply_rtl_recursive(widget):
-    """اعمال RTL روی widget و همه‌ی فرزندان (recursive)."""
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import (
-        QLabel, QWidget, QPushButton, QLineEdit,
-        QCheckBox, QRadioButton, QComboBox, QTextEdit,
-        QPlainTextEdit, QListWidget, QTableWidget,
-    )
+    """اعمال RTL روی widget و همه‌ی فرزندان (recursive).
 
-    if widget is None:
-        return
-
-    widget.setLayoutDirection(Qt.RightToLeft)
-
-    if isinstance(widget, QLabel):
-        widget.setAlignment(
-            (widget.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
-        )
-
-    if isinstance(widget, (QLineEdit, QTextEdit, QPlainTextEdit)):
-        widget.setAlignment(Qt.AlignRight)
-
-    for child in widget.findChildren(QWidget):
-        child.setLayoutDirection(Qt.RightToLeft)
-
-        if isinstance(child, QLabel):
-            child.setAlignment(
-                (child.alignment() & ~Qt.AlignHorizontal_Mask) | Qt.AlignRight
-            )
-        elif isinstance(child, (QLineEdit, QTextEdit, QPlainTextEdit)):
-            child.setAlignment(Qt.AlignRight)
+    این تابع به ماژول src.ui.rtl منتقل شده است. نسخه قبلی دو باگ
+    داشت: ۱) AlignCenter برچسب‌ها/آیکون‌ها را به راست می‌پراند ۲) عناصر
+    عمداً LTR (ساعت، Chat ID) را هم راست‌تراز می‌کرد. نسخه جدید در
+    `src/ui/rtl.py` هر دو را اصلاح کرده و فیلتر ChildAdded هم دارد.
+    """
+    from src.ui.rtl import apply_rtl_recursive as _apply
+    _apply(widget)
