@@ -10,13 +10,14 @@ from PySide6.QtWidgets import (
 
 from src.models.quera_course import QueraCourse
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class QueraCourseCard(QFrame):
+class QueraCourseCard(RTLWidgetMixin, QFrame):
     """کارت کلاس Quera — با هویت رنگی متمایز (Accent)."""
 
     clicked = Signal(str)

@@ -9,9 +9,10 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath
 from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout
+from src.ui.rtl import RTLWidgetMixin
 
 
-class PillProgressButton(QWidget):
+class PillProgressButton(RTLWidgetMixin, QWidget):
     """دکمه‌ی بیضی با حلقه‌ی progress دور آن.
 
     - حلقه‌ی بیرونی: درصد پیشرفت (0-100) پادساعتگرد

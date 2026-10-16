@@ -10,9 +10,10 @@ from PySide6.QtCore import Qt, Signal
 
 from src.ui.icons import Icons
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
-class EmptyState(QWidget):
+class EmptyState(RTLWidgetMixin, QWidget):
     """Empty State زیبا با آیکون + پیام + دکمه‌ی action."""
 
     action_clicked = Signal()

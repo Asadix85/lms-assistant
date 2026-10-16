@@ -9,13 +9,14 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
 from src.models.assignment import Assignment
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class CalendarEventItem(QFrame):
+class CalendarEventItem(RTLWidgetMixin, QFrame):
     """آیتم ددلاین با نوار رنگی بر اساس وضعیت."""
 
     clicked = Signal(str)

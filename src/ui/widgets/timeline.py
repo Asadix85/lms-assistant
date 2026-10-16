@@ -10,9 +10,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
-class TimelineItem(QFrame):
+class TimelineItem(RTLWidgetMixin, QFrame):
     """یک آیتم در تایم‌لاین افقی."""
 
     clicked = Signal(str)
@@ -128,7 +129,7 @@ class TimelineItem(QFrame):
         super().mousePressEvent(event)
 
 
-class HorizontalTimeline(QWidget):
+class HorizontalTimeline(RTLWidgetMixin, QWidget):
     """تایم‌لاین افقی (مثل یونیکو اما با هویت ما)."""
 
     item_clicked = Signal(str)

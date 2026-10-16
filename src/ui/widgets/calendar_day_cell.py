@@ -14,13 +14,14 @@ from PySide6.QtWidgets import (
 from src.models.assignment import Assignment
 from src.ui.theme import CurrentTheme
 from src.ui.widgets.calendar_event_item import CalendarEventItem
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class CalendarDayCell(QFrame):
+class CalendarDayCell(RTLWidgetMixin, QFrame):
     """سلول یک روز با افکت شیشه‌ای و نشانگر امروز."""
 
     day_clicked = Signal(object)

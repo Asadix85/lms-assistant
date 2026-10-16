@@ -15,13 +15,14 @@ from PySide6.QtWidgets import (
 
 from src.models.event import Event, EventType
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class EventCard(QFrame):
+class EventCard(RTLWidgetMixin, QFrame):
     """کارت رویداد با نوار زمانی گرادیانتی و پیل نوع."""
 
     join_clicked = Signal(str)

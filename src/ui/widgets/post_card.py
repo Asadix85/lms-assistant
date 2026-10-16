@@ -17,13 +17,14 @@ from PySide6.QtWidgets import (
 
 from src.models.post import Post
 from src.ui.theme import CurrentTheme
+from src.ui.rtl import RTLWidgetMixin
 
 
 def _c(name: str, fallback: str) -> str:
     return str(getattr(CurrentTheme.colors(), name, fallback))
 
 
-class PostCard(QFrame):
+class PostCard(RTLWidgetMixin, QFrame):
     """کارت پیام با آواتار گرادیانتی، هدر زیبا و پشتیبانی از پیوست."""
 
     def __init__(self, post: Post, parent: QWidget | None = None) -> None:
