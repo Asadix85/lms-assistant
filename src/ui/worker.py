@@ -12,6 +12,38 @@ from src.storage.database import Database
 from src.storage.repositories import SettingRepository
 
 
+class PublishWorker(QObject):
+    """Worker که Push دیتابیس به GitHub را در thread جدا انجام می‌دهد."""
+
+    started = Signal()
+    finished = Signal(bool, str)  # (موفق، پیام قابل‌نمایش)
+
+    def __init__(self, repo_root: str = ".") -> None:
+        super().__init__()
+        self.repo_root = repo_root
+
+    def run(self) -> None:
+        self.started.emit()
+        try:
+            from src.services.git_pusher import GitPusher
+
+            pusher = GitPusher(repo_root=self.repo_root)
+            pushed = pusher.push_db()
+
+            if pushed:
+                self.finished.emit(
+                    True, "✅ داده‌ها روی GitHub قرار گرفت — ربات تلگرام به‌زودی خلاصه را می‌فرستد"
+                )
+            else:
+                self.finished.emit(
+                    False,
+                    "ℹ️ چیزی برای انتشار نبود (تغییری نیست یا خطا رخ داد — لاگ را ببینید)",
+                )
+        except Exception as e:  # noqa: BLE001
+            logger.exception("خطا در PublishWorker")
+            self.finished.emit(False, f"❌ خطا در انتشار: {e}")
+
+
 class SyncWorker(QObject):
     """Worker که در thread جداگانه Sync می‌کند."""
 
