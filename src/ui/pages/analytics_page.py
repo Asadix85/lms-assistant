@@ -54,6 +54,31 @@ class StatBox(QFrame):
         self._accent = accent
         self._build(icon, value, label)
 
+    def _card_style(self) -> str:
+        """استایل کارت بر اساس تم فعلی (Design Token محور)."""
+        is_dark = CurrentTheme.is_dark()
+        if is_dark:
+            card_bg = "rgba(28, 38, 38, 0.75)"
+            card_hover = "rgba(44, 54, 54, 0.85)"
+        else:
+            card_bg = "rgba(255, 255, 255, 0.85)"
+            card_hover = "#FFFFFF"
+
+        return f"""
+            QFrame#StatCard {{
+                background-color: {card_bg};
+                border: 1px solid {_c('GLASS_BORDER', 'rgba(0,0,0,0.08)')};
+                border-radius: 14px;
+            }}
+            QFrame#StatCard:hover {{
+                background-color: {card_hover};
+                border-color: {_c('PRIMARY', '#2AA6A3')}50;
+            }}
+        """
+
+    def _value_color(self) -> str:
+        return _c('PRIMARY', '#2AA6A3') if self._accent else _c('TEXT_PRIMARY', '#1C1C1E')
+
     def _build(self, icon: str, value: str, label: str) -> None:
         lay = QVBoxLayout(self)
         lay.setAlignment(Qt.AlignCenter)
@@ -68,8 +93,7 @@ class StatBox(QFrame):
 
         # عدد
         self.value_label = QLabel(value)
-        color = _c('PRIMARY', '#2AA6A3') if self._accent else _c('TEXT_PRIMARY', '#1C1C1E')
-        self.value_label.setStyleSheet(f"color: {color}; font-size: 20pt; font-weight: 800; background: transparent;")
+        self.value_label.setStyleSheet(f"color: {self._value_color()}; font-size: 20pt; font-weight: 800; background: transparent;")
         self.value_label.setAlignment(Qt.AlignCenter)
         lay.addWidget(self.value_label)
 
@@ -79,52 +103,13 @@ class StatBox(QFrame):
         label_lbl.setAlignment(Qt.AlignCenter)
         lay.addWidget(label_lbl)
 
-        is_dark = CurrentTheme.is_dark()
-        if is_dark:
-            card_bg = "rgba(28, 38, 38, 0.75)"
-            card_hover = "rgba(44, 54, 54, 0.85)"
-        else:
-            card_bg = "rgba(255, 255, 255, 0.85)"
-            card_hover = "#FFFFFF"
+        self.setStyleSheet(self._card_style())
 
-        self.setStyleSheet(f"""
-                QFrame#StatCard {{
-                    background-color: {card_bg};
-                    border: 1px solid {_c('GLASS_BORDER', 'rgba(0,0,0,0.08)')};
-                    border-radius: 14px;
-                }}
-                QFrame#StatCard:hover {{
-                    background-color: {card_hover};
-                    border-color: {_c('PRIMARY', '#2AA6A3')}50;
-                }}
-            """)
-
-        def refresh_theme(self) -> None:
-            """بعد از تغییر تم."""
-            is_dark = CurrentTheme.is_dark()
-            if is_dark:
-                card_bg = "rgba(28, 38, 38, 0.75)"
-                card_hover = "rgba(44, 54, 54, 0.85)"
-            else:
-                card_bg = "rgba(255, 255, 255, 0.85)"
-                card_hover = "#FFFFFF"
-
-            color = _c('PRIMARY', '#2AA6A3') if self._accent else _c('TEXT_PRIMARY', '#1C1C1E')
-
-            self.setStyleSheet(f"""
-                QFrame#StatCard {{
-                    background-color: {card_bg};
-                    border: 1px solid {_c('GLASS_BORDER', 'rgba(0,0,0,0.08)')};
-                    border-radius: 14px;
-                }}
-                QFrame#StatCard:hover {{
-                    background-color: {card_hover};
-                    border-color: {_c('PRIMARY', '#2AA6A3')}50;
-                }}
-            """)
-
-            self.value_label.setStyleSheet(
-                f"color: {color}; font-size: 20pt; font-weight: 800; background: transparent;")
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم — باگ قبلی: این متد داخل _build به‌صورت تابع تو در تعریف شده بود و هرگز به کلاس متصل نمی‌شد."""
+        self.setStyleSheet(self._card_style())
+        self.value_label.setStyleSheet(
+            f"color: {self._value_color()}; font-size: 20pt; font-weight: 800; background: transparent;")
 
 
 class SectionTitle(QLabel):

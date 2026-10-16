@@ -61,25 +61,35 @@ class GitPusher:
             return False
 
         try:
-            # === ۱. Stage دیتابیس ===
-            self._run_git("add", "data/lms.db")
+            # === ۱. Stage فقط دیتابیس (whitelist — از commit شدن .env جلوگیری می‌کند) ===
+            self._run_git("add", "--", self.DB_PATH)
             logger.debug("✅ داده stage شد")
 
             # === ۲. چک کن تغییری هست؟ ===
             # (status --porcelain خالی باشه → تغییری نیست)
             status = self._run_git(
-                "status", "--porcelain", "data/lms.db", check=False
+                "status", "--porcelain", "--", self.DB_PATH, check=False
             )
             if not status.stdout.strip():
                 logger.info("ℹ️ دیتابیس تغییری نکرده — نیازی به push نیست")
                 return False
 
-            # === ۳. Commit ===
+            # اطمینان از اینکه فقط فایل مجاز staged شده (مثلاً اگر index آلوده باشد)
+            staged = self._run_git("diff", "--cached", "--name-only", check=False)
+            staged_files = set(staged.stdout.split())
+            if not staged_files <= {self.DB_PATH}:
+                logger.error(
+                    f"⚠️ فایل‌های غیرمجاز در index هستند: "
+                    f"{staged_files - {self.DB_PATH}} — push لغو شد"
+                )
+                return False
+
+            # === ۳. Commit (فقط مسیر whitelist شده، نه کل index) ===
             from datetime import datetime
             commit_msg = (
                 f"data: auto-sync {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             )
-            self._run_git("commit", "-m", commit_msg)
+            self._run_git("commit", "-m", commit_msg, "--", self.DB_PATH)
             logger.debug(f"✅ commit: {commit_msg}")
 
             # === ۴. Push ===

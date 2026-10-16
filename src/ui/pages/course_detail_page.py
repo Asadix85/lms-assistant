@@ -270,9 +270,28 @@ class CourseDetailPage(QWidget):
     #  بارگذاری داده
     # --------------------------------------------------------
 
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم — بازسازی کامل صفحه با گرادیانت/رنگ‌های تم جدید.
+
+        ⚠️ باگ قبلی: این متد وجود نداشت؛ به همین دلیل Hero، تب‌ها و کارت‌ها
+        بعد از سوییچ تم با رنگ‌های تم قدیمی رندر می‌ماندند.
+        """
+        self._style_tabs()
+        if getattr(self, "_course", None):
+            self.load_course(self._course)
+
     def load_course(self, course: Course) -> None:
         self._course = course
         self._anims.clear()
+        # ⚠️ رفع باگ رندرِ دوباره‌ی Hero در تم تیره:
+        # انیمیشن opacity از طریق QGraphicsOpacityEffect شفافیت کل ویجت را
+        # دستکاری می‌کند و بعد از تغییر تم باعث مات/نامرئی شدن متن روی
+        # گرادیانت Hero می‌شد. در نتیجه Hero بدون fade و مستقیم نمایش داده
+        # می‌شود و فقط کارت‌های پایینی انیمیشن ورود پلکانی دارند.
+        self.hero.setVisible(True)
+        if hasattr(self, "_hero_effect"):
+            self.hero.setGraphicsEffect(None)
+            self._hero_effect = None
 
         icon, domain_fa = self.DOMAIN_META.get(course.domain, ("⚪", course.domain))
         self.course_title.setText(course.name)
@@ -304,8 +323,7 @@ class CourseDetailPage(QWidget):
         self._load_schedule()
         self.tabs.setCurrentIndex(0)
 
-        # انیمیشن ورود پلکانی
-        self._fade(self.hero, 0)
+        # انیمیشن ورود پلکانی (Hero حذف شد — به‌دلیل باگ opacity در تم تیره)
         self._fade(self.info_card_container, 80)
         self._fade(self.stats_container, 140)
         self._fade(self.tabs, 200)

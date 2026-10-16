@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['F:/Projects/lms-assistant/scripts/run_gui.py'],
+    ['scripts/run_gui.py'],
     pathex=[],
     binaries=[],
-    datas=[('F:/Projects/lms-assistant/src/storage/schema.sql', 'src/storage')],
+    datas=[('src/storage/schema.sql', 'src/storage')],
     hiddenimports=['keyring.backends.Windows', 'keyring.backends.SecretService', 'keyring.backends.kwallet', 'aiogram', 'jdatetime', 'matplotlib.backends.backend_qtagg'],
     hookspath=[],
     hooksconfig={},
@@ -32,7 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['F:/Projects/lms-assistant/assets/icons/app.ico'],
+    icon=['assets/icons/app.ico'],
 )
 coll = COLLECT(
     exe,
