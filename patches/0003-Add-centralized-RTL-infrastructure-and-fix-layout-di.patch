@@ -1,7 +1,7 @@
 From cbac10723c525a8f8bcc76ead93f54616a407d14 Mon Sep 17 00:00:00 2001
 From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
 Date: Fri, 16 Oct 2026 07:26:08 +0000
-Subject: [PATCH 3/6] Add centralized RTL infrastructure and fix layout
+Subject: [PATCH 3/8] Add centralized RTL infrastructure and fix layout
  direction issues across all UI widgets - New src/ui/rtl.py: Implements
  three-layer RTL solution (app-level event filter, widget mixin, recursive
  cleanup) to handle dynamic cards and orphaned widgets correctly. - Updated

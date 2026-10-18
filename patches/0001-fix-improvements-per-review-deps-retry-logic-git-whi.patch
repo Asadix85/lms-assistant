@@ -1,7 +1,7 @@
 From 7e35b9f692663b513c203b3c94653bacaf919968 Mon Sep 17 00:00:00 2001
 From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
 Date: Fri, 16 Oct 2026 07:02:47 +0000
-Subject: [PATCH 1/6] =?UTF-8?q?fix:=20improvements=20per=20review=20?=
+Subject: [PATCH 1/8] =?UTF-8?q?fix:=20improvements=20per=20review=20?=
  =?UTF-8?q?=E2=80=94=20deps,=20retry=20logic,=20git=20whitelist,=20migrati?=
  =?UTF-8?q?ons,=20CI,=20entry=20point?=
 MIME-Version: 1.0

@@ -1,0 +1,53 @@
+From 59cbc1a9ff226b89355037dddafe580fea2c6ee5 Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Sun, 18 Oct 2026 17:08:39 +0000
+Subject: [PATCH 8/8] fix(rtl): NameError QRadioButton + AttributeError
+ QListView.horizontalHeader
+
+---
+ src/ui/rtl.py | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/src/ui/rtl.py b/src/ui/rtl.py
+index 6fe45f7..7eb641e 100644
+--- a/src/ui/rtl.py
++++ b/src/ui/rtl.py
+@@ -34,18 +34,16 @@ from PySide6.QtCore import (
+ from PySide6.QtGui import QAbstractTextDocumentLayout, QPalette, QTextDocument
+ from PySide6.QtWidgets import (
+     QAbstractItemView,
++    QBoxLayout,
+     QCheckBox,
+     QComboBox,
+     QLabel,
+     QLineEdit,
+     QPlainTextEdit,
+-    QPushButton,
+     QRadioButton,
+     QScrollArea,
+-    QSizePolicy,
+     QTableView,
+     QTextEdit,
+-    QVBoxLayout,
+     QWidget,
+ )
+ 
+@@ -268,9 +266,12 @@ def _apply_one(w: QWidget) -> None:
+         w.setLayoutDirection(Qt.RightToLeft)
+ 
+     elif isinstance(w, QAbstractItemView):
+-        header = w.horizontalHeader()
+-        if header is not None:
+-            header.setLayoutDirection(Qt.RightToLeft)
++        # فقط نماهای جدولی (QTableView/QTreeView) هدر افقی دارند؛
++        # صدا زدن horizontalHeader روی QListView باعث AttributeError می‌شود
++        if hasattr(w, "horizontalHeader"):
++            header = w.horizontalHeader()
++            if header is not None:
++                header.setLayoutDirection(Qt.RightToLeft)
+         v = w.verticalScrollBar()
+         h = w.horizontalScrollBar()
+         if v is not None:
+-- 
+2.39.5
+

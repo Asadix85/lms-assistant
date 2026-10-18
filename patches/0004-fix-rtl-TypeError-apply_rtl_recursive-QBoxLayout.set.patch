@@ -1,7 +1,7 @@
 From b263bd42995e8d0035d575d0e57c2d636d10135b Mon Sep 17 00:00:00 2001
 From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
 Date: Fri, 16 Oct 2026 07:32:05 +0000
-Subject: [PATCH 4/6] =?UTF-8?q?fix(rtl):=20=D8=B1=D9=81=D8=B9=20TypeError?=
+Subject: [PATCH 4/8] =?UTF-8?q?fix(rtl):=20=D8=B1=D9=81=D8=B9=20TypeError?=
  =?UTF-8?q?=20=D8=AF=D8=B1=20apply=5Frtl=5Frecursive=20(QBoxLayout.setDire?=
  =?UTF-8?q?ction)?=
 MIME-Version: 1.0
