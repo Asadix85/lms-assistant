@@ -154,6 +154,9 @@ class Sidebar(QFrame):
         for key, icon_name, label in menu_items:
             btn = self._make_button(icon_name, label)
             btn.clicked.connect(lambda checked, k=key: self._on_click(k))
+            idx = [k for k, _, _ in menu_items].index(key) + 1
+            btn.setToolTip(f"{label}  (Ctrl+{idx})")
+            btn.setAccessibleName(label)
             self._buttons[key] = btn
             self._group.addButton(btn)
             top_layout.addWidget(btn)

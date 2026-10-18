@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, QTimer
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtGui import QIcon, QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -26,7 +26,22 @@ from src.storage.repositories import CourseRepository
 from src.ui.header import Header
 from src.ui.sidebar import Sidebar
 from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
+from src.ui.widgets.toast import show_toast, _active_toasts
 from src.ui.worker import PublishWorker, SyncWorker
+
+
+# ترتیب صفحات برای جابه‌جایی سریع با Ctrl+Tab / Ctrl+1..9
+_PAGE_ORDER = [
+    "dashboard", "calendar", "courses", "assignments",
+    "events", "analytics", "changes", "settings", "about",
+]
+
+_PAGE_LABELS_FA = {
+    "dashboard": "داشبورد", "calendar": "تقویم", "courses": "دروس",
+    "course_detail": "جزئیات درس", "assignments": "تکالیف",
+    "events": "جلسات آنلاین", "analytics": "آمار", "changes": "تغییرات",
+    "settings": "تنظیمات", "about": "درباره",
+}
 
 
 class MainWindow(QMainWindow):
@@ -93,8 +108,67 @@ class MainWindow(QMainWindow):
         # System Tray
         self._setup_tray()
 
+        # میانبرهای صفحه‌کلید (مخصوص کیبوردهای فارسی — حروف ر/ت/س)
+        self._setup_shortcuts()
+
         # RTL دوباره بعد از نمایش
         QTimer.singleShot(100, self._apply_rtl_to_all)
+
+    # ============================================================
+    # Keyboard Shortcuts
+    # ============================================================
+
+    def _setup_shortcuts(self) -> None:
+        """میانبرها: Ctrl+R همگام‌سازی، Ctrl+T تم، Ctrl+W بستن به tray،
+        Ctrl+Tab چرخش بین صفحات، Ctrl+1..9 پرش مستقیم."""
+        self._shortcuts = []
+
+        def add(seq: str, handler) -> None:
+            sc = QShortcut(QKeySequence(seq), self)
+            sc.setContext(Qt.ApplicationShortcut)
+            sc.activated.connect(handler)
+            self._shortcuts.append(sc)
+
+        add("Ctrl+R", self._on_update_clicked)
+        add("Ctrl+T", self._toggle_theme)
+        add("Ctrl+W", self.hide)
+        add("Ctrl+Tab", lambda: self._cycle_page(1))
+        add("Ctrl+Shift+Tab", lambda: self._cycle_page(-1))
+        for i, key in enumerate(_PAGE_ORDER[:9]):
+            add(
+                f"Ctrl+{i + 1}",
+                lambda checked=False, k=key: self._on_page_changed(k),
+            )
+
+    def _cycle_page(self, step: int) -> None:
+        """جابه‌جایی بین صفحات با حفظ جزئیات درس در چرخه."""
+        order = [k for k in _PAGE_ORDER if k in self._pages]
+        if "course_detail" in self._pages and self._current_page_key == "course_detail":
+            idx = order.index("courses")
+        else:
+            idx = order.index(self._current_page_key) if self._current_page_key in order else 0
+        nxt = order[(idx + step) % len(order)]
+        self._on_page_changed(nxt)
+
+    def _toggle_theme(self) -> None:
+        """تغییر تم روشن/تاریخ با میانبر سراسری (Ctrl+T)."""
+        new_checked = not CurrentTheme.is_dark()
+        try:
+            # استفاده از همان مسیر settings page تا state سوئیچ هم sync بماند
+            sw = self.settings_page.theme_switch
+            if sw.isChecked() != new_checked:
+                sw.setChecked(new_checked)  # toggled → _on_theme_toggle
+            else:
+                self.settings_page._on_theme_toggle(new_checked)
+        except Exception:
+            show_toast(self, "⚠️ تغییر تم ناموفق بود", kind="warning")
+            return
+        show_toast(
+            self,
+            "🌙 تم تیره فعال شد" if new_checked else "☀️ تم روشن فعال شد",
+            kind="info",
+            duration_ms=2000,
+        )
 
     # ============================================================
     # System Tray
@@ -384,7 +458,12 @@ class MainWindow(QMainWindow):
             page = self._pages[key]
             if hasattr(page, "refresh"):
                 page.refresh()
-            self.status_bar.showMessage(f"صفحه: {key}")
+            label = _PAGE_LABELS_FA.get(key, key)
+            self.status_bar.showMessage(f"صفحه: {label}")
+            try:
+                SettingsManager.save_last_page(key)
+            except Exception:
+                pass
 
     # ============================================================
     # Update / Sync
@@ -495,7 +574,7 @@ class MainWindow(QMainWindow):
 
     def _on_sync_finished(self, result: SyncResult) -> None:
         self.header.set_busy(False, "آماده")
-        self.status_bar.showMessage("✅ Sync تمام شد")
+        self.status_bar.showMessage("✅ همگام‌سازی تمام شد")
 
         current = self.stack.currentWidget()
         if hasattr(current, "refresh"):
@@ -518,41 +597,49 @@ class MainWindow(QMainWindow):
                     3000,
                 )
 
+        # خلاصه‌ی یک‌خطی برای Toast
+        summary = (
+            f"📚 {result.courses_new} درس • 📄 {result.contents_new} فایل • "
+            f"📅 {result.events_new} رویداد • 📢 {result.posts_new} پیام • "
+            f"📋 {result.assignments_new} تکلیف"
+        )
+
         if result.has_error:
+            show_toast(
+                self, f"❌ خطا در همگام‌سازی: {result.error}",
+                kind="error", duration_ms=6000,
+            )
             QMessageBox.critical(self, "خطا", f"خطا در Sync:\n{result.error}")
         elif result.is_first_sync:
+            show_toast(
+                self, f"🎉 اولین همگام‌سازی موفق! ⏱️ {result.duration_seconds:.1f} ثانیه",
+                kind="success", duration_ms=5000,
+            )
             QMessageBox.information(
                 self, "اولین Sync",
                 f"🎉 اولین Sync موفق!\n\n"
-                f"📚 {result.courses_new} درس\n"
-                f"📄 {result.contents_new} فایل\n"
-                f"📅 {result.events_new} رویداد\n"
-                f"📢 {result.posts_new} پیام\n"
-                f"📋 {result.assignments_new} تکلیف\n\n"
+                f"{summary}\n\n"
                 f"⏱️ {result.duration_seconds:.1f} ثانیه",
             )
         elif result.total_new == 0:
-            QMessageBox.information(
-                self, "بدون تغییر",
-                f"✨ هیچ تغییر جدیدی نیست\n\n"
-                f"⏱️ {result.duration_seconds:.1f} ثانیه",
+            show_toast(
+                self,
+                f"✨ همه‌چیز به‌روز است — بدون تغییر جدید "
+                f"(⏱️ {result.duration_seconds:.1f}s)",
+                kind="info", duration_ms=4000,
             )
         else:
-            QMessageBox.information(
-                self, "تغییرات جدید",
-                f"📢 تغییرات جدید:\n\n"
-                f"📚 {result.courses_new} درس\n"
-                f"📄 {result.contents_new} فایل\n"
-                f"📅 {result.events_new} رویداد\n"
-                f"📢 {result.posts_new} پیام\n"
-                f"📋 {result.assignments_new} تکلیف\n\n"
-                f"⏱️ {result.duration_seconds:.1f} ثانیه",
+            show_toast(
+                self,
+                f"📢 {result.total_new} آیتم جدید — {summary} "
+                f"(⏱️ {result.duration_seconds:.1f}s)",
+                kind="success", duration_ms=6000,
             )
 
     def _on_sync_error(self, message: str) -> None:
         self.header.set_busy(False, "خطا")
         self.status_bar.showMessage(f"❌ خطا: {message}")
-        QMessageBox.critical(self, "خطا در Sync", message)
+        show_toast(self, f"❌ خطا در همگام‌سازی: {message}", kind="error", duration_ms=6000)
 
     # ============================================================
     # Publish (انتشار به GitHub)
@@ -593,6 +680,9 @@ class MainWindow(QMainWindow):
     def _on_publish_finished(self, ok: bool, message: str) -> None:
         self.header.set_publish_result(ok, message)
         self.status_bar.showMessage(message)
+        show_toast(
+            self, message, kind="success" if ok else "warning", duration_ms=4500
+        )
         if hasattr(self, "tray") and self.tray.isVisible():
             self.tray.showMessage(
                 "🚀 انتشار GitHub",
@@ -615,3 +705,12 @@ class MainWindow(QMainWindow):
         """بعد از نمایش پنجره، RTL رو اعمال کن."""
         super().showEvent(event)
         QTimer.singleShot(50, self._apply_rtl_to_all)
+
+    def resizeEvent(self, event) -> None:
+        """با تغییر اندازه، توست‌های فعال جابه‌جا شوند."""
+        super().resizeEvent(event)
+        for t in list(_active_toasts):
+            try:
+                t.reposition()
+            except RuntimeError:
+                pass
