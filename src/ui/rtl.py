@@ -34,18 +34,16 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QAbstractTextDocumentLayout, QPalette, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
-    QPushButton,
     QRadioButton,
     QScrollArea,
-    QSizePolicy,
     QTableView,
     QTextEdit,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -268,9 +266,12 @@ def _apply_one(w: QWidget) -> None:
         w.setLayoutDirection(Qt.RightToLeft)
 
     elif isinstance(w, QAbstractItemView):
-        header = w.horizontalHeader()
-        if header is not None:
-            header.setLayoutDirection(Qt.RightToLeft)
+        # فقط نماهای جدولی (QTableView/QTreeView) هدر افقی دارند؛
+        # صدا زدن horizontalHeader روی QListView باعث AttributeError می‌شود
+        if hasattr(w, "horizontalHeader"):
+            header = w.horizontalHeader()
+            if header is not None:
+                header.setLayoutDirection(Qt.RightToLeft)
         v = w.verticalScrollBar()
         h = w.horizontalScrollBar()
         if v is not None:
