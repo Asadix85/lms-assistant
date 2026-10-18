@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS assignments (
     view_url TEXT,
     response_count INTEGER NOT NULL DEFAULT 0,
     is_new INTEGER NOT NULL DEFAULT 0,
+    is_manual INTEGER NOT NULL DEFAULT 0,
+    is_done INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
@@ -146,6 +148,8 @@ CREATE TABLE IF NOT EXISTS quera_assignments (
     problems_count INTEGER NOT NULL DEFAULT 0,
     submitted_count INTEGER NOT NULL DEFAULT 0,
     is_new INTEGER NOT NULL DEFAULT 0,
+    is_manual INTEGER NOT NULL DEFAULT 0,
+    is_done INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL
 );

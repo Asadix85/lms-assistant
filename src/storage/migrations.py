@@ -41,11 +41,32 @@ def set_version(conn: sqlite3.Connection, version: int) -> None:
 
 # === مهاجرت‌ها ===
 # هر مهاجرت: (target_version, callable)
-# مثال برای آینده:
-# def _migrate_to_2(conn: sqlite3.Connection) -> None:
-#     conn.execute("ALTER TABLE courses ADD COLUMN color TEXT")
 
-MIGRATIONS: list[tuple[int, object]] = []
+
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    """نام ستون‌های یک جدول."""
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _migrate_to_2(conn: sqlite3.Connection) -> None:
+    """افزودن پشتیبانی تکلیف دستی + وضعیت انجام‌شده (is_manual / is_done)."""
+    for table in ("assignments", "quera_assignments"):
+        cols = _table_columns(conn, table)
+        if "is_manual" not in cols:
+            conn.execute(
+                f"ALTER TABLE {table} "
+                "ADD COLUMN is_manual INTEGER NOT NULL DEFAULT 0"
+            )
+        if "is_done" not in cols:
+            conn.execute(
+                f"ALTER TABLE {table} "
+                "ADD COLUMN is_done INTEGER NOT NULL DEFAULT 0"
+            )
+
+
+MIGRATIONS: list[tuple[int, object]] = [
+    (2, _migrate_to_2),
+]
 
 
 def migrate(conn: sqlite3.Connection) -> None:

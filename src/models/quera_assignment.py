@@ -29,6 +29,9 @@ class QueraAssignment:
     finish_time: datetime | None = None
     problems: list[QueraProblem] = field(default_factory=list)
 
+    is_manual: bool = False
+    is_done: bool = False
+
     first_seen_at: datetime = field(default_factory=datetime.now)
     last_seen_at: datetime = field(default_factory=datetime.now)
 

@@ -24,11 +24,13 @@ class AssignmentRepository(BaseRepository):
                 """
                 UPDATE assignments SET
                     title = ?, description = ?, deadline = ?,
-                    response_count = ?, last_seen_at = ?
+                    response_count = ?, last_seen_at = ?,
+                    is_manual = ?, is_done = ?
                 WHERE id = ?
                 """,
                 (data["title"], data["description"], data["deadline"],
-                 data["response_count"], data["last_seen_at"], data["id"]),
+                 data["response_count"], data["last_seen_at"],
+                 data["is_manual"], data["is_done"], data["id"]),
             )
         else:
             self.db.execute(
@@ -37,8 +39,8 @@ class AssignmentRepository(BaseRepository):
                     id, course_id, title, description, post_id,
                     start_at, deadline, start_at_jalali, deadline_jalali,
                     submit_url, view_url, response_count,
-                    is_new, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_new, is_manual, is_done, first_seen_at, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data["id"], data["course_id"], data["title"],
@@ -46,7 +48,8 @@ class AssignmentRepository(BaseRepository):
                     data["deadline"], data["start_at_jalali"],
                     data["deadline_jalali"], data["submit_url"],
                     data["view_url"], data["response_count"],
-                    data["is_new"], data["first_seen_at"], data["last_seen_at"],
+                    data["is_new"], data["is_manual"], data["is_done"],
+                    data["first_seen_at"], data["last_seen_at"],
                 ),
             )
             logger.debug(f"درج تکلیف جدید: {a.title[:40]}")
@@ -89,6 +92,19 @@ class AssignmentRepository(BaseRepository):
         self.db.execute("UPDATE assignments SET is_new = 0")
         self.db.connection.commit()
 
+    def set_done(self, aid: str, done: bool = True) -> None:
+        """تغییر وضعیت «انجام شده» یک تکلیف (بدون دست‌زدن به بقیه فیلدها)."""
+        self.db.execute(
+            "UPDATE assignments SET is_done = ? WHERE id = ?",
+            (1 if done else 0, aid),
+        )
+        self.db.connection.commit()
+
+    def delete(self, aid: str) -> None:
+        """حذف یک تکلیف (مثلاً تکلیف دستی)."""
+        self.db.execute("DELETE FROM assignments WHERE id = ?", (aid,))
+        self.db.connection.commit()
+
     def _to_dict(self, a: Assignment) -> dict:
         return {
             "id": a.id,
@@ -104,6 +120,8 @@ class AssignmentRepository(BaseRepository):
             "view_url": a.view_url,
             "response_count": a.response_count,
             "is_new": 0,
+            "is_manual": 1 if a.is_manual else 0,
+            "is_done": 1 if a.is_done else 0,
             "first_seen_at": a.first_seen_at.isoformat(),
             "last_seen_at": a.last_seen_at.isoformat(),
         }
@@ -122,6 +140,8 @@ class AssignmentRepository(BaseRepository):
             submit_url=row.get("submit_url"),
             view_url=row.get("view_url"),
             response_count=row.get("response_count", 0),
+            is_manual=bool(row.get("is_manual", 0)),
+            is_done=bool(row.get("is_done", 0)),
             first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
         )

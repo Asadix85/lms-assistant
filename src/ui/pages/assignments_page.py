@@ -24,6 +24,7 @@ from src.storage.repositories import (
     CourseRepository,
     QueraAssignmentRepository,
 )
+from src.ui.dialogs.manual_assignment_dialog import ManualAssignmentDialog
 from src.ui.pages.base_page import BasePage
 from src.ui.theme import CurrentTheme
 from src.ui.widgets.assignment_card import AssignmentCard
@@ -35,7 +36,7 @@ def _c(name: str, fallback: str) -> str:
 
 
 class AssignmentsPage(BasePage):
-    """صفحه‌ی تکالیف (LMS + Quera) — فیلتر دو مرحله‌ای."""
+    """صفحه‌ی تکالیف (LMS + Quera + دستی) — فیلتر دو مرحله‌ای."""
 
     assignment_clicked = Signal(str)
     sync_requested = Signal()
@@ -60,6 +61,26 @@ class AssignmentsPage(BasePage):
     def _build(self) -> None:
         super()._build()
         self._fix_rtl()
+
+        # === دکمه افزودن تکلیف دستی ===
+        add_card = QFrame()
+        add_card.setObjectName("Card")
+        add_lay = QHBoxLayout(add_card)
+        add_lay.setContentsMargins(14, 10, 14, 10)
+        add_lay.setSpacing(10)
+
+        self.btn_add_manual = QPushButton("➕  افزودن تکلیف دستی")
+        self.btn_add_manual.setObjectName("PrimaryButton")
+        self.btn_add_manual.setCursor(Qt.PointingHandCursor)
+        self.btn_add_manual.setFixedHeight(38)
+        self.btn_add_manual.clicked.connect(self._on_add_manual)
+        add_lay.addWidget(self.btn_add_manual)
+
+        add_hint = QLabel("مناسب تکالیفی که استاد سر کلاس تحویل می‌گیرد")
+        add_hint.setObjectName("PageSubtitle")
+        add_lay.addWidget(add_hint)
+        add_lay.addStretch()
+        self.content_layout.addWidget(add_card)
 
         # === فیلتر منبع ===
         source_card = QFrame()
