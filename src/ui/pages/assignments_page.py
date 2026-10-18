@@ -333,3 +333,67 @@ class AssignmentsPage(BasePage):
         self.btn_all_time.setChecked(f == "all")
         self.btn_overdue.setChecked(f == "overdue")
         self._apply_filters()
+
+    # ============================================================
+    # تکلیف دستی + وضعیت انجام‌شده
+    # ============================================================
+
+    def _on_add_manual(self) -> None:
+        """باز کردن فرم افزودن تکلیف دستی و ذخیره در دیتابیس."""
+        try:
+            with Database(self.db_path) as db:
+                courses = CourseRepository(db).get_all()
+            course_list = [(c.id, c.name) for c in courses]
+        except Exception:
+            course_list = []
+
+        dialog = ManualAssignmentDialog(course_list, parent=self)
+        if dialog.exec() != ManualAssignmentDialog.Accepted:
+            return
+
+        assignment = dialog.get_assignment()
+        if assignment is None:
+            return
+
+        try:
+            with Database(self.db_path) as db:
+                if isinstance(assignment, QueraAssignment):
+                    QueraAssignmentRepository(db).save(assignment)
+                else:
+                    AssignmentRepository(db).save(assignment)
+        except Exception as e:
+            self.counter_label.setText(f"خطا در ذخیره تکلیف: {e}")
+            return
+
+        # تکالیف دستی جدید را حتی در فیلتر «آینده» نشان بده
+        self._time_filter = "all"
+        self.refresh()
+        self.assignments_changed.emit()
+
+    def _on_done_toggled(self, aid: str, done: bool) -> None:
+        """تغییر وضعیت انجام‌شدن تکلیف (چک‌باکس) و ذخیره در دیتابیس."""
+        try:
+            with Database(self.db_path) as db:
+                if any(a.id == aid for a in self._lms_assignments):
+                    AssignmentRepository(db).set_done(aid, done)
+                else:
+                    QueraAssignmentRepository(db).set_done(aid, done)
+        except Exception as e:
+            self.counter_label.setText(f"خطا در ثبت وضعیت: {e}")
+            return
+        self.refresh()
+        self.assignments_changed.emit()
+
+    def _on_deleted(self, aid: str) -> None:
+        """حذف تکلیف دستی از دیتابیس."""
+        try:
+            with Database(self.db_path) as db:
+                if any(a.id == aid for a in self._lms_assignments):
+                    AssignmentRepository(db).delete(aid)
+                else:
+                    QueraAssignmentRepository(db).delete(aid)
+        except Exception as e:
+            self.counter_label.setText(f"خطا در حذف تکلیف: {e}")
+            return
+        self.refresh()
+        self.assignments_changed.emit()

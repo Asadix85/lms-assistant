@@ -93,6 +93,10 @@ def migrate(conn: sqlite3.Connection) -> None:
     for target_version, migration_fn in sorted(pending):
         logger.info(f"⬆️ اجرای مهاجرت به نسخه {target_version}")
         try:
+            # اگر تراکنش بازِ خودکار (autocommit معکول) وجود داشته باشد،
+            # ابتدا commit می‌شود تا «BEGIN داخل BEGIN» رخ ندهد.
+            if conn.in_transaction:
+                conn.commit()
             conn.execute("BEGIN")
             migration_fn(conn)  # type: ignore[operator]
             set_version(conn, target_version)
