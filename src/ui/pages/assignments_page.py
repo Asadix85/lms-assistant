@@ -40,6 +40,7 @@ class AssignmentsPage(BasePage):
 
     assignment_clicked = Signal(str)
     sync_requested = Signal()
+    assignments_changed = Signal()  # برای بروزرسانی داشبورد و بقیه صفحات
 
     def __init__(self, db_path: str, parent: QWidget | None = None) -> None:
         self.db_path = db_path
@@ -179,9 +180,19 @@ class AssignmentsPage(BasePage):
             lms = [a for a in lms if a.deadline and a.deadline < now]
             quera = [q for q in quera if q.finish_time and q.finish_time < now]
 
+        # تکالیف انجام‌شده از فهرست پیشرو خارج می‌شوند (حالت غیرفعال)
+        done_count = sum(1 for a in self._lms_assignments if a.is_done) + \
+            sum(1 for q in self._quera_assignments if q.is_done)
+        if self._time_filter == "upcoming":
+            lms = [a for a in lms if not a.is_done]
+            quera = [q for q in quera if not q.is_done]
+
         total = len(lms) + len(quera)
         total_all = len(self._lms_assignments) + len(self._quera_assignments)
-        self.counter_label.setText(f"نمایش {total} از {total_all} تکلیف")
+        counter_text = f"نمایش {total} از {total_all} تکلیف"
+        if done_count:
+            counter_text += f" — {done_count} انجام‌شده ✅"
+        self.counter_label.setText(counter_text)
 
         # پاک کردن
         while self.list_layout.count():
@@ -210,6 +221,8 @@ class AssignmentsPage(BasePage):
                 widgets_to_animate.append(container)
             else:
                 card = QueraAssignmentCard(item)
+                card.done_toggled.connect(self._on_done_toggled)
+                card.deleted.connect(self._on_deleted)
                 self.list_layout.addWidget(card)
                 widgets_to_animate.append(card)
 
@@ -244,6 +257,8 @@ class AssignmentsPage(BasePage):
         lay.addLayout(header)
 
         card = AssignmentCard(assignment)
+        card.done_toggled.connect(self._on_done_toggled)
+        card.deleted.connect(self._on_deleted)
         lay.addWidget(card)
         return container
 
