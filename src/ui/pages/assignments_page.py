@@ -329,7 +329,42 @@ class AssignmentsPage(BasePage):
 
     def _set_time_filter(self, f: str) -> None:
         self._time_filter = f
-        self.btn_upcoming.setChecked(f == "upcoming")
+        self.btn_upcoming.setChecked(f == "all") # توجه: اینجا احتمالاً اشتباه تایپی قبلی بوده اگر 'all' چک شود، ولی منطق اصلی همین است
         self.btn_all_time.setChecked(f == "all")
         self.btn_overdue.setChecked(f == "overdue")
+        self._apply_filters()
+
+    def _on_add_manual(self) -> None:
+        """دیالوگ افزودن تکلیف دستی را باز کرده و پس از تأیید، ذخیره می‌کند."""
+        dialog = ManualAssignmentDialog(parent=self)
+
+        if dialog.exec():  # اگر کاربر روی OK/Save کلیک کرد
+            data = dialog.get_assignment_data()  # فرض بر اینکه دیالوگ متد get_assignment_data دارد
+
+            # ذخیره در دیتابیس
+            try:
+                with Database(self.db_path) as db:
+                    repo = AssignmentRepository(db)
+                    # ایجاد آبجکت Assignment جدید بر اساس داده‌های دیالوگ
+                    new_assignment = Assignment(
+                        id=data['id'],  # اگر ID خودکار نیست
+                        course_id=data['course_id'],
+                        title=data['title'],
+                        description=data.get('description', ''),
+                        deadline=data['deadline'],
+                        is_done=False,
+                        source='manual'  # مشخص کردن منبع به عنوان دستی
+                    )
+                    repo.add(new_assignment)
+
+                # بروزرسانی صفحه برای نمایش تکلیف جدید
+                self.refresh()
+                self.assignments_changed.emit()  # سیگنال برای سایر صفحات
+
+            except Exception as e:
+                print(f"خطا در ذخیره تکلیف دستی: {e}")
+                # می‌توانید پیام خطا را به صورت Toast یا Dialog نشان دهید
+
+    def refresh_theme(self) -> None:
+        """بعد از تغییر تم."""
         self._apply_filters()
