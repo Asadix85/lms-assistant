@@ -313,6 +313,45 @@ class AboutPage(QWidget):
         layout.addLayout(stats_row)
 
         # ============================================
+        # KEYBOARD SHORTCUTS (راهنمای میانبرها)
+        # ============================================
+        shortcuts_title = QLabel("⌨️  میانبرهای صفحه‌کلید")
+        shortcuts_title.setObjectName("SectionTitle")
+        shortcuts_title.setAlignment(Qt.AlignRight)
+        layout.addWidget(shortcuts_title)
+
+        shortcuts_card = QFrame()
+        shortcuts_card.setObjectName("FeatureCard")
+        sc_layout = QVBoxLayout(shortcuts_card)
+        sc_layout.setContentsMargins(18, 14, 18, 14)
+        sc_layout.setSpacing(6)
+
+        shortcut_rows = [
+            ("Ctrl + R", "شروع همگام‌سازی (Sync)"),
+            ("Ctrl + T", "تغییر تم روشن/تاریخ"),
+            ("Ctrl + Tab", "رفتن به صفحه‌ی بعدی"),
+            ("Ctrl + Shift + Tab", "رفتن به صفحه‌ی قبلی"),
+            ("Ctrl + ۱ تا ۹", "پرش مستقیم به صفحات (داشبورد، تقویم، دروس...)"),
+            ("Ctrl + W", "بستن پنجره به System Tray"),
+        ]
+        for keys, desc in shortcut_rows:
+            row = QHBoxLayout()
+            key_lbl = QLabel(keys)
+            key_lbl.setStyleSheet(
+                "font-family: Consolas, monospace; font-weight: bold;"
+                "padding: 3px 10px; border-radius: 8px;"
+                "background: rgba(42,166,163,0.14); color: #1E807E;"
+            )
+            row.addWidget(key_lbl)
+            row.addStretch()
+            desc_lbl = QLabel(desc)
+            desc_lbl.setStyleSheet("background: transparent;")
+            row.addWidget(desc_lbl)
+            sc_layout.addLayout(row)
+
+        layout.addWidget(shortcuts_card)
+
+        # ============================================
         # CONTACT
         # ============================================
         contact_title = QLabel("📬  ارتباط با من")
