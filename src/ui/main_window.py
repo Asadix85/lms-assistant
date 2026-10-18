@@ -62,7 +62,6 @@ class MainWindow(QMainWindow):
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
 
-        # پاک کردن کش آیکون‌ها
         from src.ui.icons import Icons
         Icons.clear_cache()
 

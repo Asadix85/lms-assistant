@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: lms-assistant
+Version: 0.1.0
+Summary: LMS Assistant for University of Isfahan
+Requires-Python: >=3.11
