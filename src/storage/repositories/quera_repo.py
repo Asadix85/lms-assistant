@@ -26,14 +26,15 @@ class QueraAssignmentRepository(BaseRepository):
                 UPDATE quera_assignments SET
                     name = ?, course_name = ?, finish_time = ?,
                     problems_json = ?, problems_count = ?,
-                    submitted_count = ?, last_seen_at = ?
+                    submitted_count = ?, last_seen_at = ?,
+                    is_manual = ?, is_done = ?
                 WHERE id = ?
                 """,
                 (
                     data["name"], data["course_name"], data["finish_time"],
                     data["problems_json"], data["problems_count"],
                     data["submitted_count"], data["last_seen_at"],
-                    data["id"],
+                    data["is_manual"], data["is_done"], data["id"],
                 ),
             )
         else:
@@ -42,15 +43,15 @@ class QueraAssignmentRepository(BaseRepository):
                 INSERT INTO quera_assignments (
                     id, name, course_name, finish_time,
                     problems_json, problems_count, submitted_count,
-                    is_new, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_new, is_manual, is_done, first_seen_at, last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data["id"], data["name"], data["course_name"],
                     data["finish_time"], data["problems_json"],
                     data["problems_count"], data["submitted_count"],
-                    data["is_new"], data["first_seen_at"],
-                    data["last_seen_at"],
+                    data["is_new"], data["is_manual"], data["is_done"],
+                    data["first_seen_at"], data["last_seen_at"],
                 ),
             )
             logger.debug(f"درج تمرین Quera جدید: {a.name[:40]}")
@@ -91,6 +92,19 @@ class QueraAssignmentRepository(BaseRepository):
         self.db.execute("UPDATE quera_assignments SET is_new = 0")
         self.db.connection.commit()
 
+    def set_done(self, aid: str, done: bool = True) -> None:
+        """تغییر وضعیت «انجام شده» یک تمرین (بدون دست‌زدن به بقیه فیلدها)."""
+        self.db.execute(
+            "UPDATE quera_assignments SET is_done = ? WHERE id = ?",
+            (1 if done else 0, aid),
+        )
+        self.db.connection.commit()
+
+    def delete(self, aid: str) -> None:
+        """حذف یک تمرین (مثلاً تمرین دستی)."""
+        self.db.execute("DELETE FROM quera_assignments WHERE id = ?", (aid,))
+        self.db.connection.commit()
+
     def _to_dict(self, a: QueraAssignment) -> dict:
         # سریالایز problems به JSON
         problems_data = [
@@ -113,6 +127,8 @@ class QueraAssignmentRepository(BaseRepository):
             "problems_count": a.problems_count,
             "submitted_count": a.submitted_count,
             "is_new": 0,
+            "is_manual": 1 if a.is_manual else 0,
+            "is_done": 1 if a.is_done else 0,
             "first_seen_at": a.first_seen_at.isoformat(),
             "last_seen_at": a.last_seen_at.isoformat(),
         }
@@ -144,6 +160,8 @@ class QueraAssignmentRepository(BaseRepository):
                 if row.get("finish_time") else None
             ),
             problems=problems,
+            is_manual=bool(row.get("is_manual", 0)),
+            is_done=bool(row.get("is_done", 0)),
             first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
         )

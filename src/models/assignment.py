@@ -21,6 +21,8 @@ class Assignment:
     view_url: str | None = None
     response_count: int = 0
     is_new: bool = True
+    is_manual: bool = False
+    is_done: bool = False
     first_seen_at: datetime = field(default_factory=datetime.now)
     last_seen_at: datetime = field(default_factory=datetime.now)
 
