@@ -26,7 +26,7 @@ from src.storage.repositories import CourseRepository
 from src.ui.header import Header
 from src.ui.sidebar import Sidebar
 from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
-from src.ui.worker import SyncWorker
+from src.ui.worker import PublishWorker, SyncWorker
 
 
 class MainWindow(QMainWindow):
@@ -67,6 +67,8 @@ class MainWindow(QMainWindow):
 
         self._thread: QThread | None = None
         self._worker: SyncWorker | None = None
+        self._publish_thread: QThread | None = None
+        self._publish_worker: PublishWorker | None = None
         self._pages: dict[str, QWidget] = {}
         self._current_page_key: str = "dashboard"
         self._force_quit = False
@@ -210,6 +212,7 @@ class MainWindow(QMainWindow):
         # Header
         self.header = Header()
         self.header.update_clicked.connect(self._on_update_clicked)
+        self.header.publish_clicked.connect(self._on_publish_clicked)
         content_layout.addWidget(self.header)
 
         # Stack
@@ -550,6 +553,59 @@ class MainWindow(QMainWindow):
         self.header.set_busy(False, "خطا")
         self.status_bar.showMessage(f"❌ خطا: {message}")
         QMessageBox.critical(self, "خطا در Sync", message)
+
+    # ============================================================
+    # Publish (انتشار به GitHub)
+    # ============================================================
+
+    def _on_publish_clicked(self) -> None:
+        """دکمه‌ی انتشار: Push دیتابیس به GitHub تا Actions خلاصه را بفرستد."""
+        if self._thread is not None:
+            # همزمانی با Sync در حال اجرا — اجازه نمی‌دهیم
+            self.header.set_publish_result(
+                False, "⏳ صبر کنید — Sync در حال اجراست"
+            )
+            return
+
+        from src.utils.paths import get_data_path, is_frozen
+
+        if is_frozen():
+            self.header.set_publish_result(
+                False, "❌ انتشار در نسخه‌ی EXE غیرفعاله (فقط نسخه‌ی توسعه)"
+            )
+            return
+
+        db_path = get_data_path("lms.db")
+        repo_root = Path(db_path).parent.parent  # data/lms.db → ریشه‌ی مخزن
+
+        self._publish_thread = QThread()
+        self._publish_worker = PublishWorker(repo_root=str(repo_root))
+        self._publish_worker.moveToThread(self._publish_thread)
+
+        self._publish_thread.started.connect(self._publish_worker.run)
+        self._publish_worker.finished.connect(self._on_publish_finished)
+        self._publish_worker.finished.connect(self._publish_thread.quit)
+        self._publish_thread.finished.connect(self._cleanup_publish)
+
+        self.status_bar.showMessage("🚀 در حال انتشار روی GitHub...")
+        self._publish_thread.start()
+
+    def _on_publish_finished(self, ok: bool, message: str) -> None:
+        self.header.set_publish_result(ok, message)
+        self.status_bar.showMessage(message)
+        if hasattr(self, "tray") and self.tray.isVisible():
+            self.tray.showMessage(
+                "🚀 انتشار GitHub",
+                message,
+                QSystemTrayIcon.MessageIcon.Information
+                if ok
+                else QSystemTrayIcon.MessageIcon.Warning,
+                3000,
+            )
+
+    def _cleanup_publish(self) -> None:
+        self._publish_thread = None
+        self._publish_worker = None
 
     def _on_thread_finished(self) -> None:
         self._thread = None

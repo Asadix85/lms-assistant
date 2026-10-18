@@ -34,18 +34,16 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QAbstractTextDocumentLayout, QPalette, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
-    QPushButton,
     QRadioButton,
     QScrollArea,
-    QSizePolicy,
     QTableView,
     QTextEdit,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -201,17 +199,40 @@ def apply_rtl_recursive(widget: QWidget | None) -> None:
         lay = holder.layout()
         while lay is not None and id(lay) not in applied_layouts:
             applied_layouts.add(id(lay))
-            lay.setDirection(_layout_direction_for(holder))
+            _set_layout_direction(lay, holder)
             parent_item = lay.parent()
             lay = parent_item.layout() if parent_item is not None else None
 
 
-def _layout_direction_for(holder: QWidget):
-    return (
+def _set_layout_direction(lay, holder: QWidget) -> None:
+    """ست کردن جهت layout با سازگاری کامل PySide6.
+
+    نکته مهم: QBoxLayout (V/HBox) متد ``setDirection`` را دارد که فقط
+    ``QBoxLayout.Direction`` (TopToBottom/LeftToRight/...) می‌پذیرد و ست
+    کردن ``Qt.LayoutDirection`` روی آن TypeError می‌دهد. برای همه layoutها
+    روش امن و یکسان، ست کردن ``setLayoutDirection(Qt.LayoutDirection)``
+    است که در QLayout پایه وجود دارد و رفتار RTL صحیحی هم می‌دهد.
+    """
+    direction = (
         Qt.RightToLeft
         if holder.layoutDirection() == Qt.RightToLeft
         else Qt.LeftToRight
     )
+    try:
+        # روش استاندارد و امن برای همه نوع layout (QVBoxLayout/QHBoxLayout/
+        # QGridLayout/QFormLayout/...) — در PySide6 و PyQt هر دو پشتیبانی می‌شود
+        lay.setLayoutDirection(direction)
+    except (AttributeError, TypeError):
+        # fallback: اگر نسخه‌ای setLayoutDirection را نداشته باشد، فقط برای
+        # layoutهایی که واقعا Qt.LayoutDirection می‌پذیرند امتحان کن
+        setter = getattr(lay, "setDirection", None)
+        if setter is not None:
+            try:
+                setter(direction)
+            except TypeError:
+                # QBoxLayout.setDirection انتظار QBoxLayout.Direction دارد؛
+                # تغییر جهت نمی‌دهد → نادیده بگیر (setLayoutDirection کافی است)
+                pass
 
 
 def _apply_one(w: QWidget) -> None:
@@ -245,9 +266,12 @@ def _apply_one(w: QWidget) -> None:
         w.setLayoutDirection(Qt.RightToLeft)
 
     elif isinstance(w, QAbstractItemView):
-        header = w.horizontalHeader()
-        if header is not None:
-            header.setLayoutDirection(Qt.RightToLeft)
+        # فقط نماهای جدولی (QTableView/QTreeView) هدر افقی دارند؛
+        # صدا زدن horizontalHeader روی QListView باعث AttributeError می‌شود
+        if hasattr(w, "horizontalHeader"):
+            header = w.horizontalHeader()
+            if header is not None:
+                header.setLayoutDirection(Qt.RightToLeft)
         v = w.verticalScrollBar()
         h = w.horizontalScrollBar()
         if v is not None:

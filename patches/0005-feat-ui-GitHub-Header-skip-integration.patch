@@ -1,0 +1,606 @@
+From 347407b5bb4fbc28f9887ebf5299fbe710a91deb Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Fri, 16 Oct 2026 07:35:48 +0000
+Subject: [PATCH 5/8] =?UTF-8?q?feat(ui):=20=D8=A7=D9=81=D8=B2=D9=88=D8=AF?=
+ =?UTF-8?q?=D9=86=20=D8=AF=DA=A9=D9=85=D9=87=E2=80=8C=DB=8C=20=D8=A7=D9=86?=
+ =?UTF-8?q?=D8=AA=D8=B4=D8=A7=D8=B1=20GitHub=20=D8=A8=D9=87=20Header=20+?=
+ =?UTF-8?q?=20=D8=B1=D9=81=D8=B9=20skip=20=D8=AA=D8=B3=D8=AA=E2=80=8C?=
+ =?UTF-8?q?=D9=87=D8=A7=DB=8C=20integration?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Header: دکمه‌ی «🚀 انتشار» کنار دکمه‌ی Sync با سیگنال publish_clicked،
+  حالت busy (⏳/✅/❌) و بازگرداندن خودکار متن بعد از ۳ ثانیه
+- PublishWorker در worker.py: push دیتابیس در thread جدا (بدون فریز شدن UI)
+- MainWindow: هندلر _on_publish_clicked با محافظت در برابر همزمانی با Sync،
+  غیرفعال بودن در EXE، اعلان tray و پیام status bar
+- tests/conftest.py: skip خودکار تست‌های integration وقتی LMS_USERNAME/PASSWORD تنظیم نیست
+  (رفع KeyError که کل pytest را می‌شکست)
+---
+ data/test_sync.db                             | Bin 0 -> 172032 bytes
+ src/ui/__pycache__/header.cpython-312.pyc     | Bin 6273 -> 9670 bytes
+ .../__pycache__/main_window.cpython-312.pyc   | Bin 29593 -> 32729 bytes
+ src/ui/__pycache__/worker.cpython-312.pyc     | Bin 5141 -> 6903 bytes
+ src/ui/header.py                              |  62 +++++++++++++++++-
+ src/ui/main_window.py                         |  58 +++++++++++++++-
+ src/ui/worker.py                              |  32 +++++++++
+ tests/conftest.py                             |  24 +++++++
+ 8 files changed, 174 insertions(+), 2 deletions(-)
+ create mode 100644 data/test_sync.db
+ create mode 100644 tests/conftest.py
+
+diff --git a/data/test_sync.db b/data/test_sync.db
+new file mode 100644
+index 0000000000000000000000000000000000000000..eb3acc8b6a3fb65643f7b447906165b383b9a8e9
+GIT binary patch
+literal 172032
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/src/ui/__pycache__/header.cpython-312.pyc b/src/ui/__pycache__/header.cpython-312.pyc
+index 5fcfedd87d42738e6ec2233dc34bea6cfc6ca531..7053ce7f75f5539453084855a887ef440ca9ce0b 100644
+GIT binary patch
+delta 3989
+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
+If~6Jgzt=5{!T<mO
+
+delta 1171
+zcmZWoU27Cq7(Qn{c4l_xV>KowM4L^bk)bwzQK7Wj*rExQZWYr|2JCcp&M~ge&Ms$W
+zAz1`1EYx0T4d++1xsv>V-u0qh<w_hVv;{>kq>4tp?0b$~Yw5y1?|Gm1>p36u%js_q
+zxpy3=jNtd`*Ud{W+%<O;H`ew|&tXI`Q4^zO24>3&Ea_`Wxm5`&a;+zJ%LyEe6f}=W
+zsgH<3m339LLMU+8ZZ2Vc?S74K$LH}C-ocaK5a&9&fQi<(gA#Fw-q!+yxTHi)qV^0V
+z8kj^O>V*<9`+8szk65()7F!0kLMqgjSsJmS1N2<MfqM@5RsNpx7(0Ai?Tu^)4Lxsx
+zMuf82Fl?sHJPdd6b#+Opmo`-GYn}U*3Qw&Xp5eExA^s=)hs!&(E9laGNnET9@t@0I
+zdewDB?g(MDiu`SSw|&F&abZPCb2)9%H1|jOoHyf_AdBe$h1Ja{3)84Y*^uz<jOHf>
+z+05cUc$fEAWFT&`xSK>QY~*QCYIO6wofbx%G~>&Zz@nX|G|u_0>KGp3KUF8+85Ki@
+z0ea40Z;fs<A>%-0A8$OW{)PE>LyLH9<G}b~yf^`L-B;PWU<(6eEYg*n9Rv@^5isnS
+zfa3s}xVT!a#>9xigxpYU<INckh*SLbt}mcJ-hB&SeP2``6$NF8pG>1h0=i{!qnoYD
+zNo-Ce9TIR@z!8AK^iKrwzv=8G(Ek}Mn$>~KRspV|-%b0jIkstXYoY^EdJ`*(lp;?$
+z?6CGSqghrM9m-<3pu%W@8!gj+^%Qn|F-n(d7Utqa-l!`Knnaz95-GE=|M6tjK=dgg
+z`m|8<){&`*E%46NC=U4dQxA8ILD*NA3#RU4HYr@priJnNjp^B|CM?+p0>n#|S6Zl9
+z&e#cX3$4*^C-NAW_%zvqAe}IblPJq#nj~Qe?REm2VSqV#Y0MF+0z45Q0I&M!o_6ey
+z;c@=ewfdH(>m$$Hefm6psw`oCbI)h4&?!smzQ@k;2YU|eEZj4z=bD5bojsd>+GdnV
+zsTQBvTf=2Ozjx}qc)PObN5o`<*H7l7R-1GadYlCi7qT+(?4GC?<9q1yms$xcTL|E#
+Zi}1{SbmTYm;d3p*_~7-WEhMaL_BSc~AQAuo
+
+diff --git a/src/ui/__pycache__/main_window.cpython-312.pyc b/src/ui/__pycache__/main_window.cpython-312.pyc
+index a768f1acbb68600d3fbf3fe204c3c152e323269d..8b341264c2bd82621b92728485962f3dc02eabe9 100644
+GIT binary patch
+delta 5584
+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
+PE0Z*zEB-BqSmymdAO0`a
+
+delta 3407
+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
+
+diff --git a/src/ui/__pycache__/worker.cpython-312.pyc b/src/ui/__pycache__/worker.cpython-312.pyc
+index 06156ec4b0a1279d34d1172f4cc42ee1fa10b0c7..e7392e78edef8045b0a94a3ecb9ee1e30ee950d4 100644
+GIT binary patch
+delta 2430
+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
+Zp&O1i+#)#M+DO|eU3zrhZGt0r{}+Yf#tr}g
+
+delta 920
+zcmZuv&ubGw6wc(wW|Nq-sWeGTe<U{AZq<OG#e>?aNDo306hsh~Bs;NNH@nN5S!{dh
+z!F#m~9`p}TJSpVj-=N@+i-!ThquvA&J^J1zP!RX<?R#&&H{bVW=J&ZLOQm<kVm^W2
+zpSPd3u8bX&YHa^t@lkrGXq65=z8`!wSDC2|;4%VVHS^IOi)~nj&WI@FpiSF$eOKBx
+zjNu+IPEaP8KtNhraIg2jHJ!8VuGbdAwuOP*dcCglsRpa4ANd-qs$Ai0@@HbOT6mV3
+zwV2MWyYfaPHc^tbC<h(}HUxoG-^O<<IxA!wBzJV0_gx8v*oPA36V*dsGg#Ca4iEqw
+zQ?JXX*o690UR3+W^j?$JvLPziP6slSrCq-l=-jpKE)S&}_&WQb4ZiE&(`FB6MlYx)
+zcS25w;J5qSwyiu=sWs_zbPi{8(UmXZG}Z73MdV3s`hj$NF4~AS4btQ*pof8@85eXP
+zcpjq<rl>syk-uBIx#M?l2XLQ53-jjS#l(DS;WDnn5`vYC<$($!iBPY{&CpWcCmW2b
+zLS=Sxn%Hv$^8|H*hPqh!yhlY{2shh;<E1)$TOW~uY<qTG5+f?{<Ibx@&vLIF3hr!J
+zDKKg2&`fq{=3glyQR~oU7NgOe*`e2E^|U(2T=k~9zCd0rb_?e^iV<nhR55H=lW-mr
+zHDg+Pi&V`KtRU!=kN_tsGJ?()@5)$9r#nI5L4{~*1hL;1(NeB2b=q-}xlDO+^ftTP
+z^YB&~)UYZT!rIVe2}2;D*Co{R+J{nnu2dpt*9Q-$4Ayv=fVdprpn0JmIFZLM!Chq0
+WX5x%`HN8~sGj{xO^;d%aG5;?t&F6Ul
+
+diff --git a/src/ui/header.py b/src/ui/header.py
+index f823ea7..d9a5ef9 100644
+--- a/src/ui/header.py
++++ b/src/ui/header.py
+@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
+     QFrame,
+     QHBoxLayout,
+     QLabel,
++    QPushButton,
+     QVBoxLayout,
+     QWidget,
+ )
+@@ -16,6 +17,7 @@ class Header(QFrame):
+     """Header بالا با دکمه‌ی گرد progress."""
+ 
+     update_clicked = Signal()
++    publish_clicked = Signal()
+ 
+     def __init__(self) -> None:
+         super().__init__()
+@@ -60,13 +62,71 @@ class Header(QFrame):
+ 
+         layout.addLayout(user_layout, stretch=1)
+ 
+-        # === ۲. دکمه‌ی گرد (چپ) ===
++        # === ۲. دکمه‌ی انتشار GitHub (چپ، کنار دکمه گرد) ===
++        self.publish_btn = QPushButton("🚀 انتشار")
++        self.publish_btn.setObjectName("PublishButton")
++        self.publish_btn.setCursor(Qt.PointingHandCursor)
++        self.publish_btn.setToolTip(
++            "ارسال دیتابیس به GitHub تا ربات تلگرام (GitHub Actions) خلاصه را بفرستد"
++        )
++        self.publish_btn.setStyleSheet(
++            "QPushButton#PublishButton {"
++            " background-color: rgba(99, 102, 241, 0.12);"
++            " color: #6366f1;"
++            " border: 1px solid rgba(99, 102, 241, 0.35);"
++            " border-radius: 18px;"
++            " padding: 8px 16px;"
++            " font-weight: 600;"
++            "}"
++            "QPushButton#PublishButton:hover {"
++            " background-color: rgba(99, 102, 241, 0.22);"
++            "}"
++            "QPushButton#PublishButton:pressed {"
++            " background-color: rgba(99, 102, 241, 0.32);"
++            "}"
++            "QPushButton#PublishButton:disabled {"
++            " color: rgba(120, 120, 130, 0.6);"
++            " border-color: rgba(120, 120, 130, 0.25);"
++            " background-color: transparent;"
++            "}"
++        )
++        self.publish_btn.clicked.connect(self._on_publish_clicked_internal)
++        layout.addWidget(self.publish_btn, alignment=Qt.AlignVCenter)
++
++        # === ۳. دکمه‌ی گرد (چپ) ===
+         self.circular_btn = PillProgressButton()
+         self.circular_btn.button.clicked.connect(self.update_clicked.emit)
+         layout.addWidget(self.circular_btn, alignment=Qt.AlignVCenter)
+ 
++    def _on_publish_clicked_internal(self) -> None:
++        """بازخورد لحظه‌ای روی دکمه و ارسال سیگنال."""
++        if not self.publish_btn.isEnabled():
++            return
++        self._publish_default_text = "🚀 انتشار"
++        self.publish_btn.setText("⏳ در حال ارسال...")
++        self.publish_btn.setEnabled(False)
++        self.publish_clicked.emit()
++
+     # === Public API ===
+ 
++    def set_publish_result(self, ok: bool, message: str = "") -> None:
++        """نمایش نتیجه‌ی انتشار روی دکمه (۳ ثانیه) و بازگرداندن وضعیت."""
++        from PySide6.QtCore import QTimer
++
++        if ok:
++            self.publish_btn.setText("✅ منتشر شد")
++        else:
++            self.publish_btn.setText("❌ خطا")
++        if message:
++            self.user_status.setText(message)
++
++        default_text = getattr(self, "_publish_default_text", "🚀 انتشار")
++        QTimer.singleShot(3000, lambda: self._restore_publish_button(default_text))
++
++    def _restore_publish_button(self, text: str) -> None:
++        self.publish_btn.setText(text)
++        self.publish_btn.setEnabled(True)
++
+     def set_user(self, name: str | None, status: str = "آماده") -> None:
+         """تنظیم نام کاربر و وضعیت."""
+         if name:
+diff --git a/src/ui/main_window.py b/src/ui/main_window.py
+index d5b2c94..331213b 100644
+--- a/src/ui/main_window.py
++++ b/src/ui/main_window.py
+@@ -26,7 +26,7 @@ from src.storage.repositories import CourseRepository
+ from src.ui.header import Header
+ from src.ui.sidebar import Sidebar
+ from src.ui.theme import CurrentTheme, ThemeMode, get_global_qss
+-from src.ui.worker import SyncWorker
++from src.ui.worker import PublishWorker, SyncWorker
+ 
+ 
+ class MainWindow(QMainWindow):
+@@ -68,6 +68,8 @@ class MainWindow(QMainWindow):
+ 
+         self._thread: QThread | None = None
+         self._worker: SyncWorker | None = None
++        self._publish_thread: QThread | None = None
++        self._publish_worker: PublishWorker | None = None
+         self._pages: dict[str, QWidget] = {}
+         self._current_page_key: str = "dashboard"
+         self._force_quit = False
+@@ -211,6 +213,7 @@ class MainWindow(QMainWindow):
+         # Header
+         self.header = Header()
+         self.header.update_clicked.connect(self._on_update_clicked)
++        self.header.publish_clicked.connect(self._on_publish_clicked)
+         content_layout.addWidget(self.header)
+ 
+         # Stack
+@@ -552,6 +555,59 @@ class MainWindow(QMainWindow):
+         self.status_bar.showMessage(f"❌ خطا: {message}")
+         QMessageBox.critical(self, "خطا در Sync", message)
+ 
++    # ============================================================
++    # Publish (انتشار به GitHub)
++    # ============================================================
++
++    def _on_publish_clicked(self) -> None:
++        """دکمه‌ی انتشار: Push دیتابیس به GitHub تا Actions خلاصه را بفرستد."""
++        if self._thread is not None:
++            # همزمانی با Sync در حال اجرا — اجازه نمی‌دهیم
++            self.header.set_publish_result(
++                False, "⏳ صبر کنید — Sync در حال اجراست"
++            )
++            return
++
++        from src.utils.paths import get_data_path, is_frozen
++
++        if is_frozen():
++            self.header.set_publish_result(
++                False, "❌ انتشار در نسخه‌ی EXE غیرفعاله (فقط نسخه‌ی توسعه)"
++            )
++            return
++
++        db_path = get_data_path("lms.db")
++        repo_root = Path(db_path).parent.parent  # data/lms.db → ریشه‌ی مخزن
++
++        self._publish_thread = QThread()
++        self._publish_worker = PublishWorker(repo_root=str(repo_root))
++        self._publish_worker.moveToThread(self._publish_thread)
++
++        self._publish_thread.started.connect(self._publish_worker.run)
++        self._publish_worker.finished.connect(self._on_publish_finished)
++        self._publish_worker.finished.connect(self._publish_thread.quit)
++        self._publish_thread.finished.connect(self._cleanup_publish)
++
++        self.status_bar.showMessage("🚀 در حال انتشار روی GitHub...")
++        self._publish_thread.start()
++
++    def _on_publish_finished(self, ok: bool, message: str) -> None:
++        self.header.set_publish_result(ok, message)
++        self.status_bar.showMessage(message)
++        if hasattr(self, "tray") and self.tray.isVisible():
++            self.tray.showMessage(
++                "🚀 انتشار GitHub",
++                message,
++                QSystemTrayIcon.MessageIcon.Information
++                if ok
++                else QSystemTrayIcon.MessageIcon.Warning,
++                3000,
++            )
++
++    def _cleanup_publish(self) -> None:
++        self._publish_thread = None
++        self._publish_worker = None
++
+     def _on_thread_finished(self) -> None:
+         self._thread = None
+         self._worker = None
+diff --git a/src/ui/worker.py b/src/ui/worker.py
+index 680415d..4c181fe 100644
+--- a/src/ui/worker.py
++++ b/src/ui/worker.py
+@@ -12,6 +12,38 @@ from src.storage.database import Database
+ from src.storage.repositories import SettingRepository
+ 
+ 
++class PublishWorker(QObject):
++    """Worker که Push دیتابیس به GitHub را در thread جدا انجام می‌دهد."""
++
++    started = Signal()
++    finished = Signal(bool, str)  # (موفق، پیام قابل‌نمایش)
++
++    def __init__(self, repo_root: str = ".") -> None:
++        super().__init__()
++        self.repo_root = repo_root
++
++    def run(self) -> None:
++        self.started.emit()
++        try:
++            from src.services.git_pusher import GitPusher
++
++            pusher = GitPusher(repo_root=self.repo_root)
++            pushed = pusher.push_db()
++
++            if pushed:
++                self.finished.emit(
++                    True, "✅ داده‌ها روی GitHub قرار گرفت — ربات تلگرام به‌زودی خلاصه را می‌فرستد"
++                )
++            else:
++                self.finished.emit(
++                    False,
++                    "ℹ️ چیزی برای انتشار نبود (تغییری نیست یا خطا رخ داد — لاگ را ببینید)",
++                )
++        except Exception as e:  # noqa: BLE001
++            logger.exception("خطا در PublishWorker")
++            self.finished.emit(False, f"❌ خطا در انتشار: {e}")
++
++
+ class SyncWorker(QObject):
+     """Worker که در thread جداگانه Sync می‌کند."""
+ 
+diff --git a/tests/conftest.py b/tests/conftest.py
+new file mode 100644
+index 0000000..44c2331
+--- /dev/null
++++ b/tests/conftest.py
+@@ -0,0 +1,24 @@
++"""پیکربندی مشترک تست‌ها.
++
++تست‌های integration که به اعتبارنامه‌ی واقعی LMS نیاز دارند،
++در صورت نبود LMS_USERNAME/LMS_PASSWORD خودکار skip می‌شوند
++(مثلاً در CI یا روی سیستم تازه).
++"""
++
++import os
++
++import pytest
++
++
++def pytest_runtest_setup(item: pytest.Item) -> None:
++    """اگر تست به environ واقعی LMS نیاز داشت و نبود، skip کن."""
++    if not (os.environ.get("LMS_USERNAME") and os.environ.get("LMS_PASSWORD")):
++        # فقط تست‌هایی که واقعاً از environ استفاده می‌کنند skip شوند؛
++        # ساده‌ترین راه: بررسی source فایل تست
++        src = ""
++        try:
++            src = item.path.read_text(encoding="utf-8", errors="ignore")
++        except OSError:
++            pass
++        if "LMS_USERNAME" in src:
++            pytest.skip("اعتبارنامه‌ی LMS (LMS_USERNAME/LMS_PASSWORD) تنظیم نشده — تست integration رد شد")
+-- 
+2.39.5
+

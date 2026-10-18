@@ -1,0 +1,635 @@
+From 7e35b9f692663b513c203b3c94653bacaf919968 Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Fri, 16 Oct 2026 07:02:47 +0000
+Subject: [PATCH 1/8] =?UTF-8?q?fix:=20improvements=20per=20review=20?=
+ =?UTF-8?q?=E2=80=94=20deps,=20retry=20logic,=20git=20whitelist,=20migrati?=
+ =?UTF-8?q?ons,=20CI,=20entry=20point?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- pyproject.toml: add missing runtime deps (httpx, bs4, loguru, jdatetime, ...) + optional gui/bot/dev groups + ruff/mypy config
+- http_client: retry only on transient errors (429/5xx/network), honor Retry-After; add context-manager + is_closed
+- git_pusher: whitelist-only staging/commit of data/lms.db to avoid committing .env or unrelated files
+- storage: new schema migration system (schema_version table) wired into init_schema
+- main.py: real entry point dispatching to GUI/CLI
+- CI workflow: ruff lint + pytest + .env leak check
+- README.md with install/run/security/cron notes
+- unify PyInstaller spec (remove stale 'LMS Assistant.spec', de-hardcode paths)
+- scripts/move_debug_data.sh helper for removing raw debug HTML from repo
+---
+ .github/workflows/ci.yml   | 55 +++++++++++++++++++++++++
+ LMS Assistant.spec         | 44 --------------------
+ LMSAssistant.spec          |  6 +--
+ README.md                  | 61 ++++++++++++++++++++++++++++
+ main.py                    | 52 ++++++++++++++++++++----
+ pyproject.toml             | 40 +++++++++++++++++-
+ scripts/__init__.py        |  0
+ scripts/move_debug_data.sh | 19 +++++++++
+ src/core/http_client.py    | 48 ++++++++++++++++++----
+ src/services/git_pusher.py | 20 ++++++---
+ src/storage/database.py    |  7 ++++
+ src/storage/migrations.py  | 83 ++++++++++++++++++++++++++++++++++++++
+ 12 files changed, 366 insertions(+), 69 deletions(-)
+ create mode 100644 .github/workflows/ci.yml
+ delete mode 100644 LMS Assistant.spec
+ create mode 100644 README.md
+ create mode 100644 scripts/__init__.py
+ create mode 100755 scripts/move_debug_data.sh
+ create mode 100644 src/storage/migrations.py
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..f8c9cd3
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,55 @@
++name: CI
++
++on:
++  push:
++    branches: [main, master]
++  pull_request:
++  workflow_dispatch:
++
++jobs:
++  lint:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.12'
++      - name: Install ruff
++        run: pip install ruff
++      - name: Lint (ruff check)
++        run: ruff check src config tests main.py
++      - name: Format check (ruff format)
++        run: ruff format --check src config main.py
++        continue-on-error: true
++
++  test:
++    runs-on: ubuntu-latest
++    needs: lint
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.12'
++          cache: 'pip'
++      - name: Install dependencies
++        run: |
++          python -m pip install --upgrade pip
++          pip install -e '.[dev]'
++      - name: Run unit tests
++        run: pytest tests -x -q
++        env:
++          LMS_USERNAME: test_user
++          LMS_PASSWORD: test_pass
++
++  # هشدار اگر داده‌ی حساس در حال commit شدن باشد
++  secret-scan:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - name: Check .env is not committed
++        run: |
++          if git ls-files | grep -E '^\.env$'; then
++            echo "::error::فایل .env در Git commit شده است! آن را از تاریخچه حذف کنید."
++            exit 1
++          fi
++          echo "✅ .env commit نشده است"
+diff --git a/LMS Assistant.spec b/LMS Assistant.spec
+deleted file mode 100644
+index 881223c..0000000
+--- a/LMS Assistant.spec	
++++ /dev/null
+@@ -1,44 +0,0 @@
+-# -*- mode: python ; coding: utf-8 -*-
+-
+-
+-a = Analysis(
+-    ['scripts/run_gui.py'],
+-    pathex=[],
+-    binaries=[],
+-    datas=[('assets', 'assets')],
+-    hiddenimports=[],
+-    hookspath=[],
+-    hooksconfig={},
+-    runtime_hooks=[],
+-    excludes=[],
+-    noarchive=False,
+-    optimize=0,
+-)
+-pyz = PYZ(a.pure)
+-
+-exe = EXE(
+-    pyz,
+-    a.scripts,
+-    [],
+-    exclude_binaries=True,
+-    name='LMS Assistant',
+-    debug=False,
+-    bootloader_ignore_signals=False,
+-    strip=False,
+-    upx=True,
+-    console=True,
+-    disable_windowed_traceback=False,
+-    argv_emulation=False,
+-    target_arch=None,
+-    codesign_identity=None,
+-    entitlements_file=None,
+-)
+-coll = COLLECT(
+-    exe,
+-    a.binaries,
+-    a.datas,
+-    strip=False,
+-    upx=True,
+-    upx_exclude=[],
+-    name='LMS Assistant',
+-)
+diff --git a/LMSAssistant.spec b/LMSAssistant.spec
+index 4b99958..57b059e 100644
+--- a/LMSAssistant.spec
++++ b/LMSAssistant.spec
+@@ -2,10 +2,10 @@
+ 
+ 
+ a = Analysis(
+-    ['F:/Projects/lms-assistant/scripts/run_gui.py'],
++    ['scripts/run_gui.py'],
+     pathex=[],
+     binaries=[],
+-    datas=[('F:/Projects/lms-assistant/src/storage/schema.sql', 'src/storage')],
++    datas=[('src/storage/schema.sql', 'src/storage')],
+     hiddenimports=['keyring.backends.Windows', 'keyring.backends.SecretService', 'keyring.backends.kwallet', 'aiogram', 'jdatetime', 'matplotlib.backends.backend_qtagg'],
+     hookspath=[],
+     hooksconfig={},
+@@ -32,7 +32,7 @@ exe = EXE(
+     target_arch=None,
+     codesign_identity=None,
+     entitlements_file=None,
+-    icon=['F:/Projects/lms-assistant/assets/icons/app.ico'],
++    icon=['assets/icons/app.ico'],
+ )
+ coll = COLLECT(
+     exe,
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..7474491
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,61 @@
++# 🎓 LMS Assistant
++
++دستیار شخصی LMS دانشگاه اصفهان — همگام‌سازی دروس، تکالیف، رویدادها و اخبار از سامانه‌های `lms4.ui.ac.ir` و `quera.ui.ac.ir` با رابط گرافیکی دسکتاپ (PySide6)، CLI و ربات تلگرام.
++
++## ✨ قابلیت‌ها
++- احراز هویت خودکار و نگهداری Session در LMS و کوئرا
++- همگام‌سازی دروس، محتواها، تکالیف، تقویم و تالارهای گفتگو
++- ذخیره‌سازی محلی SQLite با سیستم مهاجرت Schema
++- یادآوری ددلاین و خلاصه‌ی روزانه از طریق GitHub Actions + تلگرام
++- رابط گرافیکی راست‌به‌چپ با تم روشن/تاریخ
++
++## 🚀 نصب و اجرا
++
++```bash
++# نصب وابستگی‌های پایه + توسعه
++pip install -e ".[dev]"
++
++# برای رابط گرافیکی
++pip install -e ".[gui]"
++
++# کپی فایل نمونه‌ی تنظیمات
++cp .env.example .env   # سپس مقادیر را پر کنید
++```
++
++### اجرا
++```bash
++python main.py          # رابط گرافیکی
++python main.py --cli    # رابط فرمانی
++```
++
++## 🧪 تست و کیفیت کد
++```bash
++pytest tests -q         # اجرای تست‌ها
++ruff check src config   # لینتر
++mypy src                # بررسی نوع
++```
++
++CI از طریق GitHub Actions به‌صورت خودکار lint و تست را روی هر push/PR اجرا می‌کند.
++
++## 🔐 امنیت
++- فایل `.env` حاوی نام کاربری/رمز عبور است و **هرگز** نباید commit شود (در `.gitignore` لحاظ شده).
++- سرویس `GitPusher` فقط `data/lms.db` را به‌صورت whitelist push می‌کند.
++- داده‌های خام debug (`debug_*.html`, `data/*.html`) حاوی اطلاعات شخصی هستند؛ آن‌ها را در مخزن عمومی قرار ندهید.
++
++## 📁 ساختار پروژه
++```
++config/        تنظیمات و ثابت‌ها
++src/core/      احراز هویت، کلاینت HTTP، استثناها
++src/collectors جمع‌آوری داده از صفحات LMS
++src/parsers/   تحلیل HTML
++src/models/    مدل‌های داده
++src/storage/   دیتابیس + repositories + مهاجرت‌ها
++src/services/  هماهنگی sync، اعلان‌ها، Git push
++src/ui/        رابط گرافیکی PySide6
++scripts/       ورودی‌های CLI/GUI/Bot و ابزارهای کمکی
++tests/         تست‌های واحد
++.github/       Workflow های زمان‌بندی‌شده و CI
++```
++
++## ⏰ یادداشت Cron
++GitHub Actions ممکن است زمان‌بندی را چند دقیقه تا چند ساعت با تأخیر اجرا کند (به‌ویژه روی شاخه‌های کم‌فعالیت). برای ددلاین‌های حساس، از `workflow_dispatch` دستی یا یک trigger خارجی (مثل cron-job.org) استفاده کنید.
+diff --git a/main.py b/main.py
+index 5657766..eeafb5a 100644
+--- a/main.py
++++ b/main.py
+@@ -1,14 +1,50 @@
+-"""LMS Assistant - Entry Point."""
++"""LMS Assistant - Entry Point.
+ 
+-from config.settings import settings
++نقطه‌ی ورود پروژه: با `python main.py` می‌توانید GUI یا CLI را اجرا کنید.
+ 
++Usage:
++    python main.py            # اجرای رابط گرافیکی (پیش‌فرض)
++    python main.py --cli      # اجرای رابط فرمانی (Typer)
++"""
+ 
+-def main():
+-    print("LMS Assistant")
+-    print(f"Username: {settings.lms_username}")
+-    print(f"Base URL: {settings.lms_base_url}")
+-    print(f"DB Path: {settings.db_path}")
++import argparse
++import sys
++
++
++def run_gui() -> int:
++    """اجرای رابط گرافیکی PySide6."""
++    from scripts.run_gui import main as gui_main
++
++    return gui_main()
++
++
++def run_cli() -> None:
++    """اجرای رابط فرمانی Typer."""
++    from scripts.run_cli import app
++
++    app()
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description="LMS Assistant")
++    parser.add_argument(
++        "--cli", action="store_true", help="اجرای رابط فرمانی به‌جای GUI"
++    )
++    args, extra = parser.parse_known_args()
++
++    if args.cli:
++        sys.argv = [sys.argv[0], *extra]
++        run_cli()
++        return 0
++
++    try:
++        return run_gui()
++    except ImportError as e:
++        print(f"❌ برای اجرای GUI، وابستگی‌های gui را نصب کنید: pip install -e '.[gui]'")
++        print(f"   جزئیات: {e}")
++        print("   یا از رابط فرمانی استفاده کنید: python main.py --cli")
++        return 1
+ 
+ 
+ if __name__ == "__main__":
+-    main()
+\ No newline at end of file
++    sys.exit(main())
+diff --git a/pyproject.toml b/pyproject.toml
+index b75e86d..2bfb198 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -4,12 +4,48 @@ version = "0.1.0"
+ description = "LMS Assistant for University of Isfahan"
+ requires-python = ">=3.11"
+ dependencies = [
+-    "requests>=2.34.2",
++    "httpx>=0.27",
++    "requests>=2.32",
++    "beautifulsoup4>=4.12",
++    "lxml>=5.0",
++    "loguru>=0.7",
++    "jdatetime>=5.0",
++    "pydantic-settings>=2.0",
++    "python-dotenv>=1.0",
++    "rich>=13.0",
++    "typer>=0.12",
++]
++
++[project.optional-dependencies]
++gui = [
++    "PySide6>=6.6",
++    "matplotlib>=3.8",
++]
++bot = [
++    "aiogram>=3.0",
++]
++dev = [
++    "pytest>=8.0",
++    "pytest-mock>=3.12",
++    "ruff>=0.5",
++    "mypy>=1.10",
+ ]
+ 
+ [tool.setuptools]
+-packages = ["config", "src"]
++packages = ["config", "src", "scripts"]
+ 
+ [tool.pytest.ini_options]
+ testpaths = ["tests"]
+ pythonpath = ["."]
++
++[tool.ruff]
++line-length = 100
++target-version = "py311"
++
++[tool.ruff.lint]
++select = ["E", "F", "W", "I", "UP", "B"]
++ignore = ["E501"]
++
++[tool.mypy]
++python_version = "3.11"
++ignore_missing_imports = true
+diff --git a/scripts/__init__.py b/scripts/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/scripts/move_debug_data.sh b/scripts/move_debug_data.sh
+new file mode 100755
+index 0000000..404fac3
+--- /dev/null
++++ b/scripts/move_debug_data.sh
+@@ -0,0 +1,19 @@
++#!/usr/bin/env bash
++# جابه‌جایی داده‌های خام debug از مخزن (این اسکریپت را محلی اجرا کنید، نه در CI)
++set -euo pipefail
++cd "$(dirname "$0")/.."
++
++mkdir -p ../lms-debug-data/html ../lms-debug-data/db
++
++# ۱. حذف فایل‌های HTML خام از Git (نگهداری lms.db تا زمانی که Actions به آن وابسته است)
++git rm --cached data/*.html debug_*.html 2>/dev/null || true
++echo "data/*.html" >> .gitignore
++echo "debug_*.html.bak" >> .gitignore
++
++# ۲. کپی فایل‌ها به بیرون از مخزن برای استفاده‌ی محلی
++cp -n data/*.html ../lms-debug-data/html/ 2>/dev/null || true
++cp -n debug_*.html ../lms-debug-data/html/ 2>/dev/null || true
++
++echo "✅ فایل‌های debug از index خارج شدند و در ../lms-debug-data ذخیره شدند."
++echo "⚠️ برای پاک‌سازی کامل تاریخچه: git filter-repo --path data/ --path debug_calendar.html ... --invert-paths"
++echo "   سپس force-push کنید و رمز تلگرام/سشن‌ها را در صورت نشتی rotate نمایید."
+diff --git a/src/core/http_client.py b/src/core/http_client.py
+index b08e03f..979dccf 100644
+--- a/src/core/http_client.py
++++ b/src/core/http_client.py
+@@ -1,8 +1,12 @@
++import time
+ from typing import Any
+ 
+ import httpx
+ from loguru import logger
+ 
++# وضعیت‌های HTTP که تلاش مجدد معنادار هستند
++RETRYABLE_STATUS = {429, 500, 502, 503, 504}
++
+ 
+ class LMSHttpClient:
+     def __init__(
+@@ -49,11 +53,7 @@ class LMSHttpClient:
+ 
+                 return response
+ 
+-            except (
+-                httpx.TimeoutException,
+-                httpx.NetworkError,
+-                httpx.HTTPStatusError,
+-            ) as exc:
++            except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                 if attempt == self.max_retries - 1:
+                     raise
+ 
+@@ -67,7 +67,30 @@ class LMSHttpClient:
+                     exc,
+                 )
+ 
+-                import time
++                time.sleep(delay)
++
++            except httpx.HTTPStatusError as exc:
++                status = exc.response.status_code
++                # فقط روی خطاهای موقت retry کن؛ خطاهای 4xx (به‌جز 429) قطعی هستند
++                if status not in RETRYABLE_STATUS or attempt == self.max_retries - 1:
++                    raise
++
++                delay = 2**attempt
++                retry_after = exc.response.headers.get("Retry-After")
++                if retry_after:
++                    try:
++                        delay = max(delay, float(retry_after))
++                    except ValueError:
++                        pass
++
++                logger.warning(
++                    "HTTP {} for {} {} | retry in {}s",
++                    status,
++                    method,
++                    url,
++                    delay,
++                )
++
+                 time.sleep(delay)
+ 
+         raise RuntimeError("HTTP request failed")
+@@ -98,5 +121,16 @@ class LMSHttpClient:
+     def cookies(self):
+         return self._client.cookies
+ 
++    @property
++    def is_closed(self) -> bool:
++        """آیا کلاینت بسته شده است؟"""
++        return self._client.is_closed
++
+     def close(self):
+-        self._client.close()
+\ No newline at end of file
++        self._client.close()
++
++    def __enter__(self) -> "LMSHttpClient":
++        return self
++
++    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
++        self.close()
+\ No newline at end of file
+diff --git a/src/services/git_pusher.py b/src/services/git_pusher.py
+index 866c8cb..ce8fb41 100644
+--- a/src/services/git_pusher.py
++++ b/src/services/git_pusher.py
+@@ -61,25 +61,35 @@ class GitPusher:
+             return False
+ 
+         try:
+-            # === ۱. Stage دیتابیس ===
+-            self._run_git("add", "data/lms.db")
++            # === ۱. Stage فقط دیتابیس (whitelist — از commit شدن .env جلوگیری می‌کند) ===
++            self._run_git("add", "--", self.DB_PATH)
+             logger.debug("✅ داده stage شد")
+ 
+             # === ۲. چک کن تغییری هست؟ ===
+             # (status --porcelain خالی باشه → تغییری نیست)
+             status = self._run_git(
+-                "status", "--porcelain", "data/lms.db", check=False
++                "status", "--porcelain", "--", self.DB_PATH, check=False
+             )
+             if not status.stdout.strip():
+                 logger.info("ℹ️ دیتابیس تغییری نکرده — نیازی به push نیست")
+                 return False
+ 
+-            # === ۳. Commit ===
++            # اطمینان از اینکه فقط فایل مجاز staged شده (مثلاً اگر index آلوده باشد)
++            staged = self._run_git("diff", "--cached", "--name-only", check=False)
++            staged_files = set(staged.stdout.split())
++            if not staged_files <= {self.DB_PATH}:
++                logger.error(
++                    f"⚠️ فایل‌های غیرمجاز در index هستند: "
++                    f"{staged_files - {self.DB_PATH}} — push لغو شد"
++                )
++                return False
++
++            # === ۳. Commit (فقط مسیر whitelist شده، نه کل index) ===
+             from datetime import datetime
+             commit_msg = (
+                 f"data: auto-sync {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+             )
+-            self._run_git("commit", "-m", commit_msg)
++            self._run_git("commit", "-m", commit_msg, "--", self.DB_PATH)
+             logger.debug(f"✅ commit: {commit_msg}")
+ 
+             # === ۴. Push ===
+diff --git a/src/storage/database.py b/src/storage/database.py
+index 65cd247..7e12a42 100644
+--- a/src/storage/database.py
++++ b/src/storage/database.py
+@@ -8,6 +8,7 @@ from typing import Any, Iterator
+ from loguru import logger
+ 
+ from src.core.exceptions import StorageError
++from src.storage.migrations import get_version
+ 
+ 
+ class Database:
+@@ -67,6 +68,12 @@ class Database:
+ 
+         try:
+             self.connection.executescript(schema)
++            # ثبت نسخه‌ی اولیه و اعمال مهاجرت‌های انجام‌نشده
++            from src.storage.migrations import INITIAL_VERSION, migrate, set_version
++
++            if get_version(self.connection) == 0:
++                set_version(self.connection, INITIAL_VERSION)
++            migrate(self.connection)
+             self.connection.commit()
+             logger.info(f"✅ Schema ساخته شد: {schema_path.name}")
+         except sqlite3.Error as e:
+diff --git a/src/storage/migrations.py b/src/storage/migrations.py
+new file mode 100644
+index 0000000..3a62a96
+--- /dev/null
++++ b/src/storage/migrations.py
+@@ -0,0 +1,83 @@
++"""سیستم مهاجرت (Migration) دیتابیس.
++
++نسخه‌ی Schema در جدول `schema_version` نگه داشته می‌شود و مهاجرت‌ها
++به‌صورت ترتیبی و داخل تراکنش اعمال می‌شوند. برای افزودن تغییر جدید:
++
++1. یک تابع `_migrate_to_N` بسازید (N = نسخه‌ی بعدی).
++2. آن را به لیست `MIGRATIONS` در انتهای فایل اضافه کنید.
++"""
++
++import sqlite3
++
++from loguru import logger
++
++# نسخه‌ی اولیه — همان schema.sql موجود
++INITIAL_VERSION = 1
++
++
++def get_version(conn: sqlite3.Connection) -> int:
++    """نسخه‌ی فعلی Schema را برمی‌گرداند (۰ اگر جدول نسخه وجود نداشته باشد)."""
++    row = conn.execute(
++        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
++    ).fetchone()
++    if not row:
++        return 0
++    result = conn.execute(
++        "SELECT MAX(version) FROM schema_version"
++    ).fetchone()
++    return result[0] or 0
++
++
++def set_version(conn: sqlite3.Connection, version: int) -> None:
++    """ثبت نسخه‌ی جدید."""
++    conn.execute(
++        "CREATE TABLE IF NOT EXISTS schema_version ("
++        "  version INTEGER PRIMARY KEY,"
++        "  applied_at TEXT NOT NULL DEFAULT (datetime('now'))"
++        ")"
++    )
++    conn.execute("INSERT OR IGNORE INTO schema_version (version) VALUES (?)", (version,))
++
++
++# === مهاجرت‌ها ===
++# هر مهاجرت: (target_version, callable)
++# مثال برای آینده:
++# def _migrate_to_2(conn: sqlite3.Connection) -> None:
++#     conn.execute("ALTER TABLE courses ADD COLUMN color TEXT")
++
++MIGRATIONS: list[tuple[int, object]] = []
++
++
++def migrate(conn: sqlite3.Connection) -> None:
++    """اعمال تمام مهاجرت‌های انجام‌نشده، به‌ترتیب و داخل تراکنش."""
++    current = get_version(conn)
++
++    # دیتابیسی که از قبل جداولش ساخته شده اما جدول نسخه ندارد → نسخه‌ی اولیه
++    if current == 0:
++        tables = conn.execute(
++            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name!='schema_version'"
++        ).fetchone()[0]
++        if tables > 0:
++            logger.info(f"دیتابیس قدیمی شناسایی شد — نسخه‌ی اولیه {INITIAL_VERSION} ست می‌شود")
++            set_version(conn, INITIAL_VERSION)
++            conn.commit()
++            current = INITIAL_VERSION
++        else:
++            current = 0
++
++    pending = [(v, fn) for v, fn in MIGRATIONS if v > current]
++    if not pending:
++        return
++
++    for target_version, migration_fn in sorted(pending):
++        logger.info(f"⬆️ اجرای مهاجرت به نسخه {target_version}")
++        try:
++            conn.execute("BEGIN")
++            migration_fn(conn)  # type: ignore[operator]
++            set_version(conn, target_version)
++            conn.commit()
++            logger.info(f"✅ مهاجرت نسخه {target_version} انجام شد")
++        except sqlite3.Error as e:
++            conn.rollback()
++            logger.error(f"❌ خطا در مهاجرت نسخه {target_version}: {e} — rollback شد")
++            raise
+-- 
+2.39.5
+

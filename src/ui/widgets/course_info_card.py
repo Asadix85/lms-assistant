@@ -33,7 +33,8 @@ class CourseInfoCard(RTLWidgetMixin, QFrame):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(20, 18, 20, 18)
         lay.setSpacing(14)
-        lay.setDirection(QHBoxLayout.RightToLeft)
+        # جهت RTL این کارت از طریق RTLWidgetMixin و فیلتر سطح-اپلیکیشن اعمال
+        # می‌شود؛ setDirection روی QVBoxLayout عملاً بی‌اثر است (حذف شد).
 
         # --- سربرگ ---
         head = QHBoxLayout()
