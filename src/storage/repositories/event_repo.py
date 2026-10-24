@@ -97,7 +97,7 @@ class EventRepository(BaseRepository):
             "start_at": e.start_at.isoformat() if e.start_at else None,
             "end_at": e.end_at.isoformat() if e.end_at else None,
             "description": e.description,
-            "is_new": 0,
+            "is_new": 1 if e.is_new else 0,
             "first_seen_at": e.first_seen_at.isoformat(),
             "last_seen_at": e.last_seen_at.isoformat(),
         }
@@ -113,6 +113,7 @@ class EventRepository(BaseRepository):
             start_at=datetime.fromisoformat(row["start_at"]) if row.get("start_at") else None,
             end_at=datetime.fromisoformat(row["end_at"]) if row.get("end_at") else None,
             description=row.get("description"),
+            is_new=bool(row.get("is_new", 1)),
             first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
         )

@@ -294,3 +294,22 @@ class SyncResultOut(BaseModel):
     total_removed: int
     counts: dict[str, int]
     summary: str
+
+from pydantic import BaseModel
+
+class LocationOut(BaseModel):
+    text: str
+    faculty: str
+    building: str
+    lat: float
+    lng: float
+
+class SessionOut(BaseModel):
+    weekday: str
+    start_time: str
+    end_time: str
+    location_text: str
+    faculty: str
+    building: str
+    lat: float
+    lng: float

@@ -1,6 +1,7 @@
 """Database wrapper برای SQLite."""
 
 import sqlite3
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
@@ -12,37 +13,47 @@ from src.storage.migrations import get_version
 
 
 class Database:
-    """مدیریت اتصال و عملیات SQLite."""
+    """مدیریت اتصال و عملیات SQLite.
+
+    اتصال‌ها به‌صورت thread-local نگهداری می‌شوند تا سرویس‌های پس‌زمینه
+    (مثل sync در thread جدا) و handlerهای وب بتوانند همزمان از دیتابیس
+    استفاده کنند (WAL اجازه‌ی reader همزمان با writer را می‌دهد).
+    """
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
-        self._connection: sqlite3.Connection | None = None
+        self._local = threading.local()
+        self._all_connections: list[sqlite3.Connection] = []
 
     # === Connection ===
 
     def connect(self) -> sqlite3.Connection:
-        """اتصال به دیتابیس (اگر نبود، می‌سازد)."""
-        if self._connection is None:
+        """اتصال به دیتابیس (اگر نبود، می‌سازد) — یک اتصال مستقل برای هر thread."""
+        conn: sqlite3.Connection | None = getattr(self._local, "connection", None)
+        if conn is None:
             # اطمینان از وجود پوشه
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-            self._connection = sqlite3.connect(
+            conn = sqlite3.connect(
                 str(self.db_path),
                 detect_types=sqlite3.PARSE_DECLTYPES,
             )
-            self._connection.row_factory = sqlite3.Row
-            self._connection.execute("PRAGMA foreign_keys = ON")
-            self._connection.execute("PRAGMA journal_mode = WAL")
-            logger.debug(f"اتصال به دیتابیس: {self.db_path}")
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA busy_timeout = 5000")
+            self._local.connection = conn
+            self._all_connections.append(conn)
+            logger.debug(
+                f"اتصال به دیتابیس (thread={threading.get_ident()}): {self.db_path}"
+            )
 
-        return self._connection
+        return conn
 
     @property
     def connection(self) -> sqlite3.Connection:
-        """دسترسی به اتصال."""
-        if self._connection is None:
-            return self.connect()
-        return self._connection
+        """دسترسی به اتصال thread فعلی."""
+        return self.connect()
 
     # === Init ===
 
@@ -126,11 +137,16 @@ class Database:
     # === Lifecycle ===
 
     def close(self) -> None:
-        """بستن اتصال."""
-        if self._connection is not None:
-            self._connection.close()
-            self._connection = None
-            logger.debug("دیتابیس بسته شد")
+        """بستن همه اتصال‌های باز (در همه threadها)."""
+        for conn in self._all_connections:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._all_connections = []
+        if hasattr(self._local, "connection"):
+            del self._local.connection
+        logger.debug("همه اتصال‌های دیتابیس بسته شد")
 
     def __enter__(self) -> "Database":
         self.connect()

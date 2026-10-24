@@ -87,7 +87,7 @@ class PostRepository(BaseRepository):
             "posted_at": p.posted_at.isoformat() if p.posted_at else None,
             "posted_at_jalali": p.posted_at_jalali,
             "post_url": p.post_url,
-            "is_new": 0,
+            "is_new": 1 if p.is_new else 0,
             "first_seen_at": p.first_seen_at.isoformat(),
             "last_seen_at": p.last_seen_at.isoformat(),
         }
@@ -102,6 +102,7 @@ class PostRepository(BaseRepository):
             posted_at=datetime.fromisoformat(row["posted_at"]) if row.get("posted_at") else None,
             posted_at_jalali=row.get("posted_at_jalali"),
             post_url=row.get("post_url"),
+            is_new=bool(row.get("is_new", 1)),
             first_seen_at=datetime.fromisoformat(row["first_seen_at"]),
             last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
         )

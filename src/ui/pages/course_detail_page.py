@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, Signal, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QGraphicsOpacityEffect
 from PySide6.QtWidgets import (
     QFrame,
@@ -562,12 +563,14 @@ class CourseDetailPage(QWidget):
             return
         lay = self.schedule_container._content_layout
         self._clear_layout(lay)
+
         try:
             with Database(self.db_path) as db:
                 schedule = CourseScheduleRepository(db).get_by_id(self._course.group_id)
         except Exception as e:
-            lay.addWidget(QLabel(f"خطا: {e}"))
+            lay.addWidget(QLabel(f"خطا در دریافت برنامه: {e}"))
             return
+
         if not schedule or not schedule.sessions:
             lay.addWidget(self._tab_empty(
                 "📅", "برنامه‌ای ثبت نشده",
@@ -575,8 +578,14 @@ class CourseDetailPage(QWidget):
             ))
             self.tabs.setTabText(4, "📅 برنامه کلاس")
             return
+
+        # استفاده از ویجت ادغام‌شده (زمان + مکان + مسیریابی)
+        from src.ui.widgets.schedule_location_card import ScheduleLocationCard
+
         for session in schedule.sessions:
-            lay.addWidget(ScheduleCard(session))
+            card = ScheduleLocationCard(session)
+            lay.addWidget(card)
+
         self.tabs.setTabText(4, f"📅 برنامه کلاس ({self._to_fa(len(schedule.sessions))})")
 
     @staticmethod

@@ -11,15 +11,21 @@ from src.storage.repositories import (
     MemberRepository,
     PostRepository,
 )
+# 👇 ایمپورت‌های جدید
+from src.storage.repositories.course_schedule_repo import CourseScheduleRepository
+from src.models.locations import get_location
+
 from src.web.schemas import (
     AssignmentOut,
     ChangeOut,
     ContentOut,
     CourseOut,
     EventOut,
+    SessionOut,
     MemberOut,
     PostOut,
 )
+from src.web.static_export import build_dashboard
 
 router = APIRouter()
 
@@ -42,31 +48,7 @@ def _repos(request: Request):
 
 @router.get("/dashboard")
 async def dashboard(request: Request) -> dict:
-    r = _repos(request)
-    upcoming_events = r["events"].get_upcoming(limit=8)
-    upcoming_assignments = r["assignments"].get_upcoming(limit=8)
-    recent_posts = r["posts"].get_all()[:8]
-    recent_changes = r["changes"].get_recent(limit=10)
-
-    return {
-        "stats": {
-            "courses": r["courses"].count(),
-            "active_courses": len(r["courses"].get_active()),
-            "contents": r["contents"].count(),
-            "events": r["events"].count(),
-            "posts": r["posts"].count(),
-            "assignments": r["assignments"].count(),
-            "pending_assignments": sum(
-                1 for a in r["assignments"].get_all() if not a.is_done
-            ),
-        },
-        "upcoming_events": [EventOut.from_model(e) for e in upcoming_events],
-        "upcoming_assignments": [
-            AssignmentOut.from_model(a) for a in upcoming_assignments
-        ],
-        "recent_posts": [PostOut.from_model(p) for p in recent_posts],
-        "recent_changes": [ChangeOut.from_model(c) for c in recent_changes],
-    }
+    return build_dashboard(request.app.state.db)
 
 
 # === Courses ===
@@ -94,6 +76,44 @@ async def course_detail(request: Request, course_id: str) -> dict:
     course = r["courses"].get_by_id(course_id)
     if not course:
         raise HTTPException(404, "درس یافت نشد")
+
+    locations_data = []
+    schedule_repo = CourseScheduleRepository(request.app.state.db)
+    schedule = schedule_repo.get_by_id(course_id)
+
+    if schedule and schedule.sessions:
+        for session in schedule.sessions:
+            loc_info = get_location(session.location)
+            # 👇 این خط را برای دیباگ اضافه کنید تا در ترمینال ببینید چه چیزی پیدا شده
+            import logging
+            logging.warning(f"DEBUG LOCATIONS DATA: {locations_data}")
+            if loc_info:
+                locations_data.append(
+                    SessionOut(
+                        weekday=session.weekday,
+                        start_time=session.start_time,
+                        end_time=session.end_time,
+                        location_text=session.location,
+                        faculty=loc_info.name,
+                        building=loc_info.building,
+                        lat=loc_info.lat,
+                        lng=loc_info.lng,
+                    )
+                )
+            elif session.location:
+                locations_data.append(
+                    SessionOut(
+                        weekday=session.weekday,
+                        start_time=session.start_time,
+                        end_time=session.end_time,
+                        location_text=session.location,
+                        faculty="مکان ثبت شده در LMS",
+                        building=session.location,
+                        lat=32.6072163,  # مرکز دانشگاه اصفهان
+                        lng=51.6583164,
+                    )
+                )
+
     return {
         "course": CourseOut.from_model(course),
         "contents": [ContentOut.from_model(c) for c in r["contents"].get_by_course(course_id)],
@@ -104,8 +124,8 @@ async def course_detail(request: Request, course_id: str) -> dict:
         ],
         "members": [MemberOut.from_model(m) for m in r["members"].get_by_course(course_id)],
         "changes": [ChangeOut.from_model(c) for c in r["changes"].get_by_course(course_id)],
+        "locations": locations_data,  # 👈 ارسال لیست مکان‌ها
     }
-
 
 # === Contents ===
 
@@ -135,6 +155,14 @@ async def list_posts(request: Request, new_only: bool = False) -> list[PostOut]:
     repo = PostRepository(request.app.state.db)
     items = repo.get_new() if new_only else repo.get_all()
     return [PostOut.from_model(p) for p in items]
+
+
+@router.post("/posts/read")
+async def mark_posts_read(request: Request) -> dict:
+    """علامت‌گذاری همه پست‌ها به‌عنوان خوانده‌شده (is_new = 0)."""
+    repo = PostRepository(request.app.state.db)
+    repo.mark_all_seen()
+    return {"ok": True}
 
 
 # === Assignments ===

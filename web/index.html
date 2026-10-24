@@ -3,42 +3,91 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#4f46e5" />
   <title>دستیار LMS — نسخه وب</title>
+  <link rel="icon" type="image/png" href="/static/img/ui-logo.png" />
   <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body data-theme="light">
+
+  <!-- ===== Backdrop موبایل ===== -->
+  <div id="backdrop" class="backdrop hidden"></div>
 
   <!-- ===== Sidebar ===== -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <span class="brand-icon">🎓</span>
-      <div>
+      <span class="brand-mark" aria-hidden="true"><img src="/static/img/ui-logo.png" alt="لوگوی دانشگاه اصفهان" /></span>
+      <div class="brand-text">
         <h1>دستیار LMS</h1>
         <small>دانشگاه اصفهان</small>
       </div>
+      <button id="btn-close-sidebar" class="btn btn-ghost btn-icon" title="بستن منو" aria-label="بستن منو">✕</button>
     </div>
 
     <nav class="nav">
-      <a href="#/" data-page="dashboard" class="nav-item active">📊 داشبورد</a>
-      <a href="#/courses" data-page="courses" class="nav-item">📚 درس‌ها</a>
-      <a href="#/assignments" data-page="assignments" class="nav-item">📝 تکالیف</a>
-      <a href="#/events" data-page="events" class="nav-item">📅 رویدادها</a>
-      <a href="#/posts" data-page="posts" class="nav-item">💬 پیام‌های وال</a>
-      <a href="#/contents" data-page="contents" class="nav-item">📁 محتواها</a>
-      <a href="#/changes" data-page="changes" class="nav-item">🔔 تغییرات</a>
-      <a href="#/quera" data-page="quera" class="nav-item">⚙️ کوئرا</a>
-      <a href="#/settings" data-page="settings" class="nav-item">⚙️ تنظیمات</a>
+      <div class="nav-group">
+        <span class="nav-label">نمای کلی</span>
+        <a href="#/" data-page="dashboard" class="nav-item active">
+          <span class="nav-icon">▦</span><span class="nav-text">داشبورد</span>
+        </a>
+        <a href="#/courses" data-page="courses" class="nav-item">
+          <span class="nav-icon">▤</span><span class="nav-text">درس‌ها</span>
+        </a>
+        <a href="#/assignments" data-page="assignments" class="nav-item">
+          <span class="nav-icon">✎</span><span class="nav-text">تکالیف</span>
+          <span class="nav-badge hidden" data-badge="pending">۰</span>
+        </a>
+        <a href="#/events" data-page="events" class="nav-item">
+          <span class="nav-icon">◷</span><span class="nav-text">رویدادها</span>
+        </a>
+        <a href="#/calendar" data-page="calendar" class="nav-item">
+          <span class="nav-icon">▣</span><span class="nav-text">تقویم</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-label">گفتگو و محتوا</span>
+        <a href="#/posts" data-page="posts" class="nav-item">
+          <span class="nav-icon">◉</span><span class="nav-text">پیام‌های وال</span>
+          <span class="nav-badge hidden" data-badge="posts">۰</span>
+        </a>
+        <a href="#/contents" data-page="contents" class="nav-item">
+          <span class="nav-icon">▧</span><span class="nav-text">محتواها</span>
+        </a>
+        <a href="#/changes" data-page="changes" class="nav-item">
+          <span class="nav-icon">↻</span><span class="nav-text">تغییرات</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-label">سایر</span>
+        <a href="#/quera" data-page="quera" class="nav-item">
+          <span class="nav-icon">⌘</span><span class="nav-text">کوئرا</span>
+        </a>
+        <a href="#/settings" data-page="settings" class="nav-item">
+          <span class="nav-icon">⚙</span><span class="nav-text">تنظیمات</span>
+        </a>
+      </div>
     </nav>
 
     <div class="sidebar-footer">
-      <button id="btn-sync" class="btn btn-primary btn-block">🔄 همگام‌سازی</button>
+      <button id="btn-sync" class="btn btn-primary btn-block btn-sync">
+        <span class="sync-spinner hidden"></span>
+        <span class="btn-sync-label">🔄 همگام‌سازی</span>
+      </button>
       <div id="sync-progress" class="sync-progress hidden">
         <div class="progress-track"><div id="sync-bar" class="progress-bar"></div></div>
         <small id="sync-label">در حال آماده‌سازی…</small>
       </div>
       <div class="user-box" id="user-box">
-        <span id="user-name">کاربر مهمان</span>
-        <button id="btn-logout" class="btn btn-ghost btn-sm">خروج</button>
+        <span class="avatar" id="user-avatar">؟</span>
+        <div class="user-meta">
+          <span id="user-name">کاربر مهمان</span>
+          <small id="user-status">وارد نشده</small>
+        </div>
+        <button id="btn-logout" class="btn btn-ghost btn-icon" title="خروج" aria-label="خروج">⏻</button>
       </div>
     </div>
   </aside>
@@ -46,45 +95,82 @@
   <!-- ===== Main ===== -->
   <main class="main">
     <header class="topbar">
-      <button id="btn-menu" class="btn btn-ghost">☰</button>
-      <h2 id="page-title">داشبورد</h2>
+      <button id="btn-menu" class="btn btn-ghost btn-icon" title="منو" aria-label="منو">☰</button>
+      <div class="topbar-title">
+        <h2 id="page-title">داشبورد</h2>
+        <span id="page-subtitle" class="muted"></span>
+      </div>
       <span class="spacer"></span>
-      <button id="btn-theme" class="btn btn-ghost" title="تغییر تم">🌙</button>
+      <div class="sync-status-pill hidden" id="sync-status-pill" title="همگام‌سازی در حال اجرا">
+        <span class="pulse-dot"></span><span>در حال همگام‌سازی</span>
+      </div>
+      <button id="btn-theme" class="btn btn-ghost btn-icon" title="تغییر تم" aria-label="تغییر تم">🌙</button>
     </header>
 
-    <section id="content" class="content">
-      <div class="loading">⏳ در حال بارگذاری…</div>
+    <section id="content" class="content" aria-live="polite">
+      <div class="skeleton-grid" id="boot-loading">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </div>
     </section>
   </main>
 
   <!-- ===== Login Modal ===== -->
   <div id="login-modal" class="modal-overlay hidden">
-    <div class="modal">
-      <h3>🔐 ورود به حساب کاربری</h3>
-      <p class="muted">اطلاعات حساب LMS دانشگاه (و اختیاری کوئرا) را وارد کنید.</p>
+    <div class="modal modal-auth" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <button class="modal-close" data-close="login-modal" aria-label="بستن">✕</button>
+      <div class="modal-head">
+        <img class="modal-logo" src="/static/img/ui-logo.png" alt="لوگوی دانشگاه اصفهان" />
+        <h3 id="login-title">ورود به حساب کاربری</h3>
+        <p class="muted">اطلاعات حساب LMS دانشگاه (و اختیاری کوئرا) را وارد کنید.</p>
+      </div>
       <form id="login-form">
-        <label>شماره دانشجویی (LMS)
-          <input type="text" id="lms-username" required autocomplete="username" />
-        </label>
-        <label>رمز عبور (LMS)
-          <input type="password" id="lms-password" required autocomplete="current-password" />
-        </label>
-        <label>نام کاربری کوئرا (اختیاری)
-          <input type="text" id="quera-username" autocomplete="username" />
-        </label>
-        <label>رمز عبور کوئرا (اختیاری)
-          <input type="password" id="quera-password" autocomplete="current-password" />
-        </label>
-        <div id="login-error" class="error hidden"></div>
+        <div class="field">
+          <label for="lms-username">شماره دانشجویی (LMS)</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="lms-username" required autocomplete="username" placeholder="مثلاً ۴۰۰۱۲۳۴۵" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="lms-password">رمز عبور (LMS)</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="lms-password" required autocomplete="current-password" placeholder="رمز عبور" />
+            <button type="button" class="input-eye" data-toggle="lms-password" aria-label="نمایش رمز">👁</button>
+          </div>
+        </div>
+
+        <div class="divider"><span>کوئرا (اختیاری)</span></div>
+
+        <div class="field">
+          <label for="quera-username">نام کاربری کوئرا</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="quera-username" autocomplete="username" placeholder="ایمیل یا نام کاربری" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="quera-password">رمز عبور کوئرا</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="quera-password" autocomplete="current-password" placeholder="رمز عبور" />
+            <button type="button" class="input-eye" data-toggle="quera-password" aria-label="نمایش رمز">👁</button>
+          </div>
+        </div>
+
+        <div id="login-error" class="error-banner hidden"></div>
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary" id="btn-login-submit">ورود</button>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-login-submit">ورود</button>
         </div>
       </form>
+      <p class="modal-foot muted">رمز عبور شما فقط برای همگام‌سازی محلی ذخیره می‌شود.</p>
     </div>
   </div>
 
   <!-- ===== Toast ===== -->
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script src="/static/js/app.js"></script>
 </body>

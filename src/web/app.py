@@ -13,6 +13,7 @@ from src.storage.database import Database
 from src.web.session import SessionManager
 
 WEB_DIR = Path(__file__).resolve().parent.parent.parent / "web"
+ASSETS_DIR = Path(__file__).resolve().parent.parent.parent / "assets"
 
 
 def _prepare_db() -> Database:
@@ -60,6 +61,9 @@ app.include_router(settings_router.router, prefix="/api/settings", tags=["settin
 
 # === Static files (HTML/CSS/JS فرانت‌اند) ===
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
+
+# === فونت‌های خودمیزبان (Vazirmatn) ===
+app.mount("/fonts", StaticFiles(directory=str(ASSETS_DIR / "fonts")), name="fonts")
 
 
 @app.get("/", include_in_schema=False)
