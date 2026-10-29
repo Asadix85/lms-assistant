@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 @dataclass
 class CampusLocation:
-    name: str           # نام دانشکده
+    name: str           # نام دانشکده / سالن
     building: str       # نام ساختمان (نمایش به کاربر)
     lat: float          # عرض جغرافیایی
     lng: float          # طول جغرافیایی
@@ -41,13 +41,13 @@ UI_LOCATIONS: dict[str, CampusLocation] = {
         lng=51.658592,
     ),
 
+    # --- دانشکده علوم اداری و اقتصاد ---
     "اقتصاد جدید": CampusLocation(
         name="دانشکده علوم اداری و اقتصاد",
         building="ساختمان علوم اداری و اقتصاد",
         lat=32.598350,
         lng=51.657270,
     ),
-
     "اقتصاد قدیم": CampusLocation(
         name="ساختمان قديم اقتصاد",
         building="ساختمان قديم اقتصاد",
@@ -85,6 +85,26 @@ UI_LOCATIONS: dict[str, CampusLocation] = {
         building="مجتمع علوم پایه",
         lat=32.606512,
         lng=51.657890,
+    ),
+
+    # --- سالن‌ها ---
+    "حجاب": CampusLocation(
+        name="سالن حجاب",
+        building="سالن حجاب",
+        lat=32.618984,
+        lng=51.662382,
+    ),
+    "بهرامیان": CampusLocation( # 👈 کلیدواژه را کوتاه کردیم تا "شهید بهرامیان" هم پیدا شود
+        name="سالن شهید بهرامیان",
+        building="سالن شهید بهرامیان",
+        lat=32.621082,
+        lng=51.663825,
+    ),
+    "نیلفروش": CampusLocation( # 👈 کلیدواژه را کوتاه کردیم
+        name="سالن نیلفروش زاده",
+        building="سالن نیلفروش زاده",
+        lat=32.620113,
+        lng=51.663310,
     ),
 }
 

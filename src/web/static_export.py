@@ -11,7 +11,7 @@ import base64
 import json
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta # 👈 timedelta اضافه شد
 from pathlib import Path
 
 from loguru import logger
@@ -73,6 +73,16 @@ def build_dashboard(db: Database) -> dict:
     recent_posts = r["posts"].get_all()[:8]
     recent_changes = r["changes"].get_recent(limit=10)
 
+    # 👇 استخراج رویدادهای امروز (جلسات آنلاین و غیره)
+    now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    today_events = []
+    for e in upcoming_events:
+        if e.start_at and today_start <= e.start_at < today_end:
+            today_events.append(EventOut.from_model(e))
+
     return {
         "stats": {
             "courses": r["courses"].count(),
@@ -91,6 +101,7 @@ def build_dashboard(db: Database) -> dict:
         ],
         "recent_posts": [PostOut.from_model(p) for p in recent_posts],
         "recent_changes": [ChangeOut.from_model(c) for c in recent_changes],
+        "today_events": today_events, # 👈 اضافه شد
     }
 
 

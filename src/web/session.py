@@ -43,6 +43,7 @@ class SessionManager:
             self._creds = CredentialProvider.load()
         return self._creds
 
+        # در تابع set_credentials:
     def set_credentials(
         self,
         lms_username: str,
@@ -50,14 +51,17 @@ class SessionManager:
         quera_username: str = "",
         quera_password: str = "",
     ) -> None:
+        # 👇 حتماً CredentialProvider را آپدیت کن
+        CredentialProvider.update(lms_username, lms_password, quera_username, quera_password)
+        
+        # 👇 self._creds را هم آپدیت کن
         self._creds = Credentials(
             lms_username=lms_username,
             lms_password=lms_password,
             quera_username=quera_username,
             quera_password=quera_password,
         )
-        CredentialProvider.update(lms_username, lms_password, quera_username, quera_password)
-        # اگر session قبلی وجود داشت، باطل شود
+        
         with self._lock:
             if self._assistant:
                 try:
@@ -144,7 +148,6 @@ class SessionManager:
                 pass  # loop بسته شده
 
     def start_lms_sync(self) -> bool:
-        """شروع sync LMS در thread جدا. اگر در حال اجرا باشد False برمی‌گرداند."""
         if self._sync_running:
             return False
         self._sync_running = True
@@ -167,32 +170,80 @@ class SessionManager:
 
         def run() -> None:
             try:
+                # ==================== ۱. LMS ====================
                 assistant = self.get_assistant()
                 service = SyncService(assistant, self.db)
                 result = service.sync(on_progress=on_progress)
                 self._last_result = result
+
+                if result.has_error:
+                    # اگر LMS خطا داد، کوئرا را سینک نکن
+                    self._publish({
+                        "type": "result",
+                        "data": {
+                            "ok": False,
+                            "error": result.error,
+                            "summary": "سینک LMS ناموفق بود. سینک کوئرا انجام نشد.",
+                        },
+                    })
+                    return
+
+                # ==================== ۲. Quera ====================
                 self._publish({
-                    "type": "result",
+                    "type": "progress",
                     "data": {
-                        "ok": not result.has_error,
-                        "error": result.error,
-                        "summary": result.summary(),
+                        "phase": "quera",
+                        "phase_index": 99,
+                        "total_phases": 100,
+                        "current": 0,
+                        "total": 1,
+                        "message": "در حال همگام‌سازی کوئرا...",
+                        "percent": 99,
+                        "elapsed": 0,
+                        "changes": {},
                     },
                 })
+
+                quera_result = self.run_quera_sync()
+                
+                if quera_result.get("error"):
+                    # اگر کوئرا خطا داد، حداقل LMS موفق بوده
+                    self._publish({
+                        "type": "result",
+                        "data": {
+                            "ok": True,
+                            "error": None,
+                            "summary": f"LMS: موفق | کوئرا: {quera_result['error']}",
+                        },
+                    })
+                else:
+                    # هر دو موفق
+                    self._publish({
+                        "type": "result",
+                        "data": {
+                            "ok": True,
+                            "error": None,
+                            "summary": f"LMS: {result.summary()} | کوئرا: {quera_result.get('new', 0)} جدید، {quera_result.get('updated', 0)} به‌روز",
+                        },
+                    })
+
             except Exception as e:
                 logger.exception("خطا در sync پس‌زمینه")
                 self._publish({"type": "error", "data": {"message": str(e)}})
             finally:
                 self._sync_running = False
 
-        self._sync_thread = threading.Thread(target=run, daemon=True, name="lms-sync")
+        self._sync_thread = threading.Thread(target=run, daemon=True, name="full-sync")
         self._sync_thread.start()
         return True
 
     def run_quera_sync(self) -> dict:
-        """Sync Quera (سریع؛ همگام اجرا می‌شود داخل thread درخواست)."""
-        creds = self.creds
+    # 👇 از CredentialProvider.get() استفاده کن
+        from src.services.credential_provider import CredentialProvider
+        creds = CredentialProvider.get()
+        
         if not creds.quera_username or not creds.quera_password:
             return {"error": "اعتبارنامه Quera تنظیم نشده"}
+        
         service = QueraSyncService(creds.quera_username, creds.quera_password, self.db)
         return service.sync()

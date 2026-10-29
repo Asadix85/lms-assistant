@@ -1,4 +1,4 @@
-"""مدیریت احراز هویت Quera — با API داخلی."""
+"""مدیریت احراز هویت Quera — نسخه اصلاح‌شده."""
 
 from loguru import logger
 
@@ -26,32 +26,18 @@ class QueraAuth:
     def identifier(self) -> str | None:
         return self._identifier
 
-    def _get_csrf_token(self) -> str | None:
-        """گرفتن CSRF از cookie."""
-        # اول صفحه login رو بگیر تا cookie ست بشه
-        self.client.get("/accounts/login")
-        return self.client.cookies.get("csrf_token")
-
     def login(self, identifier: str, password: str) -> bool:
-        """ورود به Quera.
-
-        Args:
-            identifier: ایمیل یا شماره موبایل
-            password: رمز عبور
-
-        Returns:
-            True اگر موفق
-        """
+        """ورود به Quera با API داخلی."""
         logger.info(f"شروع ورود به Quera برای: {identifier}")
 
         try:
-            # === قدم ۰: گرفتن CSRF از cookie ===
+            # === قدم ۰: گرفتن CSRF ===
             logger.debug("قدم ۰: GET /accounts/login برای CSRF")
-            r0 = self.client.get("/accounts/login")
+            self.client.get("/accounts/login")
             csrf_token = self.client.cookies.get("csrf_token")
 
             if not csrf_token:
-                logger.error("CSRF token (cookie csrf_token) پیدا نشد!")
+                logger.error("CSRF token پیدا نشد!")
                 return False
 
             logger.debug(f"✅ CSRF: {csrf_token[:20]}...")
@@ -60,23 +46,21 @@ class QueraAuth:
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/plain, */*",
                 "X-CSRFToken": csrf_token,
-                "Origin": self.client.BASE_URL,
-                "Referer": f"{self.client.BASE_URL}/accounts/login",
             }
 
-            # === قدم ۱: POST /accounts/api/login/ ===
+            # === قدم ۱: POST /accounts/api/login/ (فقط identifier) ===
             logger.debug("قدم ۱: POST /accounts/api/login/")
             r1 = self.client.post(
                 self.LOGIN_API,
-                json={
-                    "identifier": identifier,
-                    "captcha_token": "",
-                    "preferred_process": "password",
-                },
+                json={"identifier": identifier},  # 👈 فقط identifier
                 headers=headers,
             )
 
             logger.debug(f"پاسخ قدم ۱: {r1.status_code}")
+
+            if r1.status_code != 200:
+                logger.error(f"خطا در قدم ۱: {r1.status_code} - {r1.text[:200]}")
+                return False
 
             try:
                 data1 = r1.json()
@@ -107,6 +91,10 @@ class QueraAuth:
 
             logger.debug(f"پاسخ قدم ۲: {r2.status_code}")
 
+            if r2.status_code != 200:
+                logger.error(f"خطا در قدم ۲: {r2.status_code} - {r2.text[:200]}")
+                return False
+
             try:
                 data2 = r2.json()
             except Exception:
@@ -116,8 +104,7 @@ class QueraAuth:
             logger.debug(f"پاسخ: {data2}")
 
             # === بررسی موفقیت ===
-            if r2.status_code == 200 and "redirect_url" in data2:
-                # چک session_id
+            if "redirect_url" in data2:
                 session_id = self.client.cookies.get("session_id")
                 if not session_id:
                     logger.warning("session_id cookie ست نشد")
@@ -125,12 +112,9 @@ class QueraAuth:
 
                 self._authenticated = True
                 self._identifier = identifier
-                logger.info(
-                    f"✅ ورود موفق! redirect: {data2.get('redirect_url')}"
-                )
+                logger.info(f"✅ ورود موفق! redirect: {data2.get('redirect_url')}")
                 return True
 
-            # اگه خطا داشت
             error = data2.get("error") or data2.get("detail") or str(data2)
             logger.warning(f"❌ ورود ناموفق: {error}")
             self._authenticated = False

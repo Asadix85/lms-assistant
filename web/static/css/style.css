@@ -164,7 +164,12 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-
+/* =========================================================================
+   Global Font Fix for Form Elements
+   ========================================================================= */
+button, input, select, textarea {
+  font-family: inherit !important;
+}
 /* ---------- Animated gradient wallpaper ---------- */
 /* لایه‌ی ۱: گرادیانت پایه که آرام جابه‌جا می‌شود */
 body::before {
@@ -212,12 +217,73 @@ body::after {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: 6px;
+}/* =========================================================================
+   Liquid Glass Scrollbar (Ultimate Edition - Fixed Sidebar)
+   ========================================================================= */
+
+/* 👇 ۱. حذف کامل و بدون باگ اسکرول‌بار از سایدبار */
+.sidebar {
+  scrollbar-width: none; /* فایرفاکس */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.sidebar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+/* در صورت نیاز، حذف پس‌زمینه اسکرول‌بار داخلی سایدبار */
+.sidebar::-webkit-scrollbar-track {
+  background: transparent !important;
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-thumb:hover { background: var(--faint); background-clip: content-box; }
-::-webkit-scrollbar-track { background: transparent; }
+/* 👇 ۲. ابعاد اسکرول‌بار اصلی صفحه */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+/* 👇 ۳. پس‌زمینه اسکرول‌بار صفحه اصلی (بدون خط جداکننده اضافی) */
+::-webkit-scrollbar-track {
+  background: var(--bg) !important;
+  border: none !important; /* حذف خط جداکننده که باعث ناهماهنگی می‌شد */
+}
+
+/* 👇 ۴. دستگیره شیشه‌ای (Thumb) */
+::-webkit-scrollbar-thumb {
+  /* گرادیانت برای ایجاد حس براقیت و شیشه */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    color-mix(in srgb, var(--primary) 40%, transparent) 50%,
+    rgba(0, 0, 0, 0.1) 100%
+  ) !important;
+
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+
+  border-radius: 99px;
+  /* استفاده از حاشیه شفاف برای ایجاد حالت شناور */
+  border: 4px solid transparent !important;
+  background-clip: padding-box !important;
+
+  transition: all 0.2s ease;
+}
+
+/* هاور روی دستگیره */
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    var(--primary) 50%,
+    rgba(0, 0, 0, 0.2) 100%
+  ) !important;
+  border-width: 2px !important; /* نازک‌تر شدن حاشیه در هاور */
+}
+
+/* 👇 ۵. حذف دکمه‌های بالا و پایین */
+::-webkit-scrollbar-button {
+  display: none !important;
+}
 
 /* ---------- Utilities ---------- */
 .hidden { display: none !important; }
@@ -1569,4 +1635,866 @@ html[dir="rtl"] { --drawer-x: 100%; --switch-travel: -22px; }
     width: 100%;
     height: 140px;
   }
+}
+
+/* =========================================================================
+   Filter Bar & Glass Buttons (Liquid Glass Style)
+   ========================================================================= */
+
+/* دکمه‌های فیلتر در حالت عادی */
+.filter-btn {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 2px 6px rgba(0,0,0,0.05);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-btn:hover {
+  background-color: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+}
+
+/* 👇 دکمه‌های فیلتر در حالت فعال (انتخاب‌شده) - نسخه لیکوئید گلسی */
+.filter-btn.active {
+  /* استفاده از رنگ اصلی تم با شفافیت به جای رنگ تخت */
+  background-color: color-mix(in srgb, var(--primary) 25%, var(--glass-bg-strong));
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: #FFFFFF !important;
+
+  border: 1px solid var(--glass-border-hover);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    0 4px 15px var(--ring);
+  font-weight: 700;
+}
+
+/* در حالت دارک‌مود، متن دکمه فعال باید روشن‌تر باشد */
+[data-theme="dark"] .filter-btn.active {
+  color: var(--primary-soft); /* یا #ffffff */
+}
+
+/* =========================================================================
+   Beautiful Action Buttons (Liquid Glass Style - Fixed)
+   ========================================================================= */
+
+/* دکمه پایه شیشه‌ای */
+.btn-glass {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary); /* استفاده از رنگ متن اصلی */
+  border-radius: 999px; /* کپسولی */
+  padding: 0.4rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit; /* 👈 این خط فونت را اعمال می‌کند */
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.btn-glass:hover {
+  background-color: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+  color: var(--primary);
+}
+
+.btn-primary-glass {
+  /* پس‌زمینه تخت با رنگ اصلی */
+  background-color: var(--primary);
+  border: 1px solid var(--glass-border-hover);
+
+  /* متن سفید همیشه */
+  color: #ffffff !important;
+  border-radius: 999px;
+  padding: 0.4rem 1.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+
+  /* سایه داخلی برای جلوه شیشه‌ای */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 12px var(--primary-soft);
+}
+
+/* در دارک‌مود، به جای رنگ تخت از گرادیانت و بلور استفاده می‌کنیم */
+[data-theme="dark"] .btn-primary-glass {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px var(--ring), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+
+.btn-primary-glass:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 15px var(--primary-soft);
+}
+
+/* دکمه تیره/شیشه‌ای برای لغو */
+.btn-ghost-glass {
+  background: var(--glass-bg-soft); /* در لایت‌مود کمی روشن‌تر می‌شود */
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary); /* استفاده از رنگ متن اصلی */
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit; /* 👈 این خط فونت را اعمال می‌کند */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost-glass:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text);
+  border-color: var(--glass-border-hover);
+}
+
+/* در دارک‌مود، رنگ دکمه لغو کمی روشن‌تر شود */
+[data-theme="dark"] .btn-ghost-glass {
+  color: var(--text-primary);
+  background: transparent;
+}
+
+/* =========================================================================
+   Timeline Feed (تغییرات)
+   ========================================================================= */
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  position: relative;
+  padding-inline-start: 1rem;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1.2rem;
+  position: relative;
+}
+
+/* آیکون سمت راست */
+.timeline-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  z-index: 2;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.1);
+  border: 2px solid var(--glass-bg-strong);
+}
+
+/* خط عمودی بین آیتم‌ها */
+.timeline-line {
+  position: absolute;
+  inset-inline-start: 22px; /* وسط آیکون */
+  top: 44px;
+  bottom: -1.2rem;
+  width: 2px;
+  background: var(--glass-border);
+  z-index: 1;
+}
+
+/* برای آخرین آیتم، خط کشیده نشود */
+.timeline-item:last-child .timeline-line {
+  display: none;
+}
+
+/* کارت شیشه‌ای محتوا */
+.timeline-content {
+  flex: 1;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.timeline-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* =========================================================================
+   Custom Dropdowns (Liquid Glass Style)
+   ========================================================================= */
+.custom-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-dropdown .filter-btn {
+  /* دکمه‌ی فیلتر که از قبل داشتیم */
+  padding-inline-end: 2rem; /* فضای بیشتر برای فلش */
+  position: relative;
+}
+
+.custom-dropdown .filter-btn::after {
+  content: "▼";
+  font-size: 0.7em;
+  position: absolute;
+  inset-inline-end: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.7;
+}
+
+/* منوی باز شده */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  inset-inline-start: 0;
+  min-width: 160px;
+  background-color: var(--glass-bg-strong);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+  z-index: 50;
+  padding: 0.4rem;
+  animation: fade-in 0.15s ease;
+}
+
+.custom-dropdown.open .dropdown-menu {
+  display: block;
+}
+
+/* آیتم‌های داخل منو */
+.dropdown-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--glass-bg-hover);
+  color: var(--primary);
+}
+
+.dropdown-item.active {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* =========================================================================
+   Leaflet Popup Styling (Liquid Glass & Theme Responsive)
+   ========================================================================= */
+.leaflet-popup-content-wrapper {
+  background-color: var(--glass-bg-strong) !important;
+  background-image: var(--glass-sheen) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi) !important;
+  color: var(--text) !important;
+  font-family: inherit !important; /* اعمال فونت وزیرمتن */
+}
+
+.leaflet-popup-tip {
+  background-color: var(--glass-bg-strong) !important;
+  border: 1px solid var(--glass-border) !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px !important;
+  line-height: 1.6 !important;
+}
+
+/* استایل لینک‌ها یا تگ‌های داخل پاپ‌آپ */
+.leaflet-popup-content b {
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+}
+
+/* دکمه‌های زوم نقشه */
+.leaflet-bar a {
+  background-color: var(--glass-bg-strong) !important;
+  color: var(--text) !important;
+  border-color: var(--glass-border) !important;
+  font-family: inherit !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--primary-soft) !important;
+  color: var(--primary) !important;
+}
+
+/* =========================================================================
+   iOS-Style Action Cards (For More Menu)
+   ========================================================================= */
+.ios-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  border-radius: 28px; /* گردی زیاد مثل iOS */
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border); /* حاشیه ظریف و هم‌رنگ تم */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 var(--glass-hi);
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* افکت هاور (شناور شدن و کمی بزرگ شدن) */
+.ios-card:hover {
+  transform: translateY(-5px) scale(1.02);
+  background-color: var(--glass-bg-hover);
+  border-color: var(--primary);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2), inset 0 1px 0 var(--glass-hi);
+}
+
+/* افکت کلیک (فشرده شدن) */
+.ios-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* آیکون داخل کارت */
+.ios-card-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 10px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+}
+
+.ios-card:hover .ios-card-icon {
+  transform: scale(1.1);
+}
+
+/* متن‌های داخل کارت */
+.ios-card-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+  color: var(--text-primary);
+}
+
+.ios-card-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* دکمه شیشه‌ای برای محتواها (در هر دو تم) */
+.btn-glass-action {
+  background-color: var(--glass-bg-soft);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 0.4rem 1.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+
+.btn-glass-action:hover {
+  background-color: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--ring);
+}
+
+/* =========================================================================
+   Inner Glass Container (برای اعضای کلاس)
+   ========================================================================= */
+.glass-inner-container {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-height: 400px; /* ارتفاع محدود برای اسکرول */
+  overflow-y: auto;
+}
+
+/* اسکرول‌بار ظریف برای داخل این کانتینر */
+.glass-inner-container::-webkit-scrollbar {
+  width: 6px;
+}
+.glass-inner-container::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 999px;
+}
+
+.glass-inner-container {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px; /* کمی گردتر برای ظرافت */
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+  /* پدینگ در اینجا نگذارید، چون در جاوااسکریپت تنظیم می‌شود */
+}
+
+/* دکمه شناور افزودن رویداد در تقویم */
+.day-add-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  width: 40px;
+  height: 40px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px var(--ring);
+  z-index: 10;
+}
+
+.card:hover .day-add-btn {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.day-add-btn:hover {
+  background: var(--primary-dark);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* =========================================================================
+   Glass Inputs & Form Elements
+   ========================================================================= */
+.glass-input {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background-color: var(--glass-bg-strong);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* اصلاح دکمه‌های داخل فرم برای هماهنگی */
+.modal .filter-btn {
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* استایل اسکرول‌بار منوی ساعت */
+.dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.dropdown-menu::-webkit-scrollbar-thumb {
+  background: var(--glass-border-hover);
+  border-radius: 999px;
+}
+
+/* اطمینان از باز شدن منوها روی بقیه اجزا */
+.custom-dropdown {
+  position: relative;
+}
+
+.custom-dropdown .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10000; /* 👈 بسیار مهم */
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+}
+
+.custom-dropdown.open .dropdown-menu {
+  display: block;
+  animation: fade-in 0.15s ease;
+}
+
+/* =========================================================================
+   Time Picker Wheel (iOS Style)
+   ========================================================================= */
+.time-wheel-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 160px; /* ارتفاع کل کادر */
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.wheel-column {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+}
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none; /* مخفی کردن اسکرول‌بار در فایرفاکس */
+  -ms-overflow-style: none; /* مخفی کردن در IE/Edge */
+}
+
+.wheel-scroll::-webkit-scrollbar {
+  display: none; /* مخفی کردن در کروم */
+}
+
+.wheel-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--muted);
+  scroll-snap-align: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+/* آیتمی که در وسط است رنگ اصلی می‌گیرد */
+.wheel-item:hover {
+  color: var(--text);
+}
+
+.wheel-divider {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 5px;
+  z-index: 10;
+}
+
+/* کادر شیشه‌ای وسط (هایلایت) */
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid var(--glass-border-hover);
+  border-bottom: 1px solid var(--glass-border-hover);
+  pointer-events: none; /* تا کلیک‌ها به چرخ برسند */
+  background: linear-gradient(90deg, transparent, var(--glass-bg-strong), transparent);
+  z-index: 5;
+}
+
+/* سایه بالا و پایین برای مخفی شدن نرم آیتم‌ها */
+.time-wheel-container::before,
+.time-wheel-container::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+  z-index: 6;
+  pointer-events: none;
+}
+.time-wheel-container::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--bg) 10%, transparent);
+}
+.time-wheel-container::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg) 10%, transparent);
+}
+
+.time-wheel-container {
+  position: relative;
+  display: flex;
+  flex-direction: row-reverse; /* 👈 این خط باعث می‌شود ساعت در چپ و دقیقه در راست قرار گیرد */
+  justify-content: center;
+  align-items: center;
+  height: 160px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.wheel-column {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+  /* اطمینان از اینکه اسکرول به درستی کار می‌کند */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.wheel-column::-webkit-scrollbar { display: none; }
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+}
+
+.wheel-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--muted);
+  scroll-snap-align: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.wheel-divider {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 5px;
+  z-index: 10;
+}
+
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid var(--primary);
+  border-bottom: 1px solid var(--primary);
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.15), transparent);
+  z-index: 5;
+}
+
+/* =========================================================================
+   Fix Modal Dropdowns (Type Menu)
+   ========================================================================= */
+
+/* منوی کشویی باید با کلاس open نمایش داده شود */
+.custom-dropdown .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10000 !important; /* جلوگیری از پنهان شدن زیر لایه‌های دیگر */
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  padding: 0.3rem;
+}
+
+.custom-dropdown.open .dropdown-menu {
+  display: block;
+  animation: fade-in 0.15s ease;
+}
+
+/* آیتم‌های داخل منو */
+.dropdown-item {
+  display: block;
+  padding: 0.6rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--glass-bg-hover);
+  color: var(--primary);
+}
+
+.dropdown-item.active {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.time-wheel-container {
+  position: relative;
+  display: flex;
+  flex-direction: row; /* چیدمان معمولی که با ترتیب HTML هماهنگ است */
+  justify-content: center;
+  align-items: center;
+  height: 160px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.wheel-column {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+}
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.wheel-scroll::-webkit-scrollbar { display: none; }
+
+.wheel-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--muted);
+  scroll-snap-align: center;
+}
+
+.wheel-divider {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 5px;
+  z-index: 10;
+}
+
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid var(--primary);
+  border-bottom: 1px solid var(--primary);
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.15), transparent);
+  z-index: 5;
+}
+
+/* =========================================================================
+   Social Icons Color (Light & Dark Mode)
+   ========================================================================= */
+
+/* --- حالت لایت مود (پیش‌فرض) --- */
+.icon-github path { fill: #111111; }     /* گیت‌هاب: سیاه */
+.icon-telegram path { fill: #229ED9; }   /* تلگرام: آبی */
+.icon-email path { fill: #EA4335; }      /* ایمیل: قرمز */
+
+/* افکت هاور برای دکمه‌های لایت مود (رنگ پس‌زمینه) */
+a:hover .icon-github path { fill: #ffffff; } /* روی پس‌زمینه سیاه، سفید شود */
+a:hover .icon-telegram path { fill: #ffffff; } /* روی پس‌زمینه آبی، سفید شود */
+a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز، سفید شود */
+
+
+/* --- حالت دارک مود --- */
+[data-theme="dark"] .icon-github path,
+[data-theme="dark"] .icon-telegram path,
+[data-theme="dark"] .icon-email path {
+  fill: #FFFFFF !important; /* در دارک مود همه سفید می‌شوند */
 }

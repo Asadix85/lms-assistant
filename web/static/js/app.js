@@ -19,6 +19,20 @@ function esc(s) {
     .replaceAll("'", "&#39;");
 }
 
+function proxyUrl(url) {
+  if (!url) return "#";
+  return `/api/jaam-proxy?url=${encodeURIComponent(url)}`;
+}
+
+async function api(path, options = {}) {
+  const res = await fetch("/api" + path, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) throw new Error(`خطای سرور (${res.status})`);
+  return res.json();
+}
+
 async function api(path, options = {}) {
   const res = await fetch("/api" + path, {
     headers: { "Content-Type": "application/json" },
@@ -175,6 +189,7 @@ const PHASE_LABELS = {
   events: "دریافت رویدادها",
   wall: "دریافت وال و تکالیف",
   members: "دریافت اعضا",
+  quera: "همگام‌سازی کوئرا",
   done: "پایان",
 };
 
@@ -228,7 +243,7 @@ function listenSyncEvents() {
     refreshNavBadge();
   };
 
-  eventSource.addEventListener("result", (e) => {
+    eventSource.addEventListener("result", (e) => {
     const d = JSON.parse(e.data).data;
     finish(d.ok ? `✅ همگام‌سازی انجام شد — ${d.summary || ""}` : `❌ خطا: ${d.error}`);
   });
@@ -311,15 +326,17 @@ const TITLES = {
   dashboard: "داشبورد",
   courses: "درس‌ها",
   assignments: "تکالیف",
-  events: "رویدادها",
+  //events: "رویدادها",
   calendar: "تقویم",
   posts: "پیام‌های وال",
   contents: "محتواها",
   changes: "تغییرات",
   quera: "کوئرا",
   settings: "تنظیمات",
+  map: "نقشه مکان‌ها",
+  more: "سایر امکانات",
+  about: "درباره ما",
 };
-
 async function renderDashboard() {
   const d = await api("/dashboard");
   const s = d.stats;
@@ -331,18 +348,29 @@ async function renderDashboard() {
       <div class="stat-label">${label}</div>
     </div>`;
 
-  const events = d.upcoming_events.length
-    ? d.upcoming_events.map((e) => {
+  // 👇 ساخت لیست جلسات امروز
+  const todayEvents = d.today_events && d.today_events.length
+    ? d.today_events.map((e) => {
         const m = eventMeta(e.event_type);
-        return `<div class="list-row">
-          <span class="row-icon">${m.icon}</span>
-          <div class="row-body">
-            <div class="row-title">${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</div>
-            <div class="row-meta">${esc(e.start_at || "بدون زمان")}<span class="sep">·</span>${m.label}</div>
-          </div>
-        </div>`;
+        // استفاده از پروکسی برای لینک کلاس
+        const link = e.url ? `/api/jaam-proxy?url=${encodeURIComponent(e.url)}` : null;
+
+        return `
+          <div class="list-row">
+            <span class="row-icon">${m.icon}</span>
+            <div class="row-body">
+              <div class="row-title">
+                ${link ? `<a href="${link}" target="_blank" rel="noopener" style="color:var(--primary); font-weight:700;">${esc(e.title)}</a>` : esc(e.title)}
+                <span class="badge ${m.cls}">${m.label}</span>
+              </div>
+              <div class="row-meta">
+                <span>⏰ ${esc(e.start_at)}</span>
+              </div>
+            </div>
+            ${link ? `<div class="row-actions"><a class="btn-primary-glass btn-sm" href="${link}" target="_blank" rel="noopener">ورود به جلسه ↗</a></div>` : ""}
+          </div>`;
       }).join("")
-    : emptyState("رویدادی نیست");
+    : emptyState("امروز جلسه یا رویدادی ندارید", "فردا دوباره سر بزنید");
 
   const assignments = d.upcoming_assignments.length
     ? d.upcoming_assignments.map((a) => `
@@ -372,15 +400,18 @@ async function renderDashboard() {
       ${statCard(s.active_courses, "درس فعال", "📚", "var(--primary)", "var(--primary-soft)")}
       ${statCard(s.courses, "کل درس‌ها", "🎓", "var(--info)", "var(--info-soft)")}
       ${statCard(s.pending_assignments, "تکلیف باز", "✎", "var(--danger)", "var(--danger-soft)")}
-      ${statCard(s.events, "رویدادها", "◷", "var(--warning)", "var(--warning-soft)")}
-      ${statCard(s.posts, "پیام‌ها", "◉", "var(--accent)", "var(--accent-soft)")}
       ${statCard(s.contents, "محتواها", "▧", "var(--primary)", "var(--primary-soft)")}
     </div>
     <div class="grid-2">
+      <!-- 👇 تغییر عنوان و محتوا به جلسات امروز -->
       <div class="card">
-        <div class="card-head"><h3 class="section-title">📅 رویدادهای پیش‌رو</h3><a class="card-link" href="#/events">همه</a></div>
-        <div class="item-list">${events}</div>
+        <div class="card-head">
+          <h3 class="section-title">🎥 جلسات آنلاین امروز</h3>
+          <a class="card-link" href="#/calendar">تقویم</a>
+        </div>
+        <div class="item-list">${todayEvents}</div>
       </div>
+      
       <div class="card">
         <div class="card-head"><h3 class="section-title">📝 تکالیف نزدیک</h3><a class="card-link" href="#/assignments">همه</a></div>
         <div class="item-list">${assignments}</div>
@@ -396,39 +427,115 @@ async function renderCourses() {
   const courses = await api("/courses");
   if (!courses.length) { contentEl.innerHTML = emptyState("درسی یافت نشد"); return; }
 
-  const renderList = (items) => {
+  // پیدا کردن جدیدترین ترم (برای فیلتر)
+  const terms = courses
+    .filter(c => c.source === "lms" && c.term)
+    .map(c => c.term.trim());
+  const currentTerm = terms.length > 0 ? [...new Set(terms)].sort().reverse()[0] : null;
+
+  // وضعیت اولیه فیلترها
+  let filters = {
+    active: false,
+    currentTerm: false,
+    quera: false,
+  };
+
+  // ===== ساخت HTML اصلی صفحه =====
+  contentEl.innerHTML = `
+    ${pageHead("درس‌ها", `${courses.length} درس همگام‌سازی شده`)}
+    
+    <div class="filter-bar" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; align-items:center;">
+      <button class="btn btn-soft btn-sm filter-btn" data-filter="active">⚡ دروس فعال</button>
+      <button class="btn btn-soft btn-sm filter-btn" data-filter="quera">⚙️ کوئرا</button>
+      
+      <div class="search-box" style="flex:1; min-width:200px; margin-inline-start:auto;">
+        <span class="search-ico">🔍</span>
+        <input id="filter-input" type="search" placeholder="جستجوی نام درس، استاد یا کد…" />
+      </div>
+    </div>
+
+    <div class="course-grid" id="courses-list"></div>
+  `;
+
+  // ===== توابع رندر لیست =====
+  const renderList = () => {
     const list = document.getElementById("courses-list");
     if (!list) return;
-    list.innerHTML = items.length
-      ? items.map((c) => `
-        <a class="course-card" href="#/course/${encodeURIComponent(c.id)}">
-          <div class="course-top">
-            <span class="course-icon">📘</span>
-            <span class="badge badge-domain">${esc(c.domain)}</span>
-            ${c.status === "active" ? '<span class="badge badge-new">فعال</span>' : ""}
-          </div>
-          <div class="course-name">${esc(c.name)}</div>
-          <div class="course-meta">
-            <span>👨‍🏫 ${esc(c.teacher || "—")}</span>
-            <span>کد ${esc(c.code || "—")}</span>
-          </div>
-        </a>`).join("")
+
+    // اعمال فیلترها
+    let filtered = courses.filter(c => {
+      if (filters.active && c.status !== "active") return false;
+      if (filters.currentTerm && currentTerm && c.term !== currentTerm) return false;
+      if (filters.quera && c.source !== "quera") return false;
+      return true;
+    });
+
+    // اعمال جستجو
+    const q = (document.getElementById("filter-input")?.value || "").trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(c =>
+        `${c.name} ${c.teacher || ""} ${c.code || ""} ${c.domain}`.toLowerCase().includes(q)
+      );
+    }
+
+    // تولید کارت‌ها
+    list.innerHTML = filtered.length
+      ? filtered.map((c) => {
+          const isQuera = c.source === "quera";
+
+          // تنظیم لینک و ویژگی‌های کلیک
+          const href = isQuera ? (c.url || `https://quera.org/course/${c.group_id}`) : `#/course/${encodeURIComponent(c.id)}`;
+          const target = isQuera ? 'target="_blank" rel="noopener"' : '';
+
+          const icon = isQuera ? "⚙️" : "📘";
+          const badgeDomain = isQuera
+            ? '<span class="badge badge-warn">کوئرا</span>'
+            : `<span class="badge badge-domain">${esc(c.domain)}</span>`;
+
+          return `
+          <a class="course-card" href="${href}" ${target}>
+            <div class="course-top">
+              <span class="course-icon">${icon}</span>
+              ${badgeDomain}
+              ${c.status === "active" ? '<span class="badge badge-new">فعال</span>' : ""}
+            </div>
+            <div class="course-name">${esc(c.name)}</div>
+            <div class="course-meta">
+              <span>👨‍🏫 ${esc(c.teacher || "—")}</span>
+              ${c.code ? `<span>کد ${esc(c.code)}</span>` : ""}
+              ${c.term ? `<span>ترم ${esc(c.term)}</span>` : ""}
+            </div>
+          </a>`;
+        }).join("")
       : `<div class="empty" style="grid-column:1/-1"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
   };
 
-  contentEl.innerHTML = `
-    ${pageHead("درس‌ها", `${courses.length} درس همگام‌سازی شده`)}
-    ${searchBox("جستجوی نام درس، استاد یا کد…")}
-    <div class="course-grid" id="courses-list"></div>`;
+  // ===== مدیریت رویدادهای فیلتر =====
+  const filterBtns = document.querySelectorAll(".filter-btn");
 
-  const items = courses.map((c) => ({
-    c,
-    get searchText() { return `${c.name} ${c.teacher || ""} ${c.code || ""} ${c.domain}`.toLowerCase(); },
-  }));
-  attachFilter(items, {
-    searchText: (it) => it.searchText,
-    render: (filtered) => renderList(filtered.map((it) => it.c)),
+  filterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.filter;
+
+      // تغییر وضعیت فیلتر
+      if (type === "active") filters.active = !filters.active;
+      if (type === "term") filters.currentTerm = !filters.currentTerm;
+      if (type === "quera") filters.quera = !filters.quera;
+
+      // تغییر ظاهر دکمه
+      const isActive = filters[type];
+      btn.classList.toggle("active", isActive);
+
+      // رندر مجدد لیست
+      renderList();
+    });
   });
+
+  // رویداد جستجو
+  document.getElementById("filter-input")?.addEventListener("input", renderList);
+
+  // رندر اولیه
+  renderList();
 }
 
 async function renderCourseDetail(courseId) {
@@ -491,18 +598,73 @@ async function renderCourseDetail(courseId) {
     <div class="list-row">
       <span class="row-icon">📄</span>
       <div class="row-body">
-        <div class="row-title"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></div>
+        <div class="row-title"><a href="${proxyUrl(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></div>
         <div class="row-meta">${esc(x.content_type)}${x.filename ? `<span class="sep">·</span>${esc(x.filename)}` : ""}</div>
       </div>
     </div>`, "محتوایی نیست");
 
-  const membersHtml = listOrEmpty(d.members.slice(0, 70), (m) => `
-    <div class="list-row">
-      <span class="row-icon">${m.member_type === "teacher" ? "👨‍🏫" : "👤"}</span>
-      <div class="row-body">
-        <div class="row-title">${esc(m.name)} ${m.member_type === "teacher" ? '<span class="badge badge-domain">استاد</span>' : ""}</div>
-      </div>
-    </div>`, "عضوی نیست");
+
+    // 👇 ساخت کارت برای هر فرد با آیکون شیشه‌ای دایره‌ای (مینیمال و باریک)
+  const membersHtml = d.members.length 
+    ? d.members.map((m) => {
+        let roleColor = "var(--text-muted)";
+        let roleBg = "var(--glass-bg-soft)"; // استفاده از رنگ شیشه‌ای خنثی
+        let roleIcon = "👤";
+        let roleLabel = "دانشجو";
+
+        if (m.member_type === "teacher") {
+          roleColor = "var(--primary)";
+          roleBg = "rgba(42, 166, 163, 0.15)"; // شفافیت برای استاد
+          roleIcon = "👨‍🏫";
+          roleLabel = "استاد";
+        } else if (m.member_type === "support") {
+          roleColor = "var(--warning)";
+          roleBg = "rgba(255, 149, 0, 0.15)"; // شفافیت برای دستیار
+          roleIcon = "🛟";
+          roleLabel = "دستیار / پشتیبان";
+        }
+
+        // 👇 استایل iOS و شیشه‌ای برای دایره آیکون
+        const iconStyle = `
+          width: 32px; 
+          height: 32px; 
+          border-radius: 50%; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          font-size: 0.9rem;
+          background: ${roleBg};
+          border: 1px solid var(--glass-border);
+          box-shadow: inset 0 1px 2px rgba(255,255,255,0.1);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          flex-shrink: 0;
+        `;
+
+        return `
+          <!-- 👇 کاهش پدینگ، افزایش گردی گوشه‌ها و استفاده از استایل شیشه‌ای -->
+          <div class="glass-inner-container" style="
+            padding: 0.5rem 0.8rem; 
+            margin-bottom: 0.5rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 0.8rem; 
+            border-radius: 20px; /* گوشه‌های خیلی گرد */
+            background-color: rgba(255, 255, 255, 0.03); /* شیشه‌ای */
+          ">
+            <div style="${iconStyle}">${roleIcon}</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.1rem;">
+                ${esc(m.name)}
+              </div>
+              <div style="font-size: 0.7rem; color: ${roleColor}; font-weight: 600;">
+                ${roleLabel}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("")
+    : `<div class="empty muted"><span class="empty-icon">📭</span>عضوی نیست</div>`;
 
   // 3. تزریق HTML
   contentEl.innerHTML = `
@@ -626,16 +788,57 @@ async function renderAssignments() {
   if (!items.length) { contentEl.innerHTML = emptyState("تکلیفی یافت نشد"); return; }
   const names = await courseNameMap();
 
-  const renderList = (list) => {
+  // وضعیت فیلترها
+  let filters = {
+    past: false,
+    future: false,
+  };
+
+  // ساخت HTML با نوار فیلتر
+  contentEl.innerHTML = `
+    ${pageHead("تکالیف", `${items.length} تکلیف ثبت شده`)}
+    
+    <div class="filter-bar" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; align-items:center;">
+      <button class="filter-btn" id="filter-past">⏰ گذشته</button>
+      <button class="filter-btn" id="filter-future">📅 آینده</button>
+      
+      <div class="search-box" style="flex:1; min-width:200px; margin-inline-start:auto;">
+        <span class="search-ico">🔍</span>
+        <input id="filter-input" type="search" placeholder="جستجوی عنوان تکلیف یا درس…" />
+      </div>
+    </div>
+
+    <div class="item-list" id="list-container"></div>`;
+
+  // تابع رندر لیست با اعمال فیلترها
+  const renderList = () => {
     const el = document.getElementById("list-container");
     if (!el) return;
-    el.innerHTML = list.length
-      ? list.map((a) => `
+
+    // اعمال فیلترها
+    let filtered = items.filter(a => {
+      // فیلتر گذشته (is_expired == true)
+      if (filters.past && !a.is_expired) return false;
+      // فیلتر آینده (is_expired == false)
+      if (filters.future && a.is_expired) return false;
+      return true;
+    });
+
+    // اعمال جستجو
+    const q = (document.getElementById("filter-input")?.value || "").trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(a =>
+        `${a.title} ${names[a.course_id] || a.course_id}`.toLowerCase().includes(q)
+      );
+    }
+
+    el.innerHTML = filtered.length
+      ? filtered.map((a) => `
         <div class="list-row">
           <span class="row-icon">${a.is_done ? "✅" : a.is_expired ? "⏰" : "📝"}</span>
           <div class="row-body">
             <div class="row-title">
-              ${a.view_url ? `<a href="${esc(a.view_url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}
+              ${a.view_url ? `<a href="/api/jaam-proxy?url=${encodeURIComponent(a.view_url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}
               ${a.is_new ? '<span class="badge badge-new">جدید</span>' : ""}
               ${a.is_expired && !a.is_done ? '<span class="badge badge-expired">گذشته</span>' : ""}
               ${a.is_done ? '<span class="badge badge-done">انجام شده</span>' : ""}
@@ -646,80 +849,41 @@ async function renderAssignments() {
             </div>
           </div>
           <div class="row-actions">
-            ${a.submit_url ? `<a class="btn btn-soft btn-sm" href="${esc(a.submit_url)}" target="_blank" rel="noopener">ارسال ↗</a>` : ""}
-            <button class="btn btn-sm ${a.is_done ? "btn-ghost" : "btn-primary"}"
+            ${!a.is_done && a.submit_url ? `<a class="btn-primary-glass" href="/api/jaam-proxy?url=${encodeURIComponent(a.submit_url)}" target="_blank" rel="noopener">ارسال ↗</a>` : ""}
+            
+            <button class="btn-ghost-glass"
                     onclick="toggleAssignment('${esc(a.id)}', ${!a.is_done})">
-              ${a.is_done ? "لغو" : "انجام شد ✓"}
+              ${a.is_done ? "لغو انجام" : "انجام شد ✓"}
             </button>
           </div>
         </div>`).join("")
       : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
   };
 
-  contentEl.innerHTML = `
-    ${pageHead("تکالیف", `${items.length} تکلیف ثبت شده`)}
-    ${searchBox("جستجوی عنوان تکلیف یا درس…")}
-    <div class="item-list" id="list-container"></div>`;
-
-  const records = items.map((a) => ({
-    a,
-    get searchText() { return `${a.title} ${names[a.course_id] || a.course_id}`.toLowerCase(); },
-  }));
-  attachFilter(records, {
-    searchText: (it) => it.searchText,
-    render: (filtered) => renderList(filtered.map((it) => it.a)),
-  });
-}
-
-window.toggleAssignment = async (id, done) => {
-  await api(`/assignments/${encodeURIComponent(id)}/done?done=${done}`, { method: "POST" });
-  toast(done ? "✅ تکلیف انجام‌شده علامت خورد" : "تکلیف بازگردانده شد");
-  renderPage(currentRoute());
-};
-
-async function renderEvents() {
-  const items = await api("/events");
-  if (!items.length) { contentEl.innerHTML = emptyState("رویدادی یافت نشد"); return; }
-  const names = await courseNameMap();
-
-  const renderList = (list) => {
-    const el = document.getElementById("list-container");
-    if (!el) return;
-    el.innerHTML = list.length
-      ? list.map((e) => {
-          const m = eventMeta(e.event_type);
-          return `<div class="list-row">
-            <span class="row-icon">${m.icon}</span>
-            <div class="row-body">
-              <div class="row-title">
-                ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}
-                ${e.is_new ? '<span class="badge badge-new">جدید</span>' : ""}
-                <span class="badge ${m.cls}">${m.label}</span>
-              </div>
-              <div class="row-meta">
-                <span>${esc(e.start_at || "بدون زمان")}</span>
-                ${e.end_at ? `<span class="sep">·</span><span>تا ${esc(e.end_at)}</span>` : ""}
-                ${e.course_id ? `<span class="sep">·</span><span>${esc(names[e.course_id] || e.course_id)}</span>` : ""}
-              </div>
-            </div>
-          </div>`;
-        }).join("")
-      : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
+  // مدیریت رویداد کلیک دکمه‌های فیلتر
+  const toggleBtn = (id, isActive) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.classList.toggle("active", isActive);
   };
 
-  contentEl.innerHTML = `
-    ${pageHead("رویدادها", "جلسات آنلاین، آزمون‌ها و ددلاین‌ها")}
-    ${searchBox("جستجوی عنوان رویداد…")}
-    <div class="item-list" id="list-container"></div>`;
-
-  const records = items.map((e) => ({
-    e,
-    get searchText() { return `${e.title} ${names[e.course_id] || ""}`.toLowerCase(); },
-  }));
-  attachFilter(records, {
-    searchText: (it) => it.searchText,
-    render: (filtered) => renderList(filtered.map((it) => it.e)),
+  document.getElementById("filter-past")?.addEventListener("click", () => {
+    filters.past = !filters.past;
+    toggleBtn("filter-past", filters.past);
+    renderList();
   });
+
+  document.getElementById("filter-future")?.addEventListener("click", () => {
+    filters.future = !filters.future;
+    toggleBtn("filter-future", filters.future);
+    renderList();
+  });
+
+  // مدیریت رویداد جستجو
+  document.getElementById("filter-input")?.addEventListener("input", renderList);
+
+  // رندر اولیه
+  renderList();
 }
 
 async function renderPosts() {
@@ -742,7 +906,8 @@ async function renderPosts() {
               <span class="sep">·</span><span>${esc(names[p.course_id] || p.course_id)}</span>
             </div>
           </div>
-          ${p.post_url ? `<div class="row-actions"><a class="btn btn-ghost btn-sm" href="${esc(p.post_url)}" target="_blank" rel="noopener">مشاهده ↗</a></div>` : ""}
+          <!-- 👇 لینک مشاهده پیام در LMS با پروکسی -->
+          ${p.post_url ? `<div class="row-actions"><a class="btn btn-ghost btn-sm" href="${proxyUrl(p.post_url)}" target="_blank" rel="noopener">مشاهده ↗</a></div>` : ""}
         </div>`).join("")
       : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
   };
@@ -776,25 +941,49 @@ window.markPostsRead = async () => {
 async function renderContents() {
   const items = await api("/contents");
   if (!items.length) { contentEl.innerHTML = emptyState("محتوایی یافت نشد"); return; }
-  const names = await courseNameMap();
+
+  // تابع محاسبه زمان (با پشتیبانی از تاریخ دقیق)
+  const formatTime = (isoString) => {
+    if (!isoString) return "نامشخص";
+    const date = new Date(isoString);
+    const diff = Math.floor((new Date() - date) / 1000);
+    if (diff < 60) return "همین الان";
+    if (diff < 3600) return `${Math.floor(diff / 60)} دقیقه پیش`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ساعت پیش`;
+    return `${Math.floor(diff / 86400)} روز پیش`;
+  };
 
   const renderList = (list) => {
     const el = document.getElementById("list-container");
     if (!el) return;
+    
     el.innerHTML = list.length
       ? list.map((c) => `
-        <div class="list-row">
-          <span class="row-icon">📄</span>
+        <div class="list-row" style="padding: 1rem;">
+          <span class="row-icon" style="background: var(--primary-soft); color: var(--primary); font-size:1.2rem;">📄</span>
           <div class="row-body">
-            <div class="row-title"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.title)}</a>
-              <span class="badge">${esc(c.content_type)}</span>
+            <div class="row-title" style="font-size: 1.05rem; margin-bottom: 0.3rem;">
+              <a href="/api/jaam-proxy?url=${encodeURIComponent(c.url)}" target="_blank" rel="noopener" style="color:var(--text); font-weight: 800;">${esc(c.title)}</a>
+              <span class="badge badge-domain" style="margin-inline-start:0.5rem;">${esc(c.content_type)}</span>
             </div>
-            <div class="row-meta">
-              <span>${esc(names[c.course_id] || c.course_id)}</span>
-              ${c.filename ? `<span class="sep">·</span><span>${esc(c.filename)}</span>` : ""}
+            
+            <div class="row-meta" style="display:flex; flex-wrap:wrap; gap:0.8rem; align-items:center;">
+              <a href="#/course/${encodeURIComponent(c.course_id)}" class="chip" style="text-decoration:none; cursor:pointer; background:var(--glass-bg-soft); border:1px solid var(--glass-border);">
+                📘 ${esc(c.course_name)}
+              </a>
+              <span class="badge" style="color:var(--text-muted); background:transparent; border:1px solid var(--glass-border);">
+                👨‍🏫 ${esc(c.teacher)}
+              </span>
+              <span class="badge" style="color:var(--text-muted); background:transparent; border:1px solid var(--glass-border);">
+                ⏱ ${formatTime(c.last_seen_at)}
+              </span>
             </div>
           </div>
-          <div class="row-actions"><a class="btn btn-soft btn-sm" href="${esc(c.url)}" target="_blank" rel="noopener">باز کردن ↗</a></div>
+          
+          <div class="row-actions">
+            <!-- 👇 استفاده از دکمه شیشه‌ای جدید -->
+            <a class="btn-glass-action" href="/api/jaam-proxy?url=${encodeURIComponent(c.url)}" target="_blank" rel="noopener">باز کردن ↗</a>
+          </div>
         </div>`).join("")
       : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
   };
@@ -806,8 +995,9 @@ async function renderContents() {
 
   const records = items.map((c) => ({
     c,
-    get searchText() { return `${c.title} ${c.filename}`.toLowerCase(); },
+    get searchText() { return `${c.title} ${c.filename} ${c.course_name} ${c.teacher}`.toLowerCase(); },
   }));
+  
   attachFilter(records, {
     searchText: (it) => it.searchText,
     render: (filtered) => renderList(filtered.map((it) => it.c)),
@@ -817,24 +1007,353 @@ async function renderContents() {
 async function renderChanges() {
   const items = await api("/changes");
   if (!items.length) { contentEl.innerHTML = emptyState("تغییری ثبت نشده"); return; }
-  const typeLabel = { new: "جدید", updated: "به‌روز", removed: "حذف" };
-  const typeClass = { new: "badge-new", updated: "badge-domain", removed: "badge-expired" };
-  const typeIcon = { new: "➕", updated: "🔄", removed: "➖" };
+
+  let filters = { type: "all", time: "all" };
+
+  const ENTITY_META = {
+    content: { icon: "📁", label: "فایل/محتوا", color: "var(--primary)", bg: "var(--primary-soft)" },
+    assignment: { icon: "📝", label: "تکلیف", color: "var(--warning)", bg: "var(--warning-soft)" },
+    event: { icon: "📅", label: "رویداد", color: "var(--info)", bg: "var(--info-soft)" },
+    post: { icon: "💬", label: "پیام وال", color: "var(--accent)", bg: "var(--accent-soft)" },
+  };
+
+  const CHANGE_META = {
+    new: { label: "ایجاد / افزودن", color: "var(--accent)", bg: "var(--accent-soft)", icon: "➕" },
+    updated: { label: "به‌روزرسانی", color: "var(--info)", bg: "var(--info-soft)", icon: "🔄" },
+    removed: { label: "حذف / انقضا", color: "var(--danger)", bg: "var(--danger-soft)", icon: "➖" },
+  };
+
+  const timeAgo = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    const diff = Math.floor((new Date() - date) / 1000);
+    if (diff < 60) return "همین الان";
+    if (diff < 3600) return `${Math.floor(diff / 60)} دقیقه پیش`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ساعت پیش`;
+    return `${Math.floor(diff / 86400)} روز پیش`;
+  };
+
   contentEl.innerHTML = `
-    ${pageHead("تغییرات", "آخرین تغییرات شناسایی شده پس از همگام‌سازی")}
-    <div class="item-list">
-      ${items.map((ch) => `
-        <div class="list-row">
-          <span class="row-icon">${typeIcon[ch.type] || "🔔"}</span>
-          <div class="row-body">
-            <div class="row-title">
-              <span class="badge ${typeClass[ch.type] || ""}">${typeLabel[ch.type] || ch.type}</span>
-              ${esc(ch.entity_type)} — ${esc(ch.data?.title || ch.data?.name || ch.entity_id)}
-            </div>
-            <div class="row-meta">${esc(ch.detected_at || "")}</div>
+    ${pageHead("آخرین تغییرات", "تایم‌لاین فعالیت‌ها و به‌روزرسانی‌های سامانه")}
+    
+    <div class="filter-bar" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.5rem; align-items:center;">
+      <div class="custom-dropdown" id="dd-type">
+        <button class="filter-btn" onclick="toggleDropdown('dd-type')">همه انواع</button>
+        <div class="dropdown-menu">
+          <a href="#" class="dropdown-item active" data-val="all">همه انواع</a>
+          <a href="#" class="dropdown-item" data-val="content">فایل‌ها</a>
+          <a href="#" class="dropdown-item" data-val="assignment">تکالیف</a>
+          <a href="#" class="dropdown-item" data-val="event">رویدادها</a>
+          <a href="#" class="dropdown-item" data-val="post">پیام‌ها</a>
+        </div>
+      </div>
+      <div class="custom-dropdown" id="dd-time">
+        <button class="filter-btn" onclick="toggleDropdown('dd-time')">همه زمان‌ها</button>
+        <div class="dropdown-menu">
+          <a href="#" class="dropdown-item active" data-val="all">همه زمان‌ها</a>
+          <a href="#" class="dropdown-item" data-val="week">هفته اخیر</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-list" id="changes-list"></div>
+  `;
+
+  const renderList = () => {
+    const listEl = document.getElementById("changes-list");
+    if (!listEl) return;
+
+    let filtered = items.filter(ch => {
+      if (filters.type !== "all" && ch.entity_type !== filters.type) return false;
+      if (filters.time === "week") {
+        const chDate = new Date(ch.detected_at);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        if (chDate < weekAgo) return false;
+      }
+      return true;
+    });
+
+    listEl.innerHTML = filtered.length ? filtered.map((ch) => {
+      const entity = ENTITY_META[ch.entity_type] || { icon: "🔔", label: ch.entity_type, color: "var(--text-muted)", bg: "var(--surface-2)" };
+      const change = CHANGE_META[ch.type] || { label: ch.type, color: "var(--text)", bg: "var(--surface-2)", icon: "•" };
+
+      const courseLink = ch.course_id
+        ? `<a href="#/course/${encodeURIComponent(ch.course_id)}" style="color:var(--primary); text-decoration:none; font-weight:600;">${esc(ch.course_name)}</a>`
+        : "سیستم";
+
+      return `
+        <div class="timeline-item">
+          <div class="timeline-icon" style="color: ${entity.color}; background: ${entity.bg};">
+            ${entity.icon}
           </div>
-        </div>`).join("")}
-    </div>`;
+          <div class="timeline-line"></div>
+          <div class="timeline-content card">
+            <div class="timeline-header">
+              <span class="timeline-title">${esc(ch.title)}</span>
+              <span class="badge" style="color: ${change.color}; background: ${change.bg};">
+                ${change.icon} ${change.label}
+              </span>
+            </div>
+            
+            <div class="timeline-meta" style="margin-top: 0.6rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center;">
+              <span class="badge badge-domain">${courseLink}</span>
+              <span class="sep">·</span>
+              <span>👨‍🏫 ${esc(ch.teacher_name)}</span>
+              <span class="sep">·</span>
+              <span>${entity.label}</span>
+              <span class="sep">·</span>
+              <span>${timeAgo(ch.detected_at)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("") : `<div class="empty" style="margin-top:2rem"><span class="empty-icon">🔍</span>تغییری با این فیلترها یافت نشد</div>`;
+  };
+
+  // مدیریت منوها...
+  window.toggleDropdown = (id) => {
+    document.querySelectorAll('.custom-dropdown').forEach(el => { if (el.id !== id) el.classList.remove('open'); });
+    document.getElementById(id).classList.toggle('open');
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-dropdown')) {
+      document.querySelectorAll('.custom-dropdown').forEach(el => el.classList.remove('open'));
+    }
+  });
+
+  document.querySelectorAll('.dropdown-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const parent = e.target.closest('.custom-dropdown');
+      const type = parent.id === 'dd-type' ? 'type' : 'time';
+      filters[type] = e.target.dataset.val;
+      parent.querySelector('button').textContent = e.target.textContent + " ▼";
+      parent.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+      e.target.classList.add('active');
+      parent.classList.remove('open');
+      renderList();
+    });
+  });
+
+  renderList();
+}
+
+async function renderMore() {
+  const cards = [
+    { href: "#/quera", icon: "⚙️", title: "کوئرا", desc: "مدیریت تمرین‌ها و کلاس‌های کوئرا", isExternal: false },
+    { href: "#/settings", icon: "🔧", title: "تنظیمات", desc: "پیکربندی همگام‌سازی و حساب", isExternal: false },
+    { href: "https://lms4.ui.ac.ir/pages/nodemain", icon: "🏠", title: "پنل اصلی LMS", desc: "ورود به صفحه اصلی سامانه", isExternal: true },
+    { href: "https://lms4.ui.ac.ir/pages/messages", icon: "📥", title: "صندوق پیام‌ها", desc: "مشاهده پیام‌های خصوصی", isExternal: true },
+    { href: "https://lms4.ui.ac.ir/pages/nodemain", icon: "🆘", title: "راهنما و پشتیبانی", desc: "دریافت راهنمایی از سامانه", isExternal: true },
+    // 👇 کارت جدید درباره ما
+    { href: "#/about", icon: "💡", title: "درباره ما", desc: "درباره پروژه، سازنده و راه‌های ارتباطی", isExternal: false }
+  ];
+
+  contentEl.innerHTML = `
+    ${pageHead("سایر امکانات", "دسترسی به ابزارهای جانبی و پنل اصلی سامانه")}
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; padding-top: 1rem;">
+      ${cards.map(c => `
+        <a href="${c.href}" 
+           class="ios-card" 
+           ${c.isExternal ? 'target="_blank" rel="noopener"' : ''}
+           style="text-decoration: none; display: flex;">
+          <div class="ios-card-icon">${c.icon}</div>
+          <div class="ios-card-title">${c.title}</div>
+          <div class="ios-card-desc">${c.desc}</div>
+        </a>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function renderAbout() {
+  contentEl.innerHTML = `
+    ${pageHead("درباره ما", "آشنایی با پروژه، سازنده و اهداف آن")}
+    
+    <div style="display: flex; flex-direction: column; gap: 1.5rem; max-width: 900px; margin: 0 auto; padding-bottom: 3rem;">
+      
+          <!-- 👇 هدر (Hero) جدید: کارت معرفی سازنده با قابلیت توسعه -->
+            <!-- 👇 بخش معرفی سازنده (شیشه در شیشه) -->
+      <div style="position: relative; width: 100%; margin-bottom: 1.5rem;">
+        
+        <!-- کارت شیشه‌ای اصلی (کانتینر) -->
+        <div class="card" style="padding: 1.5rem; background: linear-gradient(135deg, rgba(42, 166, 163, 0.1) 0%, var(--glass-bg) 100%); border-radius: 24px; position: relative; overflow: hidden; border: 1px solid var(--glass-border);">
+          
+          <!-- افکت گرادیانت پس‌زمینه -->
+          <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(42,166,163,0.15) 0%, transparent 60%); pointer-events: none;"></div>
+
+          <!-- 👇 چیدمان افقی -->
+          <div style="display: flex; flex-direction: row; gap: 1.5rem; align-items: stretch; flex-wrap: wrap; position: relative; z-index: 1;">
+            
+            <!-- شیشه اول: سمت راست (عکس و نام) -->
+            <div class="glass-inner-container" style="flex: 0 0 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1.5rem; background: var(--glass-bg-strong); border: 1px solid var(--glass-border-hover); border-radius: 20px; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1);">
+              
+              <!-- عکس پروفایل -->
+              <div style="width: 120px; height: 120px; margin-bottom: 1.2rem; border-radius: 50%; padding: 4px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); box-shadow: 0 8px 20px var(--ring);">
+                <div style="width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: var(--bg);">
+                  <img src="/static/img/my-avatar.jpg" alt="محمد اسدی" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                </div>
+              </div>
+
+              <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.2rem; text-align: center;">محمد اسدی</h2>
+              <p style="font-size: 0.9rem; color: var(--primary); font-weight: 600; margin-bottom: 0.8rem; text-align: center;">توسعه‌دهنده</p>
+              <div class="badge badge-domain" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;">مهندسی کامپیوتر • ورودی ۱۴۰۴</div>
+            </div>
+
+            <!-- شیشه دوم: سمت چپ (بیوگرافی و ارتباطات) -->
+            <div class="glass-inner-container" style="flex: 1; min-width: 280px; padding: 2rem; display: flex; flex-direction: column; justify-content: center; background: var(--glass-bg-strong); border: 1px solid var(--glass-border-hover); border-radius: 20px; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1);">
+              
+              <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                📝 درباره من
+              </h3>
+              
+              <!-- متن بیوگرافی -->
+              <p style="line-height: 1.8; color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">
+                دانشجوی مهندسی کامپیوتر دانشگاه اصفهان. علاقه‌مند به توسعه وب، هوش مصنوعی و ساخت ابزارهایی که زندگی روزمره را ساده‌تر می‌کنند. عاشق یادگیری تکنولوژی‌های جدید و پروژه‌های متن‌باز.
+              </p>
+
+              <!-- آیکون‌های ارتباطی -->
+              <div style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: auto;">
+                
+                <!-- گیت‌هاب -->
+                <a href="https://github.com/Asadix85" target="_blank" rel="noopener" title="گیت‌هاب" 
+                   style="width: 45px; height: 45px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.2s;"
+                   onmouseover="this.style.background='#333'; this.style.transform='translateY(-3px)';" 
+                   onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.transform='translateY(0)';">
+                  <!-- کلاس icon-github اضافه شد -->
+                  <svg class="icon-github" width="20" height="20" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                </a>
+
+                <!-- تلگرام -->
+                <a href="https://t.me/ASAADIX" target="_blank" rel="noopener" title="تلگرام" 
+                   style="width: 45px; height: 45px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.2s;"
+                   onmouseover="this.style.background='#229ED9'; this.style.transform='translateY(-3px)';" 
+                   onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.transform='translateY(0)';">
+                  <!-- کلاس icon-telegram اضافه شد -->
+                  <svg class="icon-telegram" width="20" height="20" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.26-1.91.178-.184 3.247-2.977 3.307-3.23.005-.02.01-.04-.006-.06-.015-.017-.037-.023-.058-.023-.05 0-.084.027-.113.043-.038.023-3.523 2.237-3.558 2.258-.085.05-.174.086-.27.107-.11.024-.224.04-.337.04-.12 0-.24-.016-.348-.046l-1.148-.36c-.23-.073-.455-.148-.458-.38-.002-.12.034-.243.108-.368.192-.325 1.666-.94 2.513-1.278 1.033-.412 2.078-.825 3.096-1.23 1.07-.424 1.6-.65 1.753-.677z"/></svg>
+                </a>
+
+                <!-- ایمیل -->
+                <a href="mailto:mohammad8asadi5@gmail.com" title="ایمیل" 
+                   style="width: 45px; height: 45px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.2s;"
+                   onmouseover="this.style.background='#EA4335'; this.style.transform='translateY(-3px)';" 
+                   onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'; this.style.transform='translateY(0)';">
+                  <!-- کلاس icon-email اضافه شد -->
+                  <svg class="icon-email" width="20" height="20" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                </a>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 👇 توضیحات پروژه -->
+      <div class="card" style="padding: 2rem;">
+        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          📖 درباره‌ی این پروژه
+        </h3>
+        <div style="line-height: 1.8; color: var(--text-secondary); font-size: 0.95rem;">
+          <p style="margin-bottom: 1rem;">
+            <b>LMS Assistant</b> یک دستیار شخصی و متن‌باز است که برای آسان‌تر کردن تجربه‌ی دانشجویان دانشگاه اصفهان طراحی شده است. این ابزار به شما کمک می‌کند تا تمام اطلاعات درسی خود را در یک محیط یکپارچه و مدرن مدیریت کنید.
+          </p>
+          <p style="margin-bottom: 1rem;">
+            با یک کلیک ساده، برنامه به صورت خودکار دروس، فایل‌های آموزشی، تکالیف، پیام‌های استادان و رویدادهای تقویم را از سامانه LMS استخراج می‌کند. همچنین تغییرات جدید را تشخیص داده و به شما اطلاع می‌دهد تا هیچ مهلتی را از دست ندهید.
+          </p>
+          <p>
+            علاوه بر این، تمرین‌های سایت <b>کوئرا</b> (مخصوص دروس برنامه‌نویسی) نیز در کنار تکالیف LMS نمایش داده می‌شوند. هدف ما ساختن یک محیط ساده، سریع و کاربردی است که تمرکز شما را بر یادگیری افزایش دهد.
+          </p>
+        </div>
+      </div>
+
+      <!-- 👇 ویژگی‌های فنی -->
+      <div class="card" style="padding: 2rem;">
+        <h3 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 1.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          ⚙️ ویژگی‌های فنی
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+          
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">🐍</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">Python + FastAPI</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">بک‌اند پرسرعت با پایتون و فریم‌ورک FastAPI</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">🍪</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">Multi-Domain SSO</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">پشتیبانی از lms3, lms4, lms5 با احراز هویت خودکار</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">💾</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">SQLite Storage</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">ذخیره‌سازی محلی روی سیستم شما، بدون نیاز به سرور خارجی</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">🔄</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">Change Detection</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">تشخیص خودکار موارد جدید بین همگام‌سازی‌ها</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">📅</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">تقویم ددلاین‌ها</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">نمای هفتگی از مهلت تکالیف و رویدادهای مهم</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">🎨</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">Liquid Glass UI</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">رابط کاربری مدرن با افکت‌های شیشه‌ای و تم روشن/تیره</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">🎯</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">Quera Integration</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">همگام‌سازی تمرین‌های سایت کوئرا در کنار LMS</div>
+            </div>
+          </div>
+
+          <div class="glass-inner-container" style="padding: 1rem; display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 2rem;">📊</div>
+            <div>
+              <div style="font-weight: 700; color: var(--text-primary);">آمار و نمودار</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">نمایش آمار کلی با نمودارهای تعاملی</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 👇 فوتر -->
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
+        <p>LMS Assistant v0.1.0 • ساخته شده با ❤️ برای دانشگاه اصفهان</p>
+        <p>© ۱۴۰۵ — محمد اسدی</p>
+      </div>
+
+    </div>
+  `;
 }
 
 async function renderQuera() {
@@ -875,17 +1394,125 @@ async function renderQuera() {
     </div>`;
 }
 
+async function renderMap() {
+  const locations = await api("/map/locations");
+
+  if (!locations.length) {
+    contentEl.innerHTML = emptyState("مکانی برای نمایش وجود ندارد", "ابتدا دروس خود را همگام‌سازی کنید.");
+    return;
+  }
+
+  contentEl.innerHTML = `
+    ${pageHead("نقشه مکان‌های کلاس", "نمای کلی تمام ساختمان‌هایی که در آن‌ها کلاس دارید")}
+    
+    <div class="card" style="padding: 0; overflow: hidden; height: 600px; border-radius: var(--radius);">
+      <div id="main-map" style="width: 100%; height: 100%;"></div>
+    </div>
+    
+    <div class="grid-2" style="margin-top: 1rem;">
+      ${locations.map(loc => `
+        <div class="card" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            📍 ${esc(loc.name)}
+          </div>
+          <div class="muted">${esc(loc.building)}</div>
+          <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem;">
+            ${loc.courses.map(c => `<span class="badge badge-domain">${esc(c)}</span>`).join("")}
+          </div>
+          <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+            <a href="https://nshn.ir/?lat=${loc.lat}&lng=${loc.lng}" target="_blank" rel="noopener" class="btn-primary-glass btn-sm">🧭 نشان</a>
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" class="btn-glass btn-sm">🗺 گوگل مپ</a>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  // رندر نقشه
+  setTimeout(() => {
+    const mapEl = document.getElementById("main-map");
+    if (mapEl) {
+      const map = L.map(mapEl, {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([32.6072163, 51.6583164], 15);
+
+      // 👇 تشخیص تم (دارک یا لایت) برای لایه‌های نقشه
+      const isDark = document.body.dataset.theme === "dark";
+
+      // لایه‌ی تیره رایگان (Stadia Alidade Smooth Dark) و لایه‌ی روشن (OSM)
+      const tileUrl = isDark
+        ? "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+      // اگر می‌خواهید لایه‌ی تیره حتماً کار کند و از سرویس‌های دیگر استفاده نکنید،
+      // می‌توانید از لایه‌ی زیر استفاده کنید (البته ممکن است کمی کندتر لود شود)
+      // const tileUrl = isDark
+      //   ? "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"
+      //   : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+      L.tileLayer(tileUrl, {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors, © Stadia Maps'
+      }).addTo(map);
+
+      // آیکون سفارشی برای مارکرها (به جای آیکون پیش‌فرض آبی)
+      const customIcon = L.divIcon({
+        className: 'custom-map-icon',
+        html: `<div style="background-color:var(--primary); width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      // افزودن مارکر برای هر مکان
+            // افزودن مارکر برای هر مکان
+      locations.forEach(loc => {
+        const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
+
+        // ساخت لیست دروس با ظاهر بهتر
+        const coursesHtml = loc.courses.map(c =>
+          `<div style="margin-top:6px; font-size:13px; display:flex; align-items:center; gap:6px;">
+             <span style="opacity:0.7;">📚</span> <span>${esc(c)}</span>
+           </div>`
+        ).join("");
+
+        marker.bindPopup(`
+          <div style="direction: rtl; text-align: right; font-family: 'Vazirmatn', sans-serif;">
+            <div style="font-weight: 800; font-size: 15px; margin-bottom: 4px; color: var(--primary);">
+              📍 ${esc(loc.name)}
+            </div>
+            <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
+              ${esc(loc.building)}
+            </div>
+            <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--glass-border);">
+            ${coursesHtml}
+          </div>
+        `);
+      });
+    }
+  }, 200);
+}
+
 window.syncQuera = async () => {
   const btn = $("#btn-quera-sync");
   if (btn) { btn.disabled = true; btn.textContent = "در حال همگام‌سازی…"; }
   try {
     const r = await api("/quera/sync", { method: "POST" });
-    if (r.error) toast("❌ " + r.error);
-    else toast(`✅ کوئرا: ${r.new} جدید، ${r.updated} به‌روز`);
+
+    if (r.error) {
+      if (r.error.includes("اعتبارنامه") || r.error.includes("تنظیم نشده")) {
+        toast("⚠️ نام کاربری و رمز عبور کوئرا تنظیم نشده است. لطفاً از دکمه «تغییر حساب / ورود مجدد» در تنظیمات، اطلاعات کوئرا را وارد کنید.");
+      } else {
+        toast("❌ " + r.error);
+      }
+    } else {
+      toast(`✅ کوئرا: ${r.new || 0} جدید، ${r.updated || 0} به‌روز`);
+    }
   } catch (e) {
     toast("❌ خطا در همگام‌سازی کوئرا");
   } finally {
     renderPage("quera");
+    if (btn) { btn.disabled = false; btn.textContent = "🔄 همگام‌سازی کوئرا"; }
   }
 };
 
@@ -1104,55 +1731,226 @@ function calRenderDay() {
   }
 }
 
+// ---------- تقویم هفتگی افقی (Liquid Glass Desktop Style) ----------
+
+let currentWeekOffset = 0; 
+let selectedDayJdn = null;
+
 async function renderCalendar() {
-  const items = await api("/events");
+  const [events, assignments] = await Promise.all([
+    api("/events"),
+    api("/assignments")
+  ]);
+  
   const now = new Date();
   const todayJ = d2j(g2d(now.getFullYear(), now.getMonth() + 1, now.getDate()));
-  const eventsByDay = new Map();
-  const noDate = [];
-  for (const e of items) {
-    const m = String(e.start_at || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) {
-      const j = d2j(g2d(+m[1], +m[2], +m[3]));
-      const key = calEventKey(j);
-      if (!eventsByDay.has(key)) eventsByDay.set(key, []);
-      eventsByDay.get(key).push(e);
-    } else {
-      noDate.push(e);
-    }
+  
+  const currentWeekday = jWeekday(j2d(todayJ.jy, todayJ.jm, todayJ.jd)); 
+  const startOfWeekJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd) - currentWeekday + (currentWeekOffset * 7);
+  
+  if (selectedDayJdn === null || currentWeekOffset === 0 && selectedDayJdn < startOfWeekJdn) {
+    selectedDayJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd);
   }
-  calState = {
-    jy: todayJ.jy,
-    jm: todayJ.jm,
-    sel: calEventKey(todayJ),
-    todayKey: calEventKey(todayJ),
-    eventsByDay,
-    noDate,
-  };
+
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const jdn = startOfWeekJdn + i;
+    const j = d2j(jdn);
+    const g = d2g(jdn);
+    const gDateStr = `${g.gy}-${String(g.gm).padStart(2,'0')}-${String(g.gd).padStart(2,'0')}`;
+    
+    // 👇 ۱. فیلتر رویدادها و تکالیف
+    const dayEvents = events.filter(e => e.start_at && e.start_at.startsWith(gDateStr));
+    const dayAssignments = assignments.filter(a => a.deadline && a.deadline.startsWith(gDateStr));
+
+    // 👇 ۲. تشخیص نوع رویدادهای دستی
+    const manualExams = dayEvents.filter(e => e.event_type === "exam");
+    const manualAssignments = dayEvents.filter(e => e.event_type === "assignment");
+
+    // 👇 ۳. آیا آزمون یا تکلیف در این روز داریم؟
+    const hasExam = manualExams.length > 0;
+    const hasAssignment = dayAssignments.length > 0 || manualAssignments.length > 0;
+
+    weekDays.push({
+      jdn, j, g, gDateStr,
+      events: dayEvents, // شامل همه رویدادها (دستی و غیره)
+      assignments: dayAssignments, // تکالیف LMS
+      manualExams,
+      manualAssignments,
+      hasExam,
+      hasAssignment,
+      isToday: jdn === j2d(todayJ.jy, todayJ.jm, todayJ.jd),
+      isSelected: jdn === selectedDayJdn
+    });
+  }
+
+  const weekdaysNames = ["شنبه", "یک‌شنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه"];
+  const startJ = weekDays[0].j;
+  const endJ = weekDays[6].j;
+  const weekTitle = `${faDigits(startJ.jd)} ${J_MONTHS[startJ.jm - 1]} تا ${faDigits(endJ.jd)} ${J_MONTHS[endJ.jm - 1]} ${faDigits(endJ.jy)}`;
+
+  const selectedDayData = weekDays.find(d => d.isSelected) || weekDays[0];
 
   contentEl.innerHTML = `
-    ${pageHead("تقویم", "رویدادها و جلسات در تقویم شمسی")}
-    <div class="card">
-      <div class="cal-toolbar">
-        <button class="btn btn-ghost btn-icon" onclick="calShift(-1)" title="ماه قبل">›</button>
-        <button class="btn btn-ghost btn-icon" onclick="calShift(1)" title="ماه بعد">‹</button>
-        <h3 id="cal-title"></h3>
-        <button class="btn btn-soft btn-sm" onclick="calToday()">امروز</button>
-        <div class="cal-legend">
-          <span><span class="dot" style="background:var(--warning)"></span>آزمون</span>
-          <span><span class="dot" style="background:var(--danger)"></span>ددلاین</span>
-          <span><span class="dot" style="background:var(--info)"></span>جلسه آنلاین</span>
-          <span><span class="dot" style="background:var(--accent)"></span>اطلاعیه</span>
-        </div>
+    ${pageHead("تقویم هفتگی", "مهلت تکالیف و رویدادها")}
+    
+    <div class="filter-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn-glass" onclick="changeWeek(-1)" style="padding: 0.5rem 1rem; border-radius: 999px;">‹ هفته قبل</button>
+        <button class="btn-primary-glass" onclick="changeWeek(0)" style="padding: 0.5rem 1.2rem; border-radius: 999px;">امروز</button>
+        <button class="btn-glass" onclick="changeWeek(1)" style="padding: 0.5rem 1rem; border-radius: 999px;">هفته بعد ›</button>
       </div>
-      <div class="cal-weekdays">${["ش", "ی", "د", "س", "چ", "پ", "ج"].map((d) => `<span class="cal-weekday">${d}</span>`).join("")}</div>
-      <div class="cal-grid" id="cal-grid"></div>
+      <h3 style="font-size: 1.1rem; font-weight: 700; display:flex; align-items:center; gap:0.5rem;">
+        📅 ${weekTitle}
+      </h3>
     </div>
-    <div class="card" id="cal-day-card"></div>
-    ${noDate.length ? `<div class="card" id="cal-nodate-card"></div>` : ""}
+
+    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; margin-bottom: 1.5rem;">
+      ${weekDays.map((day, idx) => {
+        let cardStyle = "padding: 1rem 0.5rem; text-align: center; cursor: pointer; transition: all 0.3s; border-radius: var(--radius-sm); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); position: relative; overflow: hidden;";
+        
+        // 👇 استایل‌های گرادیانتی شیشه‌ای
+        if (day.isSelected) {
+          cardStyle += " border: 2px solid var(--primary); background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.05) 100%); transform: translateY(-2px); box-shadow: 0 4px 15px var(--ring), inset 0 1px 0 var(--glass-hi);";
+        } else if (day.hasExam && day.hasAssignment) {
+          // هم آزمون هم تکلیف (ترکیب نارنجی و قرمز)
+          cardStyle += " border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
+        } else if (day.hasExam) {
+          // فقط آزمون (نارنجی/زرد)
+          cardStyle += " border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
+        } else if (day.hasAssignment) {
+          // فقط تکلیف (قرمز)
+          cardStyle += " border: 1px solid rgba(239, 68, 68, 0.5); background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
+        } else if (day.isToday) {
+          cardStyle += " border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.05);";
+        } else {
+          cardStyle += " border: 1px solid var(--glass-border); background: var(--glass-bg-soft);";
+        }
+
+        const examCount = day.manualExams.length;
+        const deadlineCount = day.assignments.length + day.manualAssignments.length;
+
+        return `
+          <div class="card" style="${cardStyle}" onclick="selectDay(${day.jdn})">
+            <div class="day-add-btn" onclick="event.stopPropagation(); openAddEventModal('${day.gDateStr}')" title="افزودن رویداد">+</div>
+
+            ${day.isToday ? '<span class="badge badge-new" style="font-size:0.6rem; padding:2px 6px; margin-bottom:4px;">امروز</span>' : '<div style="height:18px;"></div>'}
+            <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top:4px;">${weekdaysNames[idx]}</div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: ${day.hasExam ? 'var(--warning)' : (day.hasAssignment ? 'var(--danger)' : (day.isSelected ? 'var(--primary)' : 'var(--text)'))}; margin: 0.2rem 0; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">${faDigits(day.j.jd)}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${J_MONTHS[day.j.jm - 1]}</div>
+            
+            <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; align-items: center;">
+              ${examCount > 0 ? `
+                <div class="badge" style="font-size: 0.65rem; background: var(--warning-soft); color: var(--warning); box-shadow: 0 2px 8px var(--warning-soft); border: 1px solid var(--warning);">
+                  ${faDigits(examCount)} آزمون
+                </div>
+              ` : ""}
+              ${deadlineCount > 0 ? `
+                <div class="badge badge-expired" style="font-size: 0.65rem; box-shadow: 0 2px 8px var(--danger-soft);">
+                  ${faDigits(deadlineCount)} ددلاین
+                </div>
+              ` : ""}
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+
+    <!-- کارت جزئیات روز انتخاب شده -->
+    <div class="card" style="padding: 1.5rem; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
+          ${weekdaysNames[jWeekday(selectedDayJdn)]} — ${faDigits(selectedDayData.j.jd)} ${J_MONTHS[selectedDayData.j.jm - 1]} ${faDigits(selectedDayData.j.jy)}
+        </h3>
+        <span class="badge badge-domain">${faDigits(selectedDayData.events.length + selectedDayData.assignments.length)} مورد</span>
+      </div>
+
+            <div class="item-list">
+        ${selectedDayData.events.length || selectedDayData.assignments.length ? [
+                    // 👇 رویدادهای دستی: آزمون‌ها
+          ...selectedDayData.manualExams.map(e => {
+            const hm = e.start_at ? String(e.start_at).slice(11, 16) : "";
+            return `
+              <div class="list-row" style="margin-bottom: 0.8rem; border-radius: 12px; border-color: var(--warning-soft);">
+                <span class="row-icon" style="background: var(--warning-soft); color: var(--warning); font-size:1.2rem;">📄</span>
+                <div class="row-body">
+                  <div class="row-title">
+                    ${esc(e.title)}
+                    <span class="badge badge-warn">آزمون</span>
+                  </div>
+                  <div class="row-meta">
+                    ${hm ? `<span class="badge badge-info" style="padding: 0.2rem 0.6rem;">⏰ ${hm}</span>` : ""}
+                    <!-- 👇 نمایش نام درس -->
+                    <span class="badge badge-domain">${esc(e.course_name)}</span>
+                    ${e.description ? `<span>${esc(e.description)}</span>` : ""}
+                  </div>
+                </div>
+              </div>
+            `;
+          }),
+          // 👇 رویدادهای دستی: تکالیف
+          ...selectedDayData.manualAssignments.map(e => {
+            const hm = e.start_at ? String(e.start_at).slice(11, 16) : "";
+            return `
+              <div class="list-row" style="margin-bottom: 0.8rem; border-radius: 12px; border-color: var(--danger-soft);">
+                <span class="row-icon" style="background: var(--danger-soft); color: var(--danger); font-size:1.2rem;">📝</span>
+                <div class="row-body">
+                  <div class="row-title">
+                    ${esc(e.title)}
+                    <span class="badge badge-expired">تکلیف دستی</span>
+                  </div>
+                  <div class="row-meta">
+                    ${hm ? `<span class="badge badge-info" style="padding: 0.2rem 0.6rem;">⏰ ${hm}</span>` : ""}
+                    <!-- 👇 نمایش نام درس -->
+                    <span class="badge badge-domain">${esc(e.course_name)}</span>
+                    ${e.description ? `<span>${esc(e.description)}</span>` : ""}
+                  </div>
+                </div>
+              </div>
+            `;
+          }),
+          // 👇 تکالیف LMS
+          ...selectedDayData.assignments.map(a => `
+            <div class="list-row" style="margin-bottom: 0.8rem; border-radius: 12px; border-color:var(--warning-soft);">
+              <span class="row-icon" style="background: var(--warning-soft); color: var(--warning); font-size:1.2rem;">📝</span>
+              <div class="row-body">
+                <div class="row-title">
+                  ${esc(a.title)}
+                  <span class="badge badge-warn">مهلت تحویل</span>
+                </div>
+                <div class="row-meta">
+                  ${a.deadline ? `<span class="badge badge-expired" style="padding: 0.2rem 0.6rem;">⏰ ${String(a.deadline).slice(11, 16)}</span>` : ""}
+                  <!-- 👇 استفاده از a.course_name که از بک‌اند می‌آید -->
+                  <span class="badge badge-domain">${esc(a.course_name || "درس نامشخص")}</span>
+                </div>
+              </div>
+            </div>
+          `)
+        ].join("") : `<div class="empty muted" style="padding: 2rem 0;">رویداد یا تکلیفی در این روز نیست.</div>`}
+      </div>
+    </div>
   `;
-  calRender();
 }
+window.changeWeek = (offset) => {
+  if (offset === 0) {
+    currentWeekOffset = 0; 
+    const now = new Date();
+    const todayJ = d2j(g2d(now.getFullYear(), now.getMonth() + 1, now.getDate()));
+    selectedDayJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd);
+  } else {
+    currentWeekOffset += offset;
+    const now = new Date();
+    const todayJ = d2j(g2d(now.getFullYear(), now.getMonth() + 1, now.getDate()));
+    const currentWeekday = jWeekday(j2d(todayJ.jy, todayJ.jm, todayJ.jd)); 
+    selectedDayJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd) - currentWeekday + (currentWeekOffset * 7);
+  }
+  renderCalendar();
+};
+
+window.selectDay = (jdn) => {
+  selectedDayJdn = jdn;
+  renderCalendar();
+};
 
 window.calSelect = (key) => {
   if (!calState) return;
@@ -1221,6 +2019,13 @@ async function renderPage(route) {
   setPageTitle(route);
   contentEl.innerHTML = loadingSkeleton();
   try {
+    // 👇 بررسی می‌کنیم که آیا این درس یک دوره کوئرا است یا خیر
+    if (route.startsWith("course/quera_")) {
+      // اگر کاربر آدرس کوئرا را مستقیم وارد کرد، به صفحه کوئرا ببر
+      location.hash = "#/quera";
+      return;
+    }
+
     if (route.startsWith("course/")) {
       await renderCourseDetail(decodeURIComponent(route.slice("course/".length)));
     } else {
@@ -1228,13 +2033,16 @@ async function renderPage(route) {
         dashboard: renderDashboard,
         courses: renderCourses,
         assignments: renderAssignments,
-        events: renderEvents,
+        //events: renderEvents,
+        more: renderMore,
+        about: renderAbout,
         calendar: renderCalendar,
         posts: renderPosts,
         contents: renderContents,
         changes: renderChanges,
         quera: renderQuera,
         settings: renderSettings,
+        map: renderMap,
       }[route] || renderDashboard;
       await fn();
     }
@@ -1291,3 +2099,244 @@ document.querySelectorAll(".nav-item").forEach((el) => {
     }
   } catch (_) {}
 })();
+
+window.openAddEventModal = async (dateStr) => {
+  // ۱. دریافت لیست دروس از سرور
+  let courses = [];
+  try {
+    courses = await api("/courses");
+  } catch (e) {
+    toast("خطا در دریافت لیست دروس");
+  }
+
+  // ساخت آیتم‌های منوی دروس
+  const courseItems = courses.map(c =>
+    `<a href="#" class="dropdown-item" onclick="setEventCourse(event, '${c.id}', '${esc(c.name)}')">${esc(c.name)}</a>`
+  ).join("");
+
+  const [gy, gm, gd] = dateStr.split('-').map(Number);
+  const j = d2j(g2d(gy, gm, gd));
+  const dateLabel = `${faDigits(j.jd)} ${J_MONTHS[j.jm - 1]} ${faDigits(j.jy)}`;
+
+  const spacerTop = `<div style="height: 60px; flex-shrink: 0;"></div>`;
+  const spacerBottom = `<div style="height: 60px; flex-shrink: 0;"></div>`;
+
+  const hoursHtml = spacerTop + Array.from({length: 24}).map((_, i) => {
+    const val = String(i).padStart(2, '0');
+    return `<div class="wheel-item" data-val="${val}">${faDigits(i)}</div>`;
+  }).join("") + spacerBottom;
+
+  const minutesHtml = spacerTop + Array.from({length: 60}).map((_, i) => {
+    const val = String(i).padStart(2, '0');
+    return `<div class="wheel-item" data-val="${val}">${faDigits(i)}</div>`;
+  }).join("") + spacerBottom;
+
+  const modalHtml = `
+    <div id="add-event-modal" class="modal-overlay" style="display:flex; z-index: 1000;">
+      <div class="modal" style="max-width: 420px; overflow: visible;">
+        <button class="modal-close" onclick="document.getElementById('add-event-modal').remove()">✕</button>
+        <div class="modal-head" style="margin-bottom: 1rem;">
+          <h3>افزودن رویداد جدید</h3>
+          <p class="muted">تاریخ: ${dateLabel}</p>
+        </div>
+        
+        <form id="add-event-form" onsubmit="submitManualEvent(event, '${dateStr}')">
+          
+          <!-- 👇 منوی انتخاب درس -->
+          <div class="field" style="margin-bottom: 1rem; position: relative;">
+            <label>درس مربوطه</label>
+            <div class="custom-dropdown" id="dd-course-modal" style="width: 100%;">
+              <button type="button" class="filter-btn glass-input" style="width: 100%; justify-content: space-between;" onclick="toggleModalDropdown('dd-course-modal')">
+                <span id="selected-course-label">-- انتخاب درس --</span>
+                <span>▼</span>
+              </button>
+              <div class="dropdown-menu" style="width: 100%; max-height: 200px; overflow-y: auto; z-index: 10000;">
+                ${courseItems}
+              </div>
+            </div>
+            <input type="hidden" id="event-course" value="" />
+          </div>
+
+          <div class="field">
+            <label>عنوان</label>
+            <input type="text" id="event-title" required placeholder="مثلاً: مطالعه فصل ۳" class="glass-input" />
+          </div>
+
+          <div class="field" style="margin-top: 1rem; position: relative;">
+            <label>نوع</label>
+            <div class="custom-dropdown" id="dd-type-modal" style="width: 100%;">
+              <button type="button" class="filter-btn glass-input" style="width: 100%; justify-content: space-between;" onclick="toggleModalDropdown('dd-type-modal')">
+                <span id="selected-type-label">📝 تکلیف / کار</span>
+                <span>▼</span>
+              </button>
+              <div class="dropdown-menu" style="width: 100%; z-index: 10000;">
+                <a href="#" class="dropdown-item active" onclick="setEventType(event, 'assignment', '📝 تکلیف / کار')">📝 تکلیف / کار</a>
+                <a href="#" class="dropdown-item" onclick="setEventType(event, 'exam', '📄 آزمون')">📄 آزمون</a>
+              </div>
+            </div>
+            <input type="hidden" id="event-type" value="assignment" />
+          </div>
+
+          <div class="field" style="margin-top: 1rem;">
+            <label style="text-align: center; display: block; margin-bottom: 0.5rem;">ساعت دقیق</label>
+            <div class="time-wheel-container" dir="ltr">
+              <div class="wheel-column">
+                <div class="wheel-scroll" id="hour-wheel">${hoursHtml}</div>
+              </div>
+              <div class="wheel-divider">:</div>
+              <div class="wheel-column">
+                <div class="wheel-scroll" id="minute-wheel">${minutesHtml}</div>
+              </div>
+              <div class="wheel-highlight"></div>
+            </div>
+            <input type="hidden" id="event-hour" value="12" />
+            <input type="hidden" id="event-minute" value="00" />
+          </div>
+
+          <div class="field" style="margin-top: 1rem;">
+            <label>توضیحات (اختیاری)</label>
+            <textarea id="event-desc" rows="2" class="glass-input"></textarea>
+          </div>
+          
+          <button type="submit" class="btn-primary-glass btn-block" style="margin-top:1.5rem; padding: 0.8rem;">ذخیره رویداد</button>
+        </form>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  setupWheel('hour-wheel', 'event-hour', 12);
+  setupWheel('minute-wheel', 'event-minute', 0);
+};
+
+window.setEventCourse = (e, id, name) => {
+  e.preventDefault();
+  document.getElementById('event-course').value = id;
+  document.getElementById('selected-course-label').textContent = name;
+  document.getElementById('dd-course-modal').classList.remove('open');
+
+  // هایلایت کردن آیتم انتخاب شده
+  const menu = document.getElementById('dd-course-modal');
+  menu.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+  e.target.classList.add('active');
+};
+
+window.submitManualEvent = async (e, dateStr) => {
+  e.preventDefault();
+
+  const courseId = document.getElementById("event-course").value;
+  if (!courseId) {
+    toast("⚠️ لطفاً یک درس انتخاب کنید");
+    return;
+  }
+
+  const title = document.getElementById("event-title").value;
+  const hour = document.getElementById("event-hour").value;
+  const minute = document.getElementById("event-minute").value;
+  const type = document.getElementById("event-type").value;
+  const desc = document.getElementById("event-desc").value;
+
+  const time = `${hour}:${minute}`;
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = "در حال ذخیره...";
+
+  try {
+    const res = await fetch("/api/events/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: title,
+        description: desc,
+        date: dateStr,
+        time: time,
+        event_type: type,
+        course_id: courseId // 👈 ارسال شناسه درس
+      })
+    });
+
+    if (res.ok) {
+      toast("✅ رویداد با موفقیت ذخیره شد");
+      document.getElementById("add-event-modal").remove();
+      renderPage("calendar");
+    } else {
+      const err = await res.json();
+      toast("❌ " + (err.detail || "خطا در ذخیره"));
+      btn.disabled = false;
+      btn.textContent = "ذخیره رویداد";
+    }
+  } catch (err) {
+    toast("❌ خطا در ارتباط با سرور");
+    btn.disabled = false;
+    btn.textContent = "ذخیره رویداد";
+  }
+};
+
+// ==========================================
+// توابع کمکی منوها (کپی کنید اگر ندارید)
+// ==========================================
+window.toggleModalDropdown = (id) => {
+  const el = document.getElementById(id);
+  const isOpen = el.classList.contains('open');
+
+  // بستن همه منوهای دیگه
+  document.querySelectorAll('.custom-dropdown').forEach(d => d.classList.remove('open'));
+
+  // باز/بسته کردن منوی فعلی
+  if (!isOpen) {
+    el.classList.add('open');
+  }
+};
+
+window.setEventType = (e, val, label) => {
+  e.preventDefault();
+  document.getElementById('event-type').value = val;
+  document.getElementById('selected-type-label').textContent = label;
+  document.getElementById('dd-type-modal').classList.remove('open');
+
+  const menu = document.getElementById('dd-type-modal');
+  menu.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+  e.target.classList.add('active');
+};
+
+// ==========================================
+// تابع setupWheel (برای مدیریت اسکرول و اسپیس)
+// ==========================================
+function setupWheel(elementId, hiddenInputId, defaultVal) {
+  const el = document.getElementById(elementId);
+  const input = document.getElementById(hiddenInputId);
+  const items = el.querySelectorAll('.wheel-item');
+  const itemHeight = 40;
+  const spacerHeight = 60;
+
+  // اسکرول به مقدار پیش‌فرض (با احتساب Spacer)
+  el.scrollTop = (defaultVal * itemHeight) + spacerHeight;
+
+  let scrollTimeout;
+
+  el.addEventListener('scroll', () => {
+    // پیدا کردن آیتمی که در وسط قرار دارد (با کسر Spacer)
+    const centerIdx = Math.round((el.scrollTop - spacerHeight) / itemHeight);
+
+    if (items[centerIdx]) {
+      input.value = items[centerIdx].dataset.val;
+    }
+
+    // قفل کردن روی عدد دقیق (Magnetic Snap)
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      const snapIdx = Math.round((el.scrollTop - spacerHeight) / itemHeight);
+      const targetScrollTop = (snapIdx * itemHeight) + spacerHeight;
+
+      el.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
+      });
+
+      if (items[snapIdx]) {
+        input.value = items[snapIdx].dataset.val;
+      }
+    }, 150);
+  });
+}

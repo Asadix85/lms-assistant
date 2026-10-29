@@ -34,23 +34,30 @@ class LMSAssistant:
         self.password = password
 
         self.client = LMSHttpClient(base_url="https://lms4.ui.ac.ir")
+
+        # 👇 اتصال متد لاگین به عنوان Callback برای لاگین خودکار
+        self.client.reauth_callback = self._re_authenticate
+
         self.auth = LMSAuth(self.client)
         self.course_parser = CourseParser(base_url="https://lms4.ui.ac.ir")
         self.event_parser = EventParser(base_url="https://lms4.ui.ac.ir")
 
         self.active_domains: set[str] = set()
 
+    def _re_authenticate(self) -> bool:
+        """این تابع وقتی صدا زده می‌شود که سامانه بگوید نشست منقضی شده است."""
+        logger.info("🔄 در حال لاگین مجدد در پس‌زمینه...")
+        return self.auth.login(self.username, self.password)
+
     # === Login ===
 
     def login(self) -> bool:
-        success = self.auth.login(self.username, self.password)
+        # حالا از _re_authenticate استفاده می‌کنیم تا کد تکرار نشود
+        success = self._re_authenticate()
         if success:
             self.active_domains.add("lms4")
             logger.info("✅ Login به lms4 موفق")
-
-            # استخراج نام کاربر
             self._fetch_full_name()
-
         return success
 
     def _fetch_full_name(self) -> None:
