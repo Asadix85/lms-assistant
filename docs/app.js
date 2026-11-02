@@ -203,17 +203,17 @@ $("#login-form").addEventListener("submit", async (e) => {
 });
 
 const logoutBtn = $("#btn-logout");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    if (window.DEMO_DATA) {
-      toast("⚠️ این یک نسخه نمایشی است. برای لاگین به نسخه اصلی بروید.");
-      return;
-    }
-    await api("/auth/logout", { method: "POST" });
-    toast("از حساب خارج شدید");
-    refreshUserBox();
-  });
-}
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      if (window.DEMO_DATA) {
+        toast("⚠️ این یک نسخه نمایشی است.");
+        return;
+      }
+      await api("/auth/logout", { method: "POST" });
+      toast("از حساب خارج شدید");
+      refreshUserBox();
+    });
+  }
 
 // ============================================================
 // DEMO MODE: مدیریت دکمه ورود
@@ -275,6 +275,64 @@ $("#btn-sync").addEventListener("click", async () => {
     setSyncButton(false);
   }
 });
+
+// ۱. نگاشت نام درس‌ها (کش)
+let _courseNames = null;
+async function courseNameMap() {
+  if (_courseNames) return _courseNames;
+  try {
+    const cs = await api("/courses");
+    _courseNames = Object.fromEntries(cs.map((c) => [c.id, c.name]));
+  } catch (_) {
+    _courseNames = {};
+  }
+  return _courseNames;
+}
+
+// ۲. متادیتای انواع رویدادها
+const EVENT_TYPES = {
+  exam: { icon: "📝", label: "آزمون", cls: "badge-warn", chipCls: "t-exam" },
+  deadline: { icon: "⏰", label: "ددلاین", cls: "badge-expired", chipCls: "t-deadline" },
+  live_session: { icon: "🎥", label: "جلسه آنلاین", cls: "badge-info", chipCls: "t-live" },
+  announcement: { icon: "📢", label: "اطلاعیه", cls: "badge-new", chipCls: "t-ann" },
+  unknown: { icon: "📅", label: "رویداد", cls: "", chipCls: "t-other" },
+};
+function eventMeta(type) {
+  return EVENT_TYPES[type] || EVENT_TYPES.unknown;
+}
+
+// ۳. جستجو و فیلتر (برای صفحات لیستی)
+let filterQuery = "";
+let renderFilteredList = null;
+
+function searchBox(placeholder) {
+  return `<div class="search-box">
+    <span class="search-ico">🔍</span>
+    <input id="filter-input" type="search" placeholder="${esc(placeholder)}" value="${esc(filterQuery)}" />
+  </div>`;
+}
+
+document.addEventListener("input", (e) => {
+  if (e.target && e.target.id === "filter-input" && renderFilteredList) {
+    filterQuery = e.target.value;
+    renderFilteredList(filterQuery);
+  }
+});
+
+function attachFilter(items, renderFn) {
+  renderFilteredList = (q) => {
+    const s = (q || "").trim().toLowerCase();
+    const filtered = s ? items.filter((it) => renderFn.searchText(it).includes(s)) : items;
+    renderFn.render(filtered);
+  };
+  renderFilteredList(filterQuery);
+}
+
+// ۴. هدر صفحه
+function pageHead(title, desc) {
+  return `<div class="page-head"><div>
+    <h3>${title}</h3>${desc ? `<p>${desc}</p>` : ""}</div></div>`;
+}
 
 function listenSyncEvents() {
   if (eventSource) eventSource.close();
