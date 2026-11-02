@@ -1,10 +1,14 @@
 {
   "notified_assignments": [
-    "37700",
     "38875",
-    "38924"
+    "37786",
+    "38924",
+    "37700"
   ],
   "notified_quera": [],
-  "notified_posts": [],
+  "notified_posts": [
+    "6b0dfb2ae63cd338",
+    "cb079b03c76ea451"
+  ],
   "notified_events": []
 }
