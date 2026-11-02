@@ -270,6 +270,18 @@ function listenSyncEvents() {
     finish("❌ خطا: " + msg);
   });
 
+  // ============================================================
+// DEMO MODE: مدیریت دکمه ورود
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  const demoBtn = document.getElementById('btn-demo-login');
+  if (demoBtn) {
+    demoBtn.addEventListener('click', () => {
+      toast("⚠️ این یک نسخه نمایشی است. برای ورود به حساب خود، از دکمه «ورود به نسخه اصلی» در بالای صفحه استفاده کنید.");
+    });
+  }
+});
+
   eventSource.onerror = () => {
     setTimeout(async () => {
       const st = await api("/sync/status");
