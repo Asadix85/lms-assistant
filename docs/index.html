@@ -2,171 +2,361 @@
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>دستیار LMS - نسخه نمایشی (Demo)</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" />
-
-  <style>
-    /* ===== استایل‌های پایه (شیشه‌ای) ===== */
-    :root {
-      --primary: #2AA6A3;
-      --primary-dark: #1E807E;
-      --primary-soft: rgba(42, 166, 163, 0.15);
-      --bg: #0A1212;
-      --glass-bg: rgba(28, 38, 38, 0.7);
-      --glass-border: rgba(255, 255, 255, 0.1);
-      --text: #FFFFFF;
-      --text-muted: #8E8E93;
-      --danger: #FF3B30;
-      --warning: #FF9500;
-      --info: #2AA6A3;
-    }
-    body {
-      font-family: 'Vazirmatn', Tahoma, sans-serif;
-      background: linear-gradient(135deg, #0A1212 0%, #1C2626 100%);
-      color: var(--text);
-      min-height: 100vh;
-      margin: 0;
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      overflow-x: hidden;
-    }
-    .container { max-width: 1000px; width: 100%; }
-
-    /* ===== کارت‌های شیشه‌ای ===== */
-    .glass-card {
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      padding: 2rem;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      margin-bottom: 2rem;
-    }
-
-    /* ===== هدر ===== */
-    header { text-align: center; margin-bottom: 3rem; }
-    h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; color: var(--primary); }
-    p.subtitle { font-size: 1.2rem; color: var(--text-muted); margin-bottom: 2rem; }
-    .btn {
-      display: inline-block;
-      padding: 1rem 2rem;
-      background: var(--primary);
-      color: white;
-      text-decoration: none;
-      border-radius: 999px;
-      font-weight: 700;
-      font-size: 1.1rem;
-      transition: all 0.2s;
-      box-shadow: 0 4px 15px var(--primary-soft);
-    }
-    .btn:hover { background: var(--primary-dark); transform: translateY(-2px); }
-
-    /* ===== پیش‌نمایش داشبورد ===== */
-    .demo-dashboard {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
-    }
-    .demo-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 1.5rem;
-    }
-    .demo-card h3 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--primary); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; }
-
-    /* شبیه‌سازی تکالیف و رویدادها */
-    .list-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.8rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .list-item:last-child { border-bottom: none; }
-    .item-title { font-weight: 600; }
-    .badge { padding: 0.2rem 0.6rem; border-radius: 8px; font-size: 0.8rem; font-weight: 700; }
-    .badge-danger { background: rgba(255, 59, 48, 0.2); color: var(--danger); }
-    .badge-warning { background: rgba(255, 149, 0, 0.2); color: var(--warning); }
-    .badge-info { background: rgba(42, 166, 163, 0.2); color: var(--info); }
-
-    /* ===== فوتر ===== */
-    footer { text-align: center; margin-top: 4rem; color: var(--text-muted); font-size: 0.9rem; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" />
+  <title>دستیار LMS — نسخه وب</title>
+  <link rel="icon" type="image/png" href="/static/img/ui-logo.png" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
-<body>
+<body data-theme="light">
 
-  <div class="container">
-    <header>
-      <h1>👋 به دستیار LMS خوش آمدید</h1>
-      <p class="subtitle">یک تجربه‌ی متفاوت از مدیریت دروس، تکالیف و کلاس‌های آنلاین</p>
-      <a href="https://your-real-site.com" class="btn">ورود به نسخه اصلی و شروع</a>
+  <!-- ===== Backdrop موبایل ===== -->
+  <div id="backdrop" class="backdrop hidden"></div>
+
+  <!-- ===== Sidebar ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><img src="/static/img/ui-logo.png" alt="لوگوی دانشگاه اصفهان" /></span>
+      <div class="brand-text">
+        <h1>دستیار LMS</h1>
+        <small>دانشگاه اصفهان</small>
+      </div>
+      <button id="btn-close-sidebar" class="btn btn-ghost btn-icon" title="بستن منو" aria-label="بستن منو">✕</button>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group">
+        <span class="nav-label">نمای کلی</span>
+        <a href="#/" data-page="dashboard" class="nav-item active">
+          <span class="nav-icon">▦</span><span class="nav-text">داشبورد</span>
+        </a>
+        <a href="#/courses" data-page="courses" class="nav-item">
+          <span class="nav-icon">▤</span><span class="nav-text">درس‌ها</span>
+        </a>
+        <a href="#/assignments" data-page="assignments" class="nav-item">
+          <span class="nav-icon">✎</span><span class="nav-text">تکالیف</span>
+          <span class="nav-badge hidden" data-badge="pending">۰</span>
+        </a>
+        <a href="#/calendar" data-page="calendar" class="nav-item">
+          <span class="nav-icon">▣</span><span class="nav-text">تقویم</span>
+        </a>
+        <a href="#/map" data-page="map" class="nav-item">
+          <span class="nav-icon">🗺</span><span class="nav-text">نقشه</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-label">گفتگو و محتوا</span>
+        <a href="#/posts" data-page="posts" class="nav-item">
+          <span class="nav-icon">◉</span><span class="nav-text">پیام‌های وال</span>
+          <span class="nav-badge hidden" data-badge="posts">۰</span>
+        </a>
+        <a href="#/contents" data-page="contents" class="nav-item">
+          <span class="nav-icon">▧</span><span class="nav-text">محتواها</span>
+        </a>
+        <a href="#/changes" data-page="changes" class="nav-item">
+          <span class="nav-icon">↻</span><span class="nav-text">تغییرات</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <span class="nav-label">سایر</span>
+        <a href="#/more" data-page="more" class="nav-item">
+          <span class="nav-icon">☰</span><span class="nav-text">سایر امکانات</span>
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button id="btn-sync" class="btn btn-primary btn-block btn-sync">
+        <span class="sync-spinner hidden"></span>
+        <span class="btn-sync-label">🔄 همگام‌سازی</span>
+      </button>
+      <div id="sync-progress" class="sync-progress hidden">
+        <div class="progress-track"><div id="sync-bar" class="progress-bar"></div></div>
+        <small id="sync-label">در حال آماده‌سازی…</small>
+      </div>
+            <div class="user-box" id="user-box" style="background: transparent; border: none; box-shadow: none; padding: 0;">
+        <!-- 👇 دکمه ورود سبز رنگ -->
+        <button id="btn-demo-login" class="btn btn-block" style="
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+          border: none;
+          border-radius: 20px;
+          padding: 0.8rem 1rem;
+          font-weight: 700;
+          font-size: 0.95rem;
+          box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          transition: all 0.2s;
+        ">
+          <span style="font-size: 1.2rem;">🔐</span>
+          ورود با حساب LMS
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== Main ===== -->
+  <main class="main">
+    <header class="topbar">
+      <button id="btn-menu" class="btn btn-ghost btn-icon" title="منو" aria-label="منو">☰</button>
+      <div class="topbar-title">
+        <h2 id="page-title">داشبورد</h2>
+        <span id="page-subtitle" class="muted"></span>
+      </div>
+      <span class="spacer"></span>
+      <div class="sync-status-pill hidden" id="sync-status-pill" title="همگام‌سازی در حال اجرا">
+        <span class="pulse-dot"></span><span>در حال همگام‌سازی</span>
+      </div>
+      <button id="btn-sync-m" class="btn btn-ghost btn-icon mobile-only" title="همگام‌سازی" aria-label="همگام‌سازی">🔄</button>
+      <button id="btn-logout-m" class="btn btn-ghost btn-icon mobile-only" title="خروج" aria-label="خروج">⏻</button>
+      <button id="btn-theme" class="btn btn-ghost btn-icon" title="تغییر تم" aria-label="تغییر تم">🌙</button>
     </header>
+<!-- ===== Mobile "More" page (فقط موبایل، فقط #/more) ===== -->
+<section class="mobile-more" id="mobile-more" aria-label="سایر امکانات">
+  <h2 class="mm-title">سایر امکانات</h2>
 
-    <!-- بخش معرفی -->
-    <div class="glass-card" style="text-align: center;">
-      <h2 style="margin-bottom: 1rem; color: var(--primary);">✨ چه کارهایی می‌توانید انجام دهید؟</h2>
-      <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 1rem;">
-        <div><span style="font-size: 2rem;">📚</span><p>مدیریت دروس</p></div>
-        <div><span style="font-size: 2rem;">📝</span><p>پیگیری تکالیف</p></div>
-        <div><span style="font-size: 2rem;">🎥</span><p>ورود به کلاس آنلاین</p></div>
-        <div><span style="font-size: 2rem;">📅</span><p>تقویم هوشمند</p></div>
-      </div>
+  <div class="mm-user" id="mm-user" role="button" tabindex="0">
+    <span class="avatar" id="mm-avatar">؟</span>
+    <div class="user-meta">
+      <span id="mm-name">کاربر مهمان</span>
+      <small id="mm-status">وارد نشده</small>
     </div>
-
-    <!-- پیش‌نمایش تعاملی (داده‌های تستی) -->
-    <div class="glass-card">
-      <h2 style="text-align: center; margin-bottom: 2rem;">👀 یک پیش‌نمایش از داشبورد شما</h2>
-      <div class="demo-dashboard">
-
-        <!-- ستون تکالیف -->
-        <div class="demo-card">
-          <h3>📝 تکالیف نزدیک</h3>
-          <div class="list-item">
-            <span class="item-title">تمرین سری اول</span>
-            <span class="badge badge-danger">۲ روز مانده</span>
-          </div>
-          <div class="list-item">
-            <span class="item-title">پروژه میان‌ترم</span>
-            <span class="badge badge-warning">فردا</span>
-          </div>
-        </div>
-
-        <!-- ستون رویدادها -->
-        <div class="demo-card">
-          <h3>🎥 جلسات آنلاین امروز</h3>
-          <div class="list-item">
-            <span class="item-title">مدارهای الکتریکی</span>
-            <span class="badge badge-info">۱۴:۰۰</span>
-          </div>
-          <div class="list-item">
-            <span class="item-title">آمار و احتمال</span>
-            <span class="badge badge-info">۱۶:۰۰</span>
-          </div>
-        </div>
-
-        <!-- ستون پیام‌ها -->
-        <div class="demo-card">
-          <h3>💬 آخرین پیام‌ها</h3>
-          <div class="list-item">
-            <span class="item-title">دکتر محمدی: سلام به همه...</span>
-          </div>
-          <div class="list-item">
-            <span class="item-title">تغییر ساعت کلاس فردا</span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <footer>
-      ساخته شده با ❤️ برای دانشجویان دانشگاه اصفهان | <a href="https://github.com/your-repo" style="color: var(--primary);">مشاهده سورس کد</a>
-    </footer>
+    <button type="button" class="btn btn-primary btn-sm" id="mm-sync">🔄 همگام‌سازی</button>
   </div>
 
+  <div class="mm-grid">
+    <a href="#/courses" class="mm-tile" style="--c:#2563eb">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/></svg></span>
+      <span class="mm-label">درس‌ها</span>
+      <small>لیست درس‌های ترم</small>
+    </a>
+    <a href="#/assignments" class="mm-tile" style="--c:#e11d48">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="3"/><path d="M9 4.5h6M9 11h6M9 15h4"/></svg></span>
+      <span class="mm-label">تکالیف</span>
+      <small>مهلت‌ها و وضعیت</small>
+      <span class="nav-badge hidden" data-badge="pending">۰</span>
+    </a>
+    <a href="#/posts" class="mm-tile" style="--c:#0f9f6e">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 0 1-11.7 7.1L4 20l1-3.9A8 8 0 1 1 20 12z"/><path d="M9 11h6M9 14h4"/></svg></span>
+      <span class="mm-label">پیام‌های وال</span>
+      <small>گفتگو و اطلاعیه‌ها</small>
+      <span class="nav-badge hidden" data-badge="posts">۰</span>
+    </a>
+    <a href="#/contents" class="mm-tile" style="--c:#d97706">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.5l2 2.5H18A2.5 2.5 0 0 1 20.5 10v7A2.5 2.5 0 0 1 18 19.5H6A2.5 2.5 0 0 1 3.5 17z"/></svg></span>
+      <span class="mm-label">محتواها</span>
+      <small>جزوه‌ها و فایل‌ها</small>
+    </a>
+    <a href="#/changes" class="mm-tile" style="--c:#0284c7">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14-4.5L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4.5L20 15"/><path d="M20 20v-5h-5"/></svg></span>
+      <span class="mm-label">تغییرات</span>
+      <small>آخرین به‌روزرسانی‌ها</small>
+    </a>
+    <a href="#/map" class="mm-tile" style="--c:#2563eb">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+      <span class="mm-label">نقشه</span>
+      <small>مکان‌های کلاس</small>
+    </a>
+    <a href="#/quera" class="mm-tile" style="--c:#d97706">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      <span class="mm-label">کوئرا</span>
+      <small>مدیریت تمرین‌ها</small>
+    </a>
+    <a href="#/settings" class="mm-tile" style="--c:#6b7280">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      <span class="mm-label">تنظیمات</span>
+      <small>پیکربندی همگام‌سازی</small>
+    </a>
+    <a href="#/about" class="mm-tile" style="--c:#2563eb">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+      <span class="mm-label">درباره ما</span>
+      <small>درباره پروژه و سازنده</small>
+    </a>
+  </div>
+</section>
+
+    <section id="content" class="content" aria-live="polite">
+      <div class="skeleton-grid" id="boot-loading">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Login Modal ===== -->
+  <div id="login-modal" class="modal-overlay hidden">
+    <div class="modal modal-auth" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <button class="modal-close" data-close="login-modal" aria-label="بستن">✕</button>
+      <div class="modal-head">
+        <img class="modal-logo" src="/static/img/ui-logo.png" alt="لوگوی دانشگاه اصفهان" />
+        <h3 id="login-title">ورود به حساب کاربری</h3>
+        <p class="muted">اطلاعات حساب LMS دانشگاه (و اختیاری کوئرا) را وارد کنید.</p>
+      </div>
+      <form id="login-form">
+        <div class="field">
+          <label for="lms-username">شماره دانشجویی (LMS)</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="lms-username" required autocomplete="username" placeholder="مثلاً ۴۰۰۱۲۳۴۵" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="lms-password">رمز عبور (LMS)</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="lms-password" required autocomplete="current-password" placeholder="رمز عبور" />
+            <button type="button" class="input-eye" data-toggle="lms-password" aria-label="نمایش رمز">👁</button>
+          </div>
+        </div>
+
+        <div class="divider"><span>کوئرا (اختیاری)</span></div>
+
+        <div class="field">
+          <label for="quera-username">نام کاربری کوئرا</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="quera-username" autocomplete="username" placeholder="ایمیل یا نام کاربری" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="quera-password">رمز عبور کوئرا</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="quera-password" autocomplete="current-password" placeholder="رمز عبور" />
+            <button type="button" class="input-eye" data-toggle="quera-password" aria-label="نمایش رمز">👁</button>
+          </div>
+        </div>
+
+        <div id="login-error" class="error-banner hidden"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary btn-block" id="btn-login-submit">ورود</button>
+        </div>
+      </form>
+      <p class="modal-foot muted">رمز عبور شما فقط برای همگام‌سازی محلی ذخیره می‌شود.</p>
+    </div>
+  </div>
+
+  <!-- ===== Bottom Nav (mobile) ===== -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="ناوبری اصلی">
+    <span class="bn-indicator" aria-hidden="true"></span>
+
+    <a href="#/" data-page="dashboard" class="nav-item bn-item active">
+      <span class="bn-ico">
+        <svg class="bn-svg outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
+        <svg class="bn-svg solid" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="2.4"/><rect x="13" y="3" width="8" height="8" rx="2.4"/><rect x="3" y="13" width="8" height="8" rx="2.4"/><rect x="13" y="13" width="8" height="8" rx="2.4"/></svg>
+      </span>
+      <span class="bn-label" data-label="داشبورد">داشبورد</span>
+    </a>
+
+    <a href="#/calendar" data-page="calendar" class="nav-item bn-item">
+      <span class="bn-ico">
+        <svg class="bn-svg outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="4"/><path d="M8 3v4M16 3v4M3.5 10.5h17"/></svg>
+        <svg class="bn-svg solid" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7.5 5h9a4 4 0 0 1 4 4v7.5a4 4 0 0 1-4 4h-9a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4zM8 12.5a1.5 1.5 0 0 0-1.5 1.5v2A1.5 1.5 0 0 0 8 17.5h8a1.5 1.5 0 0 0 1.5-1.5v-2A1.5 1.5 0 0 0 16 12.5z"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>
+      </span>
+      <span class="bn-label" data-label="تقویم">تقویم</span>
+    </a>
+
+    <a href="#/map" data-page="map" class="nav-item bn-item">
+      <span class="bn-ico">
+        <svg class="bn-svg outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+        <svg class="bn-svg solid" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21zM12 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>
+      </span>
+      <span class="bn-label" data-label="نقشه">نقشه</span>
+    </a>
+
+    <a href="#/more" data-page="more" class="nav-item bn-item">
+      <span class="bn-ico">
+        <svg class="bn-svg outline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></svg>
+        <svg class="bn-svg solid" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.2" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="18.8" cy="12" r="2.2"/></svg>
+      </span>
+      <span class="bn-label" data-label="سایر">سایر</span>
+    </a>
+  </nav>
+
+  <!-- ===== Toast ===== -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const mq = window.matchMedia('(max-width: 900px)');
+
+    /* ---------- دکمه‌های کپسول بالای موبایل ---------- */
+    $('btn-sync-m')?.addEventListener('click', () => $('btn-sync')?.click());
+    $('btn-logout-m')?.addEventListener('click', () => $('btn-logout')?.click());
+
+    /* ---------- نوار پایین: آیتم فعال + حباب لغزان ---------- */
+    const nav = $('bottom-nav');
+    const items = [...document.querySelectorAll('#bottom-nav .bn-item')];
+    const routes = ['/', '/calendar', '/map', '/more'];
+
+    const curPath = () => (location.hash || '#/').replace(/^#/, '') || '/';
+    const indexOfPath = (h) => {
+      const i = routes.findIndex((p) => (p === '/' ? h === '/' : h === p || h.startsWith(p + '/')));
+      return i < 0 ? 3 : i;            // هر صفحه‌ی دیگر ← زیرمجموعه‌ی «سایر»
+    };
+
+    function syncActive() {
+      const idx = indexOfPath(curPath());
+      items.forEach((a, i) => a.classList.toggle('active', i === idx));
+      nav?.style.setProperty('--i', idx);
+    }
+
+    /* ---------- انیمیشن تغییر صفحه ---------- */
+    const targets = [$('content'), $('mobile-more')];
+    const classes = ['pg-from-left', 'pg-from-right', 'pg-fade'];
+    let prev = indexOfPath(curPath());
+
+    function animatePage() {
+      const next = indexOfPath(curPath());
+      // RTL: آیتم‌های بعدی سمت چپ‌اند ← صفحه‌ی جدید از چپ وارد می‌شود
+      const cls = next > prev ? 'pg-from-left' : next < prev ? 'pg-from-right' : 'pg-fade';
+      prev = next;
+      if (!mq.matches) return;
+      targets.forEach((el) => {
+        if (!el) return;
+        el.classList.remove(...classes);
+        void el.offsetWidth;            // ری‌استارت انیمیشن
+        el.classList.add(cls);
+      });
+      window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+    }
+    targets.forEach((el) => el?.addEventListener('animationend', () => el.classList.remove(...classes)));
+
+    /* ---------- نمایش بخش «سایر» فقط در #/more ---------- */
+    function routeFlag() {
+      const h = curPath();
+      document.body.classList.toggle('route-more', h === '/more' || h.startsWith('/more/'));
+    }
+
+    window.addEventListener('hashchange', () => { syncActive(); routeFlag(); animatePage(); });
+    syncActive();
+    routeFlag();
+
+    // لرزش خیلی سبک هنگام لمس (فقط اندروید)
+    items.forEach((a) => a.addEventListener('click', () => navigator.vibrate?.(8)));
+
+    /* ---------- کپی اطلاعات کاربر در صفحه‌ی «سایر» ---------- */
+    const pairs = [['user-name', 'mm-name'], ['user-status', 'mm-status'], ['user-avatar', 'mm-avatar']];
+    const mirror = () => pairs.forEach(([a, b]) => { const s = $(a), d = $(b); if (s && d) d.textContent = s.textContent; });
+    pairs.forEach(([a]) => {
+      const s = $(a);
+      if (s) new MutationObserver(mirror).observe(s, { childList: true, characterData: true, subtree: true });
+    });
+    mirror();
+
+    $('mm-user')?.addEventListener('click', () => $('user-box')?.click());
+    $('mm-sync')?.addEventListener('click', (e) => { e.stopPropagation(); $('btn-sync')?.click(); });
+  })();
+  </script>
+  <script src="/static/js/app.js"></script>
 </body>
 </html>

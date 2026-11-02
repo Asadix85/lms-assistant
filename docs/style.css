@@ -1,0 +1,2885 @@
+/* =========================================================================
+   LMS Assistant Web — Design System (RTL) · Liquid Glass Edition
+   ========================================================================= */
+
+/* ---------- Fonts (self-hosted Vazirmatn) ---------- */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/vazirmatn/fonts/webfonts/Vazirmatn-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/vazirmatn/fonts/webfonts/Vazirmatn-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/vazirmatn/fonts/webfonts/Vazirmatn-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/vazirmatn/fonts/webfonts/Vazirmatn-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+:root,
+[data-theme="light"] {
+  --bg: #fbfdff;
+  --surface: #ffffff;
+  --surface-2: rgba(255, 255, 255, 0.55);
+  --surface-3: rgba(120, 150, 190, 0.18);
+  --text: #11192a;
+  --muted: #5b6a80;
+  --faint: #8794aa;
+
+  --primary: #2563eb;
+  --primary-strong: #1d4ed8;
+  --primary-soft: rgba(37, 99, 235, 0.12);
+  --accent: #0f9f6e;
+  --accent-soft: rgba(15, 159, 110, 0.14);
+  --danger: #e11d48;
+  --danger-soft: rgba(225, 29, 72, 0.12);
+  --warning: #d97706;
+  --warning-soft: rgba(217, 119, 6, 0.14);
+  --info: #0284c7;
+  --info-soft: rgba(2, 132, 199, 0.13);
+
+  --border: rgba(255, 255, 255, 0.7);
+  --ring: rgba(37, 99, 235, 0.32);
+  --shadow-sm: 0 2px 10px rgba(30, 70, 140, 0.07);
+  --shadow: 0 8px 26px rgba(30, 70, 140, 0.12);
+  --shadow-lg: 0 20px 50px rgba(20, 50, 110, 0.22);
+  --radius: 26px;
+  --radius-sm: 18px;
+  --sidebar-w: 268px;
+  --switch-travel: 22px;
+
+  /* --- Liquid glass --- */
+  --glass-bg: rgba(255, 255, 255, 0.38);
+  --glass-bg-soft: rgba(255, 255, 255, 0.34);
+  --glass-bg-strong: rgba(255, 255, 255, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-hi: rgba(255, 255, 255, 0.95);
+  --glass-lo: rgba(255, 255, 255, 0.2);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, 0.18) 100%);
+  --glass-shadow: 0 6px 26px rgba(30, 80, 150, 0.08);
+  --glass-blur: blur(24px) saturate(190%);
+  --glass-blur-sm: blur(14px) saturate(170%);
+
+  /* --- Animated wallpaper (light: white / blue / green) --- */
+  --wall-1: #ffffff;
+  --wall-2: #f8fbff;
+  --wall-3: #edf5ff;
+  --wall-4: #eefaf4;
+  --wall-5: #ffffff;
+  --blob-a: rgba(59, 130, 246, 0.20);
+  --blob-b: rgba(16, 185, 129, 0.16);
+  --blob-c: rgba(56, 189, 248, 0.18);
+  --blob-d: rgba(255, 255, 255, 0.95);
+  --blob-e: rgba(110, 231, 183, 0.18);
+}
+
+[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0b0d11;
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-3: rgba(255, 255, 255, 0.12);
+  --text: #e7edf7;
+  --muted: #9aa8bd;
+  --faint: #6c7a92;
+
+  --primary: #5b8cff;
+  --primary-strong: #7aa2ff;
+  --primary-soft: rgba(91, 140, 255, 0.18);
+  --accent: #2dd4a7;
+  --accent-soft: rgba(45, 212, 167, 0.16);
+  --danger: #fb7185;
+  --danger-soft: rgba(251, 113, 133, 0.16);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.16);
+  --info: #38bdf8;
+  --info-soft: rgba(56, 189, 248, 0.16);
+
+  --border: rgba(255, 255, 255, 0.1);
+  --ring: rgba(91, 140, 255, 0.42);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 22px 56px rgba(0, 0, 0, 0.65);
+
+  --glass-bg: rgba(14, 17, 23, 0.52);
+  --glass-bg-soft: rgba(18, 22, 29, 0.46);
+  --glass-bg-strong: rgba(22, 27, 36, 0.74);
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-hi: rgba(255, 255, 255, 0.24);
+  --glass-lo: rgba(255, 255, 255, 0.03);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, 0.04) 100%);
+  --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+
+  /* --- Animated wallpaper (dark: black / blue / deep green) --- */
+  --wall-1: #000000;
+  --wall-2: #02050a;
+  --wall-3: #040b17;
+  --wall-4: #020f0b;
+  --wall-5: #000000;
+  --blob-a: rgba(30, 80, 200, 0.20);
+  --blob-b: rgba(5, 95, 70, 0.24);
+  --blob-c: rgba(14, 90, 140, 0.16);
+  --blob-d: rgba(60, 100, 220, 0.08);
+  --blob-e: rgba(6, 78, 59, 0.22);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 15px;
+  scroll-behavior: smooth;
+  background: var(--bg);
+}
+
+body {
+  font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+/* =========================================================================
+   Global Font Fix for Form Elements
+   ========================================================================= */
+button, input, select, textarea {
+  font-family: inherit !important;
+}
+/* ---------- Animated gradient wallpaper ---------- */
+/* لایه‌ی ۱: گرادیانت پایه که آرام جابه‌جا می‌شود */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background: linear-gradient(125deg, var(--wall-1), var(--wall-2), var(--wall-3), var(--wall-4), var(--wall-5), var(--wall-2));
+  background-size: 320% 320%;
+  animation: wall-shift 30s ease-in-out infinite alternate;
+}
+/* لایه‌ی ۲: لکه‌های نوری شناور (aurora) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(28% 24% at 22% 26%, var(--blob-a), transparent 70%),
+    radial-gradient(24% 21% at 78% 20%, var(--blob-c), transparent 70%),
+    radial-gradient(30% 26% at 70% 78%, var(--blob-b), transparent 70%),
+    radial-gradient(22% 20% at 18% 80%, var(--blob-e), transparent 70%),
+    radial-gradient(26% 24% at 50% 48%, var(--blob-d), transparent 70%);
+  will-change: transform;
+  animation: wall-float 38s ease-in-out infinite alternate;
+}
+@keyframes wall-shift {
+  0%   { background-position: 0% 40%; }
+  100% { background-position: 100% 60%; }
+}
+@keyframes wall-float {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50%  { transform: translate3d(3%, -2%, 0) rotate(8deg) scale(1.08); }
+  100% { transform: translate3d(-3%, 3%, 0) rotate(-6deg) scale(1.16); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body::before, body::after { animation: none; }
+}
+
+::selection { background: var(--primary); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}/* =========================================================================
+   Liquid Glass Scrollbar (Ultimate Edition - Fixed Sidebar)
+   ========================================================================= */
+
+/* 👇 ۱. حذف کامل و بدون باگ اسکرول‌بار از سایدبار */
+.sidebar {
+  scrollbar-width: none; /* فایرفاکس */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.sidebar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+/* در صورت نیاز، حذف پس‌زمینه اسکرول‌بار داخلی سایدبار */
+.sidebar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+/* 👇 ۲. ابعاد اسکرول‌بار اصلی صفحه */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+/* 👇 ۳. پس‌زمینه اسکرول‌بار صفحه اصلی (بدون خط جداکننده اضافی) */
+::-webkit-scrollbar-track {
+  background: var(--bg) !important;
+  border: none !important; /* حذف خط جداکننده که باعث ناهماهنگی می‌شد */
+}
+
+/* 👇 ۴. دستگیره شیشه‌ای (Thumb) */
+::-webkit-scrollbar-thumb {
+  /* گرادیانت برای ایجاد حس براقیت و شیشه */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    color-mix(in srgb, var(--primary) 40%, transparent) 50%,
+    rgba(0, 0, 0, 0.1) 100%
+  ) !important;
+
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(150%);
+
+  border-radius: 99px;
+  /* استفاده از حاشیه شفاف برای ایجاد حالت شناور */
+  border: 4px solid transparent !important;
+  background-clip: padding-box !important;
+
+  transition: all 0.2s ease;
+}
+
+/* هاور روی دستگیره */
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    var(--primary) 50%,
+    rgba(0, 0, 0, 0.2) 100%
+  ) !important;
+  border-width: 2px !important; /* نازک‌تر شدن حاشیه در هاور */
+}
+
+/* 👇 ۵. حذف دکمه‌های بالا و پایین */
+::-webkit-scrollbar-button {
+  display: none !important;
+}
+
+/* ---------- Utilities ---------- */
+.hidden { display: none !important; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.spacer { flex: 1; }
+
+/* =========================================================================
+   Glass surfaces (shared)
+   ========================================================================= */
+.sidebar,
+.topbar,
+.card,
+.course-card,
+.search-box,
+.user-box,
+.modal,
+.toast {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo);
+}
+
+/* =========================================================================
+   Sidebar
+   ========================================================================= */
+.sidebar {
+  width: var(--sidebar-w);
+  margin: 0.75rem;
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.1rem 0.9rem 1rem;
+  position: sticky;
+  top: 0.75rem;
+  align-self: flex-start;
+  height: calc(100vh - 1.5rem);
+  height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  z-index: 40;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.3rem 0.4rem 0.9rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+.brand-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--glass-hi);
+  box-shadow: 0 6px 16px var(--ring), inset 0 1px 0 #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 4px;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 9px;
+  display: block;
+}
+.brand-text { line-height: 1.25; min-width: 0; }
+.brand h1 { font-size: 1.05rem; font-weight: 700; }
+.brand small { color: var(--muted); font-size: 0.75rem; }
+#btn-close-sidebar { display: none; margin-inline-start: auto; }
+
+.nav { display: flex; flex-direction: column; gap: 0.85rem; flex: 1; overflow-y: auto; }
+
+.nav-group { display: flex; flex-direction: column; gap: 0.18rem; }
+.nav-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--faint);
+  letter-spacing: 0.02em;
+  padding: 0 0.55rem;
+  margin-bottom: 0.15rem;
+  text-transform: uppercase;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.58rem 0.72rem;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 500;
+  position: relative;
+  border: 1px solid transparent;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.nav-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  color: var(--muted);
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.nav-text { flex: 1; }
+.nav-item:hover {
+  background: var(--glass-bg-strong);
+  border-color: var(--glass-border);
+}
+.nav-item.active {
+  background: color-mix(in srgb, var(--primary) 16%, var(--glass-bg-strong));
+  border-color: var(--glass-hi);
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 4px 14px var(--ring);
+  color: var(--primary);
+  font-weight: 600;
+}
+.nav-item.active .nav-icon { color: var(--primary); }
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 22px;
+  border-radius: 0 4px 4px 0;
+  background: var(--primary);
+  box-shadow: 0 0 12px var(--primary);
+}
+
+.nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.45);
+}
+
+.sidebar-footer { display: flex; flex-direction: column; gap: 0.6rem; padding-top: 0.7rem; border-top: 1px solid var(--glass-border); }
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  background-color: var(--glass-bg-soft);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 3px 10px var(--ring);
+}
+.user-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.user-meta span { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-meta small { color: var(--muted); font-size: 0.7rem; }
+
+/* =========================================================================
+   Buttons
+   ========================================================================= */
+.btn {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 1rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, filter 0.2s, transform 0.06s, box-shadow 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--primary) 92%, #fff),
+    var(--primary-strong));
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+  box-shadow: 0 8px 22px var(--ring), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-ghost { background: transparent; color: var(--text); }
+.btn-ghost:hover { background: var(--glass-bg-strong); border-color: var(--glass-border); }
+.btn-soft {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+}
+.btn-soft:hover { filter: brightness(1.05); }
+.btn-danger { background: var(--danger); color: #fff; box-shadow: 0 6px 18px rgba(225, 29, 72, 0.35); }
+.btn-outline {
+  background: var(--glass-bg-soft);
+  border-color: var(--glass-border);
+  color: var(--text);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+.btn-outline:hover { background: var(--glass-bg-strong); }
+
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+.btn-block { width: 100%; }
+.btn-icon { padding: 0.5rem; width: 38px; height: 38px; font-size: 1.05rem; }
+
+.btn-sync { font-weight: 600; }
+.sync-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* =========================================================================
+   Main / Topbar
+   ========================================================================= */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1.5rem;
+  border-radius: 0;
+  border-top: none;
+  border-inline: none;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.topbar-title { display: flex; flex-direction: column; line-height: 1.25; }
+.topbar h2 { font-size: 1.12rem; font-weight: 700; }
+.topbar .muted { font-size: 0.75rem; }
+#btn-menu { display: none; }
+
+.sync-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+}
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.content {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* =========================================================================
+   Page header inside content
+   ========================================================================= */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-head h3 { font-size: 1.3rem; font-weight: 700; }
+.page-head p { color: var(--muted); font-size: 0.88rem; margin-top: 0.2rem; }
+
+/* =========================================================================
+   Cards & Stats
+   ========================================================================= */
+.card {
+  border-radius: var(--radius);
+  padding: 1.15rem 1.25rem;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+.section-title { font-size: 0.98rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+.card-link { color: var(--primary); font-size: 0.8rem; text-decoration: none; font-weight: 600; }
+.card-link:hover { text-decoration: underline; }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.9rem;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -24px;
+  top: -24px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--stat-bg, var(--primary-soft));
+  opacity: 0.7;
+}
+.stat-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  background: var(--stat-bg, var(--primary-soft));
+  color: var(--stat-color, var(--primary));
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+.stat-value { font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
+.stat-label { color: var(--muted); font-size: 0.8rem; }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
+.grid-2 > .card { min-width: 0; }
+
+/* =========================================================================
+   Lists / Rows  (داخل کارت‌ها هستند؛ بدون blur جداگانه)
+   ========================================================================= */
+.item-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-soft);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.12s, background 0.2s;
+}
+.list-row:hover {
+  border-color: var(--primary);
+  background: var(--glass-bg-strong);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--glass-hi);
+  transform: translateY(-1px);
+}
+.row-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  background: var(--surface-2);
+  border: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+.row-body { flex: 1; min-width: 0; }
+.row-title { font-weight: 600; font-size: 0.94rem; line-height: 1.4; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.row-title a { color: var(--text); text-decoration: none; }
+.row-title a:hover { color: var(--primary); text-decoration: underline; }
+.row-meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.28rem; display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; }
+.row-meta .sep { color: var(--faint); }
+.row-actions { flex-shrink: 0; display: flex; gap: 0.4rem; align-items: center; }
+
+/* =========================================================================
+   Badges & Chips
+   ========================================================================= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.14rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.badge-new { background: var(--accent-soft); color: var(--accent); }
+.badge-expired { background: var(--danger-soft); color: var(--danger); }
+.badge-done { background: var(--surface-3); color: var(--faint); }
+.badge-domain { background: var(--primary-soft); color: var(--primary); }
+.badge-warn { background: var(--warning-soft); color: var(--warning); }
+.badge-info { background: var(--info-soft); color: var(--info); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--glass-bg-soft);
+  color: var(--muted);
+  font-size: 0.76rem;
+  border: 1px solid var(--glass-border);
+}
+
+/* =========================================================================
+   Empty / Error
+   ========================================================================= */
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 2.6rem 1.2rem;
+  border: 1.5px dashed color-mix(in srgb, var(--faint) 55%, transparent);
+  border-radius: var(--radius);
+  background: var(--glass-bg-soft);
+}
+.empty .empty-icon { font-size: 2rem; display: block; margin-bottom: 0.6rem; }
+.empty small { color: var(--faint); display: block; margin-top: 0.3rem; }
+
+/* =========================================================================
+   Sync progress
+   ========================================================================= */
+.sync-progress { display: flex; flex-direction: column; gap: 0.4rem; }
+.progress-track {
+  height: 8px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 999px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 12px var(--ring);
+}
+.sync-progress small { color: var(--muted); font-size: 0.75rem; }
+
+/* =========================================================================
+   Skeleton
+   ========================================================================= */
+.skeleton-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem; }
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+}
+.skeleton-card { height: 96px; }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);
+  background: linear-gradient(90deg, transparent, var(--glass-hi), transparent);
+  opacity: 0.5;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(-100%); } }
+
+/* =========================================================================
+   Modal
+   ========================================================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 14, 30, 0.38);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 1rem;
+  animation: fade-in 0.18s ease;
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background-color: var(--glass-bg-strong);
+  border-radius: 22px;
+  padding: 1.6rem;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+  box-shadow: var(--shadow-lg), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-lo);
+  animation: pop-in 0.22s ease;
+}
+@keyframes pop-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.modal-close {
+  position: absolute;
+  top: 0.9rem;
+  inset-inline-end: 0.9rem;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.modal-close:hover { background: var(--glass-bg-strong); }
+
+.modal-head { display: flex; flex-direction: column; gap: 0.45rem; padding-inline-end: 2rem; }
+.modal-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--glass-hi);
+  border-radius: 15px;
+  padding: 6px;
+  box-shadow: var(--shadow-sm);
+}
+.modal-head h3 { font-size: 1.15rem; font-weight: 700; }
+.modal-head p { font-size: 0.83rem; }
+
+.modal form { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field label { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-icon {
+  position: absolute;
+  inset-inline-start: 0.8rem;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.input-wrap input {
+  width: 100%;
+  padding: 0.62rem 2.4rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-soft);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.input-wrap input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--glass-bg-strong);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+.input-wrap input::placeholder { color: var(--faint); }
+
+.input-eye {
+  position: absolute;
+  inset-inline-end: 0.6rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  opacity: 0.6;
+  padding: 0.2rem;
+}
+.input-eye:hover { opacity: 1; }
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--faint);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--glass-border); }
+
+.error-banner {
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.82rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  line-height: 1.5;
+}
+.modal-actions { margin-top: 0.2rem; }
+.modal-foot { font-size: 0.72rem; text-align: center; }
+
+/* =========================================================================
+   Toast
+   ========================================================================= */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  inset-inline-start: 1.5rem;
+  background-color: var(--glass-bg-strong);
+  color: var(--text);
+  padding: 0.8rem 1.2rem;
+  border-radius: var(--radius-sm);
+  z-index: 100;
+  animation: toast-in 0.25s ease;
+  max-width: 340px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+@keyframes toast-in {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* =========================================================================
+   Backdrop (mobile)
+   ========================================================================= */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 14, 30, 0.4);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 35;
+}
+
+/* =========================================================================
+   Settings / Switch
+   ========================================================================= */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--glass-border);
+  gap: 1rem;
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-row .setting-info { display: flex; flex-direction: column; gap: 0.15rem; }
+.setting-row .setting-info small { color: var(--muted); font-size: 0.74rem; }
+
+.switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-3);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  inset-inline-start: 2px;
+  top: 2px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+.switch input:checked + .slider { background: var(--primary); border-color: var(--primary); }
+.switch input:checked + .slider::before { transform: translateX(var(--switch-travel)); }
+
+/* =========================================================================
+   Progress ring (Quera / assignments)
+   ========================================================================= */
+.ring {
+  --p: 0;
+  --size: 44px;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: conic-gradient(var(--primary) calc(var(--p) * 1%), var(--surface-3) 0);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.ring::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.ring span {
+  position: relative;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* =========================================================================
+   Search box
+   ========================================================================= */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.85rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-box:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring), inset 0 1px 0 var(--glass-hi);
+}
+.search-ico { color: var(--muted); font-size: 0.95rem; }
+.search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.45rem 0;
+}
+.search-box input:focus { outline: none; }
+.search-box input::placeholder { color: var(--faint); }
+.search-box input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* =========================================================================
+   Course cards (grid)
+   ========================================================================= */
+.course-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+.course-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.12s, background-color 0.2s;
+}
+.course-card:hover {
+  border-color: var(--primary);
+  background-color: var(--glass-bg-strong);
+  box-shadow: var(--shadow), inset 0 1px 0 var(--glass-hi);
+  transform: translateY(-3px);
+}
+.course-top { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.course-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  background: var(--primary-soft);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+.course-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.9em;
+}
+.course-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* =========================================================================
+   Course hero (detail)
+   ========================================================================= */
+.course-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.course-hero-main { display: flex; flex-direction: column; gap: 0.45rem; }
+.course-hero-main h3 { font-size: 1.25rem; font-weight: 800; }
+.course-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* =========================================================================
+   Quera toolbar
+   ========================================================================= */
+.quera-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.quera-count { font-weight: 600; font-size: 0.92rem; }
+
+/* =========================================================================
+   Calendar (تقویم شمسی)
+   ========================================================================= */
+.cal-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.cal-toolbar h3 { flex: 1; font-size: 1.05rem; font-weight: 800; min-width: 140px; }
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  width: 100%;
+}
+.cal-legend .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-inline-end: 0.35rem;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+.cal-weekday {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 0.3rem 0;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+/* سلول‌های تقویم زیاد هستند؛ برای پرفورمنس بدون blur */
+.cal-cell {
+  min-height: 84px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg-soft);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.cal-cell.cal-other { opacity: 0.45; }
+.cal-cell.cal-has:hover { border-color: var(--primary); cursor: pointer; background: var(--glass-bg-strong); }
+.cal-cell.cal-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring), inset 0 1px 0 var(--glass-hi); }
+.cal-cell.cal-selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, var(--glass-bg-strong)); }
+.cal-day-num {
+  font-size: 0.8rem;
+  font-weight: 700;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  line-height: 1;
+}
+.cal-today .cal-day-num { background: var(--primary); color: #fff; }
+.cal-chip {
+  font-size: 0.62rem;
+  line-height: 1.5;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-align: start;
+  max-width: 100%;
+}
+.cal-chip:hover { filter: brightness(1.06); }
+.cal-chip.t-exam { background: var(--warning-soft); color: var(--warning); }
+.cal-chip.t-deadline { background: var(--danger-soft); color: var(--danger); }
+.cal-chip.t-live { background: var(--info-soft); color: var(--info); }
+.cal-chip.t-ann { background: var(--accent-soft); color: var(--accent); }
+.cal-chip.t-other { background: var(--surface-2); color: var(--muted); }
+.cal-more { font-size: 0.66rem; color: var(--muted); font-weight: 700; }
+
+@media (max-width: 760px) {
+  .cal-cell { min-height: 54px; }
+  .cal-chip, .cal-more { display: none; }
+  .cal-cell.cal-has::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    position: absolute;
+    bottom: 5px;
+    inset-inline-start: 50%;
+    transform: translateX(50%);
+  }
+}
+
+/* =========================================================================
+   Responsive
+   ========================================================================= */
+:root { --drawer-x: -100%; }
+html[dir="rtl"] { --drawer-x: 100%; --switch-travel: -22px; }
+
+@media (max-width: 900px) {
+  :root,
+  [data-theme] {
+    --glass-blur: blur(16px) saturate(170%);
+  }
+  .sidebar {
+    position: fixed;
+    inset-block: 0.75rem;
+    inset-inline-start: 0.75rem;
+    margin: 0;
+    height: auto;
+    transform: translateX(calc(var(--drawer-x) * 1.15));
+    transition: transform 0.25s ease;
+    box-shadow: var(--shadow-lg);
+    background-color: var(--glass-bg-strong);
+  }
+  .sidebar.open { transform: translateX(0); }
+  #btn-menu { display: inline-flex; }
+  #btn-close-sidebar { display: inline-flex; }
+  .content { padding: 1.1rem; }
+  .topbar { padding: 0.7rem 1.1rem; }
+}
+
+@media (max-width: 520px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { grid-template-columns: 1fr; }
+  .page-head { flex-direction: column; align-items: flex-start; }
+}
+
+/* =========================================================================
+   Fallback: مرورگرهای بدون backdrop-filter
+   ========================================================================= */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sidebar, .topbar, .card, .course-card, .search-box, .modal, .toast {
+    background-color: var(--surface);
+    background-image: none;
+  }
+}
+
+
+/* =========================================================================
+   Minimal + Rounded refinements
+   ========================================================================= */
+:root,
+[data-theme="light"] {
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%);
+}
+[data-theme="dark"] {
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 45%);
+}
+
+/* هدر: کپسول شیشه‌ای شناور */
+.topbar {
+  margin: 0.75rem 1.5rem 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 26px;
+  top: 0.75rem;
+}
+
+/* سطوح شیشه‌ای: سایه‌ی سبک‌تر، بدون خط پایینی */
+.sidebar,
+.topbar,
+.card,
+.course-card,
+.search-box,
+.user-box,
+.modal,
+.toast {
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+}
+.sidebar { border: 1px solid var(--glass-border); }
+
+/* فضای بیشتر، حس مینیمال‌تر */
+.content { gap: 1.5rem; }
+.card { padding: 1.4rem 1.5rem; }
+.stat-card { padding: 1.15rem 1.25rem; }
+.stat-card::after { display: none; }
+.stat-icon { border-radius: 14px; box-shadow: none; }
+.course-icon, .row-icon { border-radius: 14px; border: none; box-shadow: none; }
+
+/* ردیف‌ها: تخت و کم‌حاشیه */
+.list-row {
+  border-color: color-mix(in srgb, var(--glass-border) 45%, transparent);
+  box-shadow: none;
+}
+.list-row:hover { box-shadow: var(--shadow-sm); }
+
+/* منو */
+.nav-item { border-radius: 16px; }
+.nav-item.active { box-shadow: none; }
+.user-box { border-radius: 20px; box-shadow: none; }
+.brand-mark { border-radius: 16px; }
+
+/* دکمه‌ها و ورودی‌ها: کپسولی */
+.btn { border-radius: 999px; padding: 0.55rem 1.2rem; }
+.btn-sm { padding: 0.35rem 0.9rem; }
+.btn-icon { border-radius: 50%; padding: 0; }
+.btn-primary { box-shadow: 0 6px 18px var(--ring); }
+.btn-outline, .btn-soft { box-shadow: none; }
+.input-wrap input { border-radius: 999px; box-shadow: none; }
+.search-box { border-radius: 999px; padding-inline: 1.1rem; }
+.modal-close { border-radius: 50%; }
+
+/* مودال، toast، بنر خطا، سلول‌های تقویم */
+.modal { border-radius: 30px; }
+.toast { border-radius: 20px; }
+.error-banner { border-radius: 16px; }
+.empty { border-radius: var(--radius); }
+.cal-cell { border-radius: 16px; box-shadow: none; border-color: color-mix(in srgb, var(--glass-border) 45%, transparent); }
+.cal-chip { border-radius: 8px; }
+
+@media (max-width: 900px) {
+  .topbar { margin: 0.5rem 0.75rem 0; border-radius: 22px; top: 0.5rem; }
+}
+/* =========================================================================
+   Location Card & Map (Liquid Glass Style)
+   ========================================================================= */
+.location-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  /* شفافیت و بلور دقیقاً مثل بقیه کارت‌های برنامه */
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-lo);
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.location-map {
+  width: 220px;
+  height: 140px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  flex-shrink: 0;
+  z-index: 1;
+  /* پس‌زمینه موقت قبل از لود نقشه */
+  background: var(--surface-2);
+}
+
+/* استایل‌دهی به المان‌های داخلی Leaflet برای هماهنگی با تم */
+.location-map .leaflet-container {
+  background: var(--surface-2) !important;
+  font-family: inherit !important;
+}
+
+.location-map .leaflet-control-zoom a {
+  background-color: var(--glass-bg-strong);
+  color: var(--text);
+  border-color: var(--glass-border);
+  border-radius: 6px;
+}
+.location-map .leaflet-control-zoom a:hover {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+}
+
+.location-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.location-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.location-subtitle {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+/* دکمه‌های مسیریابی */
+.location-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap; /* در صورت کمبود فضا به خط بعد می‌روند */
+}
+
+/* اجبار به یک اندازه بودن دکمه‌ها */
+.location-actions .btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.5rem 1rem !important;
+  border-radius: 999px !important; /* کپسولی */
+}
+
+@media (max-width: 600px) {
+  .location-card {
+    flex-direction: column;
+  }
+  .location-map {
+    width: 100%;
+    height: 180px;
+  }
+}
+/* =========================================================================
+   Accordion Panels (پنل‌های تاشو)
+   ========================================================================= */
+.accordion-panel {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-lo);
+  margin-bottom: 1rem;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.accordion-panel[open] {
+  border-color: var(--glass-border); /* هم‌رنگ با حالت بسته */
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-lo); /* حذف هاله آبی */
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  list-style: none; /* حذف فلش پیش‌فرض مرورگر */
+  transition: background 0.2s;
+}
+
+.accordion-header::-webkit-details-marker {
+  display: none; /* حذف فلش در سافاری */
+}
+
+.accordion-header:hover {
+  background-color: var(--glass-bg-soft);
+}
+
+.accordion-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.accordion-icon {
+  transition: transform 0.3s ease;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.accordion-panel[open] .accordion-icon {
+  transform: rotate(180deg); /* چرخش فلش وقتی باز می‌شود */
+  color: var(--primary);
+}
+
+.accordion-body {
+  padding: 1.25rem;
+  border-top: 1px solid var(--glass-border);
+  animation: slide-down 0.3s ease;
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* بج اعلان داخل هدر آکاردئون */
+.accordion-badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  margin-inline-start: 0.5rem;
+  font-weight: 700;
+}
+
+/* =========================================================================
+   Inner Glass Cards (برای مکان کلاس)
+   ========================================================================= */
+.location-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.location-glass-item {
+  /* شیشه درون شیشه */
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+
+.location-map-small {
+  width: 120px;
+  height: 90px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+  z-index: 1;
+}
+
+.location-glass-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.session-time-badge {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.2rem;
+}
+
+.faculty-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.building-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.location-btns {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.location-btns .btn {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  border-radius: 999px; /* کپسولی */
+}
+
+@media (max-width: 600px) {
+  .location-glass-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .location-map-small {
+    width: 100%;
+    height: 140px;
+  }
+}
+
+/* =========================================================================
+   Filter Bar & Glass Buttons (Liquid Glass Style)
+   ========================================================================= */
+
+/* دکمه‌های فیلتر در حالت عادی */
+.filter-btn {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 2px 6px rgba(0,0,0,0.05);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-btn:hover {
+  background-color: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+}
+
+/* 👇 دکمه‌های فیلتر در حالت فعال (انتخاب‌شده) - نسخه لیکوئید گلسی */
+.filter-btn.active {
+  /* استفاده از رنگ اصلی تم با شفافیت به جای رنگ تخت */
+  background-color: color-mix(in srgb, var(--primary) 25%, var(--glass-bg-strong));
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  color: #FFFFFF !important;
+
+  border: 1px solid var(--glass-border-hover);
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    0 4px 15px var(--ring);
+  font-weight: 700;
+}
+
+/* در حالت دارک‌مود، متن دکمه فعال باید روشن‌تر باشد */
+[data-theme="dark"] .filter-btn.active {
+  color: var(--primary-soft); /* یا #ffffff */
+}
+
+/* =========================================================================
+   Beautiful Action Buttons (Liquid Glass Style - Fixed)
+   ========================================================================= */
+
+/* دکمه پایه شیشه‌ای */
+.btn-glass {
+  background-color: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary); /* استفاده از رنگ متن اصلی */
+  border-radius: 999px; /* کپسولی */
+  padding: 0.4rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit; /* 👈 این خط فونت را اعمال می‌کند */
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 var(--glass-hi), 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.btn-glass:hover {
+  background-color: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+  color: var(--primary);
+}
+
+.btn-primary-glass {
+  /* پس‌زمینه تخت با رنگ اصلی */
+  background-color: var(--primary);
+  border: 1px solid var(--glass-border-hover);
+
+  /* متن سفید همیشه */
+  color: #ffffff !important;
+  border-radius: 999px;
+  padding: 0.4rem 1.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+
+  /* سایه داخلی برای جلوه شیشه‌ای */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 12px var(--primary-soft);
+}
+
+/* در دارک‌مود، به جای رنگ تخت از گرادیانت و بلور استفاده می‌کنیم */
+[data-theme="dark"] .btn-primary-glass {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px var(--ring), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+
+.btn-primary-glass:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 15px var(--primary-soft);
+}
+
+/* دکمه تیره/شیشه‌ای برای لغو */
+.btn-ghost-glass {
+  background: var(--glass-bg-soft); /* در لایت‌مود کمی روشن‌تر می‌شود */
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary); /* استفاده از رنگ متن اصلی */
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit; /* 👈 این خط فونت را اعمال می‌کند */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost-glass:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text);
+  border-color: var(--glass-border-hover);
+}
+
+/* در دارک‌مود، رنگ دکمه لغو کمی روشن‌تر شود */
+[data-theme="dark"] .btn-ghost-glass {
+  color: var(--text-primary);
+  background: transparent;
+}
+
+/* =========================================================================
+   Timeline Feed (تغییرات)
+   ========================================================================= */
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  position: relative;
+  padding-inline-start: 1rem;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1.2rem;
+  position: relative;
+}
+
+/* آیکون سمت راست */
+.timeline-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  z-index: 2;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.1);
+  border: 2px solid var(--glass-bg-strong);
+}
+
+/* خط عمودی بین آیتم‌ها */
+.timeline-line {
+  position: absolute;
+  inset-inline-start: 22px; /* وسط آیکون */
+  top: 44px;
+  bottom: -1.2rem;
+  width: 2px;
+  background: var(--glass-border);
+  z-index: 1;
+}
+
+/* برای آخرین آیتم، خط کشیده نشود */
+.timeline-item:last-child .timeline-line {
+  display: none;
+}
+
+/* کارت شیشه‌ای محتوا */
+.timeline-content {
+  flex: 1;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.timeline-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* =========================================================================
+   Custom Dropdowns (Liquid Glass Style)
+   ========================================================================= */
+.custom-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-dropdown .filter-btn {
+  /* دکمه‌ی فیلتر که از قبل داشتیم */
+  padding-inline-end: 2rem; /* فضای بیشتر برای فلش */
+  position: relative;
+}
+
+.custom-dropdown .filter-btn::after {
+  content: "▼";
+  font-size: 0.7em;
+  position: absolute;
+  inset-inline-end: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.7;
+}
+
+/* منوی باز شده */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  inset-inline-start: 0;
+  min-width: 160px;
+  background-color: var(--glass-bg-strong);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+  z-index: 50;
+  padding: 0.4rem;
+  animation: fade-in 0.15s ease;
+}
+
+.custom-dropdown.open .dropdown-menu {
+  display: block;
+}
+
+/* آیتم‌های داخل منو */
+.dropdown-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--glass-bg-hover);
+  color: var(--primary);
+}
+
+.dropdown-item.active {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* =========================================================================
+   Leaflet Popup Styling (Liquid Glass & Theme Responsive)
+   ========================================================================= */
+.leaflet-popup-content-wrapper {
+  background-color: var(--glass-bg-strong) !important;
+  background-image: var(--glass-sheen) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi) !important;
+  color: var(--text) !important;
+  font-family: inherit !important; /* اعمال فونت وزیرمتن */
+}
+
+.leaflet-popup-tip {
+  background-color: var(--glass-bg-strong) !important;
+  border: 1px solid var(--glass-border) !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px !important;
+  line-height: 1.6 !important;
+}
+
+/* استایل لینک‌ها یا تگ‌های داخل پاپ‌آپ */
+.leaflet-popup-content b {
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+}
+
+/* دکمه‌های زوم نقشه */
+.leaflet-bar a {
+  background-color: var(--glass-bg-strong) !important;
+  color: var(--text) !important;
+  border-color: var(--glass-border) !important;
+  font-family: inherit !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--primary-soft) !important;
+  color: var(--primary) !important;
+}
+
+/* =========================================================================
+   iOS-Style Action Cards (For More Menu)
+   ========================================================================= */
+.ios-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  border-radius: 28px; /* گردی زیاد مثل iOS */
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border); /* حاشیه ظریف و هم‌رنگ تم */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 var(--glass-hi);
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* افکت هاور (شناور شدن و کمی بزرگ شدن) */
+.ios-card:hover {
+  transform: translateY(-5px) scale(1.02);
+  background-color: var(--glass-bg-hover);
+  border-color: var(--primary);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2), inset 0 1px 0 var(--glass-hi);
+}
+
+/* افکت کلیک (فشرده شدن) */
+.ios-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* آیکون داخل کارت */
+.ios-card-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 4px 10px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+}
+
+.ios-card:hover .ios-card-icon {
+  transform: scale(1.1);
+}
+
+/* متن‌های داخل کارت */
+.ios-card-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+  color: var(--text-primary);
+}
+
+.ios-card-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* دکمه شیشه‌ای برای محتواها (در هر دو تم) */
+.btn-glass-action {
+  background-color: var(--glass-bg-soft);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid var(--glass-border);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 0.4rem 1.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+}
+
+.btn-glass-action:hover {
+  background-color: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--ring);
+}
+
+/* =========================================================================
+   Inner Glass Container (برای اعضای کلاس)
+   ========================================================================= */
+.glass-inner-container {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-height: 400px; /* ارتفاع محدود برای اسکرول */
+  overflow-y: auto;
+}
+
+/* اسکرول‌بار ظریف برای داخل این کانتینر */
+.glass-inner-container::-webkit-scrollbar {
+  width: 6px;
+}
+.glass-inner-container::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 999px;
+}
+
+.glass-inner-container {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px; /* کمی گردتر برای ظرافت */
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+  /* پدینگ در اینجا نگذارید، چون در جاوااسکریپت تنظیم می‌شود */
+}
+
+/* دکمه شناور افزودن رویداد در تقویم */
+.day-add-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  width: 40px;
+  height: 40px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px var(--ring);
+  z-index: 10;
+}
+
+.card:hover .day-add-btn {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.day-add-btn:hover {
+  background: var(--primary-dark);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* =========================================================================
+   Glass Inputs & Form Elements
+   ========================================================================= */
+.glass-input {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background-color: var(--glass-bg-strong);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* اصلاح دکمه‌های داخل فرم برای هماهنگی */
+.modal .filter-btn {
+  background-color: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* استایل اسکرول‌بار منوی ساعت */
+.dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.dropdown-menu::-webkit-scrollbar-thumb {
+  background: var(--glass-border-hover);
+  border-radius: 999px;
+}
+
+/* اطمینان از باز شدن منوها روی بقیه اجزا */
+.custom-dropdown {
+  position: relative;
+}
+
+.custom-dropdown .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10000; /* 👈 بسیار مهم */
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+}
+
+.custom-dropdown.open .dropdown-menu {
+  display: block;
+  animation: fade-in 0.15s ease;
+}
+
+/* =========================================================================
+   Time Picker Wheel (iOS Style)
+   ========================================================================= */
+.time-wheel-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 160px; /* ارتفاع کل کادر */
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.wheel-column {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+}
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none; /* مخفی کردن اسکرول‌بار در فایرفاکس */
+  -ms-overflow-style: none; /* مخفی کردن در IE/Edge */
+}
+
+.wheel-scroll::-webkit-scrollbar {
+  display: none; /* مخفی کردن در کروم */
+}
+
+.wheel-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--muted);
+  scroll-snap-align: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+/* آیتمی که در وسط است رنگ اصلی می‌گیرد */
+.wheel-item:hover {
+  color: var(--text);
+}
+
+.wheel-divider {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 5px;
+  z-index: 10;
+}
+
+/* کادر شیشه‌ای وسط (هایلایت) */
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid var(--glass-border-hover);
+  border-bottom: 1px solid var(--glass-border-hover);
+  pointer-events: none; /* تا کلیک‌ها به چرخ برسند */
+  background: linear-gradient(90deg, transparent, var(--glass-bg-strong), transparent);
+  z-index: 5;
+}
+
+/* سایه بالا و پایین برای مخفی شدن نرم آیتم‌ها */
+.time-wheel-container::before,
+.time-wheel-container::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+  z-index: 6;
+  pointer-events: none;
+}
+.time-wheel-container::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--bg) 10%, transparent);
+}
+.time-wheel-container::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg) 10%, transparent);
+}
+
+.time-wheel-container {
+  position: relative;
+  display: flex;
+  flex-direction: row-reverse; /* 👈 این خط باعث می‌شود ساعت در چپ و دقیقه در راست قرار گیرد */
+  justify-content: center;
+  align-items: center;
+  height: 160px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.wheel-column {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+  /* اطمینان از اینکه اسکرول به درستی کار می‌کند */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.wheel-column::-webkit-scrollbar { display: none; }
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+}
+
+.wheel-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--muted);
+  scroll-snap-align: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.wheel-divider {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 5px;
+  z-index: 10;
+}
+
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid var(--primary);
+  border-bottom: 1px solid var(--primary);
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.15), transparent);
+  z-index: 5;
+}
+
+/* =========================================================================
+   Fix Modal Dropdowns (Type Menu)
+   ========================================================================= */
+
+/* منوی کشویی باید با کلاس open نمایش داده شود */
+.custom-dropdown .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10000 !important; /* جلوگیری از پنهان شدن زیر لایه‌های دیگر */
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  padding: 0.3rem;
+}
+
+.custom-dropdown.open .dropdown-menu {
+  display: block;
+  animation: fade-in 0.15s ease;
+}
+
+/* آیتم‌های داخل منو */
+.dropdown-item {
+  display: block;
+  padding: 0.6rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--glass-bg-hover);
+  color: var(--primary);
+}
+
+.dropdown-item.active {
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.time-wheel-container {
+  position: relative;
+  display: flex;
+  flex-direction: row; /* چیدمان معمولی که با ترتیب HTML هماهنگ است */
+  justify-content: center;
+  align-items: center;
+  height: 160px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.wheel-column {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  width: 80px;
+}
+
+.wheel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.wheel-scroll::-webkit-scrollbar { display: none; }
+
+.wheel-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--muted);
+  scroll-snap-align: center;
+}
+
+.wheel-divider {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 5px;
+  z-index: 10;
+}
+
+.wheel-highlight {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid var(--primary);
+  border-bottom: 1px solid var(--primary);
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.15), transparent);
+  z-index: 5;
+}
+
+/* =========================================================================
+   Social Icons Color (Light & Dark Mode)
+   ========================================================================= */
+
+/* --- حالت لایت مود (پیش‌فرض) --- */
+.icon-github path { fill: #111111; }     /* گیت‌هاب: سیاه */
+.icon-telegram path { fill: #229ED9; }   /* تلگرام: آبی */
+.icon-email path { fill: #EA4335; }      /* ایمیل: قرمز */
+
+/* افکت هاور برای دکمه‌های لایت مود (رنگ پس‌زمینه) */
+a:hover .icon-github path { fill: #ffffff; } /* روی پس‌زمینه سیاه، سفید شود */
+a:hover .icon-telegram path { fill: #ffffff; } /* روی پس‌زمینه آبی، سفید شود */
+a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز، سفید شود */
+
+
+/* --- حالت دارک مود --- */
+[data-theme="dark"] .icon-github path,
+[data-theme="dark"] .icon-telegram path,
+[data-theme="dark"] .icon-email path {
+  fill: #FFFFFF !important; /* در دارک مود همه سفید می‌شوند */
+}
+
+/* =========================================================================
+   Mobile: Liquid Glass Bottom Navigation
+   ========================================================================= */
+.bottom-nav,
+.mobile-only { display: none; }
+
+@media (max-width: 900px) {
+  html { font-size: 14.5px; }
+
+  /* حذف سایدبار و دکمه منو */
+  .sidebar, .backdrop, #btn-menu,
+  .topbar-title, .topbar .spacer { display: none !important; }
+
+  /* هدر ← کپسول کوچک شناور (فقط ابزارها) */
+  .topbar {
+    position: fixed;
+    top: calc(0.6rem + env(safe-area-inset-top, 0px));
+    inset-inline-start: auto;
+    inset-inline-end: 0.75rem;
+    margin: 0;
+    width: auto;
+    padding: 0.25rem;
+    gap: 0.1rem;
+    border-radius: 999px;
+    z-index: 45;
+    background-color: var(--glass-bg-strong);
+  }
+  .topbar .btn-icon { width: 36px; height: 36px; font-size: 1rem; }
+  .topbar .mobile-only { display: inline-flex; }
+  .sync-status-pill { padding: 0.3rem 0.5rem; }
+  .sync-status-pill span:last-child { display: none; }
+
+  /* فضای محتوا: بالا برای کپسول، پایین برای نوار ناوبری */
+  .content {
+    padding: 3.8rem 1rem calc(7rem + env(safe-area-inset-bottom, 0px));
+    gap: 1.1rem;
+  }
+  .card { padding: 1.15rem 1.15rem; border-radius: 24px; }
+  .stat-card { padding: 1rem; }
+  .stat-value { font-size: 1.55rem; }
+  .list-row { padding: 0.75rem; gap: 0.65rem; }
+  .row-actions { flex-wrap: wrap; }
+  .page-head h3 { font-size: 1.2rem; }
+  .course-grid { grid-template-columns: 1fr; }
+  .grid-2 { gap: 1rem; }
+
+  .modal { max-height: 88dvh; overflow-y: auto; border-radius: 28px; }
+  .toast {
+    bottom: calc(6.8rem + env(safe-area-inset-bottom, 0px));
+    inset-inline: 1rem;
+    max-width: none;
+  }
+
+  /* ---------- نوار ناوبری شیشه‌ای ---------- */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    inset-inline: 0.9rem;
+    margin-inline: auto;
+    max-width: 460px;
+    bottom: calc(0.8rem + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    gap: 0.15rem;
+    padding: 0.4rem;
+    border-radius: 34px;
+    background-color: var(--glass-bg-strong);
+    background-image: var(--glass-sheen);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    backdrop-filter: blur(28px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      0 16px 40px rgba(10, 30, 80, 0.18),
+      inset 0 1px 0 var(--glass-hi),
+      inset 0 -1px 0 var(--glass-lo);
+  }
+  /* حلقه‌ی داخلی ظریف مثل لیکویید گلس اپل */
+  .bottom-nav::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 31px;
+    border: 1px solid var(--glass-lo);
+    pointer-events: none;
+  }
+
+  .bottom-nav .bn-item {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.55rem 0.2rem 0.5rem;
+    border-radius: 28px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    background: transparent;
+    box-shadow: none;
+    transition: color 0.25s, background 0.25s, border-color 0.25s, box-shadow 0.25s, transform 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bottom-nav .bn-item::before { display: none !important; }
+  .bottom-nav .bn-item:active { transform: scale(0.94); }
+  .bottom-nav .bn-icon { width: 24px; height: 24px; transition: transform 0.25s; }
+  .bottom-nav .bn-label { line-height: 1.2; }
+
+  .bottom-nav .bn-item.active {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 14%, var(--glass-bg-strong));
+    border-color: var(--glass-hi);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 6px 16px var(--ring);
+  }
+  .bottom-nav .bn-item.active .bn-icon { transform: translateY(-1px) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav .bn-item, .bottom-nav .bn-icon { transition: none; }
+}
+
+/* =========================================================================
+   Mobile "More" page — Liquid Glass
+   ========================================================================= */
+/* متغیرهایی که در کدهای قبلی استفاده شده ولی تعریف نشده بودند */
+[data-theme="light"] {
+  --glass-bg-hover: rgba(255, 255, 255, 0.58);
+  --glass-border-hover: rgba(255, 255, 255, 0.95);
+  --text-primary: #11192a;
+  --text-muted: #5b6a80;
+  --primary-dark: #1d4ed8;
+}
+[data-theme="dark"] {
+  --glass-bg-hover: rgba(30, 36, 48, 0.72);
+  --glass-border-hover: rgba(255, 255, 255, 0.24);
+  --text-primary: #e7edf7;
+  --text-muted: #9aa8bd;
+  --primary-dark: #7aa2ff;
+}
+
+.mobile-more { display: none; }
+
+@media (max-width: 900px) {
+  .route-more .mobile-more { display: block; padding: 3.8rem 1rem 0; }
+  .route-more .content { padding-top: 1.2rem; }
+  /* اگر صفحه‌ی فعلی خودش تیتر تکراری دارد، این خط را فعال کن:
+  .route-more .content > .page-head:first-child { display: none; } */
+
+  .mm-title { font-size: 1.55rem; font-weight: 800; margin: 0 0.3rem 1rem; }
+
+  /* سطوح شیشه‌ای */
+  .mm-user,
+  .mm-tile {
+    background-color: var(--glass-bg);
+    background-image: var(--glass-sheen);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-lo);
+  }
+
+  .mm-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 28px;
+    margin-bottom: 0.9rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mm-user .avatar { width: 44px; height: 44px; font-size: 1.05rem; }
+  .mm-user .user-meta { flex: 1; min-width: 0; }
+  .mm-user .user-meta span { font-size: 0.95rem; font-weight: 700; }
+  .mm-user .user-meta small { font-size: 0.74rem; }
+
+  .mm-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .mm-grid .mm-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  .mm-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    padding: 1rem;
+    border-radius: 28px;
+    color: var(--text);
+    text-decoration: none;
+    transition: transform 0.15s, background-color 0.2s, border-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mm-tile:active { transform: scale(0.96); background-color: var(--glass-bg-strong); }
+
+  .mm-ico {
+    width: 48px;
+    height: 48px;
+    border-radius: 17px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 0.4rem;
+    color: var(--c, var(--primary));
+    background: color-mix(in srgb, var(--c, var(--primary)) 16%, transparent);
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+  .mm-ico svg { width: 25px; height: 25px; }
+  .mm-label { font-weight: 700; font-size: 0.98rem; }
+  .mm-tile small { color: var(--muted); font-size: 0.72rem; line-height: 1.5; }
+  .mm-tile .nav-badge { position: absolute; top: 0.9rem; inset-inline-end: 0.9rem; }
+
+  .mm-section {
+    margin: 1.4rem 0.4rem 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--faint);
+  }
+
+  /* دکمه‌های نسخه‌ی کامپیوتر (کارت‌های iOS) برای موبایل فشرده‌تر */
+  .route-more .ios-card { padding: 1.1rem 0.9rem; border-radius: 26px; }
+  .route-more .ios-card-icon { width: 48px; height: 48px; font-size: 1.5rem; border-radius: 16px; margin-bottom: 0.6rem; }
+  .route-more .ios-card-title { font-size: 0.95rem; margin-bottom: 0.2rem; }
+  .route-more .ios-card-desc { font-size: 0.72rem; }
+}
+
+/* روی لمس، افکت hover کارت‌ها نچسبد */
+@media (hover: none) {
+  .ios-card:hover { transform: none; }
+}
+
+/* =========================================================================
+   Mobile nav: filled icons, bold label, sliding glass bubble, page transitions
+   ========================================================================= */
+@media (max-width: 900px) {
+  .main { overflow-x: clip; }
+
+  /* ---------- حباب شیشه‌ایِ لغزان ---------- */
+  .bottom-nav { --i: 0; }
+  .bn-indicator {
+    position: absolute;
+    z-index: 0;
+    inset-block: 0.4rem;
+    inset-inline-start: 0.4rem;
+    width: calc((100% - 0.8rem - 0.45rem) / 4);
+    border-radius: 28px;
+    background: color-mix(in srgb, var(--primary) 14%, var(--glass-bg-strong));
+    border: 1px solid var(--glass-hi);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 6px 16px var(--ring);
+    /* RTL: آیتم اول سمت راست است، پس حرکت به چپ منفی است */
+    transform: translateX(calc(var(--i) * -1 * (100% + 0.15rem)));
+    transition: transform 0.5s cubic-bezier(0.34, 1.35, 0.5, 1);
+    pointer-events: none;
+  }
+
+  /* آیتم فعال دیگر پس‌زمینه‌ی خودش را ندارد؛ حباب این کار را می‌کند */
+  .bottom-nav .bn-item { position: relative; z-index: 1; }
+  .bottom-nav .bn-item.active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  /* ---------- آیکون: خطی ← توپر ---------- */
+  .bn-ico { position: relative; display: block; width: 24px; height: 24px; }
+  .bn-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.22s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .bn-svg.solid { opacity: 0; transform: scale(0.55); }
+  .bn-item.active .bn-svg.outline { opacity: 0; transform: scale(1.2); }
+  .bn-item.active .bn-svg.solid { opacity: 1; transform: scale(1.1); }
+
+  /* ---------- متن: بولدتر در حالت فعال، بدون پرش عرض ---------- */
+  .bottom-nav .bn-label {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    transition: color 0.25s;
+  }
+  .bottom-nav .bn-label::after {
+    content: attr(data-label);
+    font-weight: 800;
+    height: 0;
+    visibility: hidden;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .bottom-nav .bn-item.active .bn-label { font-weight: 800; }
+
+  /* ---------- انیمیشن ورود صفحه ---------- */
+  @keyframes pg-in-left {
+    from { opacity: 0; transform: translate3d(-26px, 0, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes pg-in-right {
+    from { opacity: 0; transform: translate3d(26px, 0, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes pg-in-fade {
+    from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.99); }
+    to   { opacity: 1; transform: none; }
+  }
+  .pg-from-left  { animation: pg-in-left 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  .pg-from-right { animation: pg-in-right 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+  .pg-fade       { animation: pg-in-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bn-indicator, .bn-svg { transition: none; }
+  .pg-from-left, .pg-from-right, .pg-fade { animation: none; }
+}
+
+.mobile-more {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .mobile-more {
+    display: block;
+    /* ... بقیه استایل‌های موبایل ... */
+  }
+
+  /* در موبایل، محتوای اصلی دسکتاپ را مخفی کن تا فقط mobile-more دیده شود */
+  .route-more .content {
+    display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  /* در موبایل، کانتینر کارت‌ها را به صورت دو ستونی دربیاور */
+  #content > div[style*="grid-template-columns: repeat(auto-fill"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.8rem !important;
+  }
+
+  /* تنظیم فونت و آیکون برای موبایل */
+  .ios-card {
+    padding: 1rem 0.8rem !important;
+    border-radius: 22px !important;
+    min-height: auto !important;
+  }
+
+  .ios-card-icon {
+    width: 46px !important;
+    height: 46px !important;
+    font-size: 1.3rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .ios-card-title {
+    font-size: 0.9rem !important;
+  }
+
+  .ios-card-desc {
+    font-size: 0.7rem !important;
+  }
+}
+
+/* مخفی کردن بخش موبایل به صورت پیش‌فرض */
+.mobile-more {
+  display: none !important;
+}
+
+/* نمایش فقط زمانی که مسیر more است */
+@media (max-width: 900px) {
+  .route-more .mobile-more {
+    display: block !important;
+    padding: 3.8rem 1rem 0;
+  }
+
+  /* مخفی کردن محتوای اصلی در موبایل وقتی در صفحه more هستیم */
+  .route-more .content {
+    display: none !important;
+  }
+
+  /* در سایر مسیرها، محتوای اصلی نمایش داده شود و mobile-more مخفی بماند */
+  .content {
+    display: block !important;
+  }
+}
