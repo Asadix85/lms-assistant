@@ -409,34 +409,6 @@ async function refreshNavBadge() {
   } catch (_) {}
 }
 
-// ---------- Search filter (client-side) ----------
-
-let filterQuery = "";
-let renderFilteredList = null; // (query) => void
-
-function searchBox(placeholder) {
-  return `<div class="search-box">
-    <span class="search-ico">🔍</span>
-    <input id="filter-input" type="search" placeholder="${esc(placeholder)}" value="${esc(filterQuery)}" />
-  </div>`;
-}
-
-document.addEventListener("input", (e) => {
-  if (e.target && e.target.id === "filter-input" && renderFilteredList) {
-    filterQuery = e.target.value;
-    renderFilteredList(filterQuery);
-  }
-});
-
-function attachFilter(items, renderFn) {
-  renderFilteredList = (q) => {
-    const s = (q || "").trim().toLowerCase();
-    const filtered = s ? items.filter((it) => renderFn.searchText(it).includes(s)) : items;
-    renderFn.render(filtered);
-  };
-  renderFilteredList(filterQuery);
-}
-
 // ---------- Shared list renderers ----------
 
 function pageHead(title, desc) {
