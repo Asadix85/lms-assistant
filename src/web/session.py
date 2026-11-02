@@ -8,6 +8,7 @@ from collections.abc import Callable
 from loguru import logger
 
 from src.services.credential_provider import CredentialProvider, Credentials
+from src.services.credentials_manager import CredentialsManager
 from src.services.lms_assistant import LMSAssistant
 from src.services.quera_sync import QueraSyncService
 from src.services.sync_progress import SyncProgress
@@ -43,7 +44,6 @@ class SessionManager:
             self._creds = CredentialProvider.load()
         return self._creds
 
-        # در تابع set_credentials:
     def set_credentials(
         self,
         lms_username: str,
@@ -51,17 +51,21 @@ class SessionManager:
         quera_username: str = "",
         quera_password: str = "",
     ) -> None:
-        # 👇 حتماً CredentialProvider را آپدیت کن
+        # 👇 ذخیره در Keyring (دائمی)
+        if lms_username and lms_password:
+            CredentialsManager.save_lms(lms_username, lms_password)
+        if quera_username and quera_password:
+            CredentialsManager.save_quera(quera_username, quera_password)
+
+        # 👇 آپدیت در حافظه
         CredentialProvider.update(lms_username, lms_password, quera_username, quera_password)
-        
-        # 👇 self._creds را هم آپدیت کن
         self._creds = Credentials(
             lms_username=lms_username,
             lms_password=lms_password,
             quera_username=quera_username,
             quera_password=quera_password,
         )
-        
+
         with self._lock:
             if self._assistant:
                 try:
@@ -105,6 +109,7 @@ class SessionManager:
                 except Exception:
                     pass
                 self._assistant = None
+        # 👇 فقط LMS را پاک کن، کوئرا را نگه دار
         if self._creds:
             self.set_credentials("", "", self._creds.quera_username, self._creds.quera_password)
 
@@ -205,7 +210,7 @@ class SessionManager:
                 })
 
                 quera_result = self.run_quera_sync()
-                
+
                 if quera_result.get("error"):
                     # اگر کوئرا خطا داد، حداقل LMS موفق بوده
                     self._publish({
@@ -238,12 +243,11 @@ class SessionManager:
         return True
 
     def run_quera_sync(self) -> dict:
-    # 👇 از CredentialProvider.get() استفاده کن
-        from src.services.credential_provider import CredentialProvider
+        """Sync Quera با استفاده از CredentialProvider."""
         creds = CredentialProvider.get()
-        
+
         if not creds.quera_username or not creds.quera_password:
             return {"error": "اعتبارنامه Quera تنظیم نشده"}
-        
+
         service = QueraSyncService(creds.quera_username, creds.quera_password, self.db)
         return service.sync()

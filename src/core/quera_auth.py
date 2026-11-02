@@ -1,5 +1,6 @@
-"""مدیریت احراز هویت Quera — نسخه اصلاح‌شده."""
+"""مدیریت احراز هویت Quera — با استفاده از کوکی مرورگر (دور زدن کپچا)."""
 
+from pathlib import Path
 from loguru import logger
 
 from src.core.exceptions import AuthenticationError
@@ -7,16 +8,13 @@ from src.core.quera_client import QueraHttpClient
 
 
 class QueraAuth:
-    """ورود/خروج به Quera (با API داخلی)."""
-
-    LOGIN_API = "/accounts/api/login/"
-    VERIFY_API = "/accounts/api/login/verify"
-    LOGOUT_API = "/accounts/api/logout/"
+    """ورود/خروج به Quera با استفاده از کوکی آماده."""
 
     def __init__(self, client: QueraHttpClient) -> None:
         self.client = client
         self._authenticated = False
         self._identifier: str | None = None
+        self.cookie_file = Path("quera_cookie.txt")
 
     @property
     def is_authenticated(self) -> bool:
@@ -27,127 +25,51 @@ class QueraAuth:
         return self._identifier
 
     def login(self, identifier: str, password: str) -> bool:
-        """ورود به Quera با API داخلی."""
-        logger.info(f"شروع ورود به Quera برای: {identifier}")
+        """
+        به جای لاگین با رمز، کوکی ذخیره‌شده از مرورگر را بارگذاری می‌کند.
+        (رمز عبور نادیده گرفته می‌شود)
+        """
+        logger.info("در حال بارگذاری کوکی از فایل quera_cookie.txt...")
 
-        try:
-            # === قدم ۰: گرفتن CSRF ===
-            logger.debug("قدم ۰: GET /accounts/login برای CSRF")
-            self.client.get("/accounts/login")
-            csrf_token = self.client.cookies.get("csrf_token")
-
-            if not csrf_token:
-                logger.error("CSRF token پیدا نشد!")
-                return False
-
-            logger.debug(f"✅ CSRF: {csrf_token[:20]}...")
-
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/plain, */*",
-                "X-CSRFToken": csrf_token,
-            }
-
-            # === قدم ۱: POST /accounts/api/login/ (فقط identifier) ===
-            logger.debug("قدم ۱: POST /accounts/api/login/")
-            r1 = self.client.post(
-                self.LOGIN_API,
-                json={"identifier": identifier},  # 👈 فقط identifier
-                headers=headers,
-            )
-
-            logger.debug(f"پاسخ قدم ۱: {r1.status_code}")
-
-            if r1.status_code != 200:
-                logger.error(f"خطا در قدم ۱: {r1.status_code} - {r1.text[:200]}")
-                return False
-
-            try:
-                data1 = r1.json()
-            except Exception:
-                logger.error(f"پاسخ JSON نبود: {r1.text[:200]}")
-                return False
-
-            logger.debug(f"پاسخ: {data1}")
-
-            # بررسی next_step
-            next_step = data1.get("next_step")
-            if next_step != "password":
-                logger.error(f"next_step غیرمنتظره: {next_step}")
-                return False
-
-            # === قدم ۲: POST /accounts/api/login/verify ===
-            logger.debug("قدم ۲: POST /accounts/api/login/verify")
-            r2 = self.client.post(
-                self.VERIFY_API,
-                json={
-                    "identifier": identifier,
-                    "step": "password",
-                    "credential": password,
-                    "captcha_token": "",
-                },
-                headers=headers,
-            )
-
-            logger.debug(f"پاسخ قدم ۲: {r2.status_code}")
-
-            if r2.status_code != 200:
-                logger.error(f"خطا در قدم ۲: {r2.status_code} - {r2.text[:200]}")
-                return False
-
-            try:
-                data2 = r2.json()
-            except Exception:
-                logger.error(f"پاسخ JSON نبود: {r2.text[:200]}")
-                return False
-
-            logger.debug(f"پاسخ: {data2}")
-
-            # === بررسی موفقیت ===
-            if "redirect_url" in data2:
-                session_id = self.client.cookies.get("session_id")
-                if not session_id:
-                    logger.warning("session_id cookie ست نشد")
-                    return False
-
-                self._authenticated = True
-                self._identifier = identifier
-                logger.info(f"✅ ورود موفق! redirect: {data2.get('redirect_url')}")
-                return True
-
-            error = data2.get("error") or data2.get("detail") or str(data2)
-            logger.warning(f"❌ ورود ناموفق: {error}")
-            self._authenticated = False
+        if not self.cookie_file.exists():
+            logger.error("فایل quera_cookie.txt پیدا نشد! لطفاً یک بار دستی در مرورگر لاگین کنید و کوکی را در این فایل ذخیره کنید.")
             return False
 
+        try:
+            cookie_value = self.cookie_file.read_text().strip()
+            if not cookie_value:
+                logger.error("فایل کوکی خالی است.")
+                return False
+
+            # تنظیم کوکی در کلاینت httpx
+            # دامنه را quera.org تنظیم می‌کنیم
+            self.client._client.cookies.set("sessionid", cookie_value, domain="quera.org")
+
+            # تست اینکه آیا کوکی معتبر است یا خیر
+            test_resp = self.client.get("/dashboard")
+            if "/accounts/login" in str(test_resp.url):
+                logger.error("کوکی منقضی شده است. لطفاً دوباره از مرورگر کوکی جدید بگیرید.")
+                return False
+
+            self._authenticated = True
+            self._identifier = identifier
+            logger.success("✅ کوکی معتبر است. ورود به کوئرا انجام شد.")
+            return True
+
         except Exception as e:
-            logger.error(f"خطا در ورود به Quera: {e}")
-            import traceback
-            traceback.print_exc()
-            raise AuthenticationError(f"خطا در ورود: {e}") from e
+            logger.error(f"خطا در خواندن یا تنظیم کوکی: {e}")
+            return False
 
     def logout(self) -> None:
-        """خروج از Quera."""
-        if not self._authenticated:
-            return
-        try:
-            csrf = self.client.cookies.get("csrf_token")
-            self.client.post(
-                self.LOGOUT_API,
-                headers={
-                    "X-CSRFToken": csrf,
-                    "Content-Type": "application/json",
-                },
-            )
-            self._authenticated = False
-            self._identifier = None
-            logger.info("✅ خروج از Quera")
-        except Exception as e:
-            logger.warning(f"خطا در خروج: {e}")
+        self._authenticated = False
+        self._identifier = None
 
     def verify(self) -> bool:
-        """تست معتبر بودن session."""
+        if not self.cookie_file.exists():
+            return False
         try:
+            cookie_value = self.cookie_file.read_text().strip()
+            self.client._client.cookies.set("sessionid", cookie_value, domain="quera.org")
             r = self.client.get("/dashboard")
             return "/accounts/login" not in str(r.url)
         except Exception:

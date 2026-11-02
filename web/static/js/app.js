@@ -1260,7 +1260,7 @@ async function renderAbout() {
         </h3>
         <div style="line-height: 1.8; color: var(--text-secondary); font-size: 0.95rem;">
           <p style="margin-bottom: 1rem;">
-            <b>LMS Assistant</b> یک دستیار شخصی و متن‌باز است که برای آسان‌تر کردن تجربه‌ی دانشجویان دانشگاه اصفهان طراحی شده است. این ابزار به شما کمک می‌کند تا تمام اطلاعات درسی خود را در یک محیط یکپارچه و مدرن مدیریت کنید.
+            <b>LMS Assistant</b> یک دستیار متن‌باز است که برای آسان‌تر کردن تجربه‌ی دانشجویان دانشگاه اصفهان طراحی شده است. این ابزار به شما کمک می‌کند تا تمام اطلاعات درسی خود را در یک محیط یکپارچه و مدرن مدیریت کنید.
           </p>
           <p style="margin-bottom: 1rem;">
             با یک کلیک ساده، برنامه به صورت خودکار دروس، فایل‌های آموزشی، تکالیف، پیام‌های استادان و رویدادهای تقویم را از سامانه LMS استخراج می‌کند. همچنین تغییرات جدید را تشخیص داده و به شما اطلاع می‌دهد تا هیچ مهلتی را از دست ندهید.
@@ -1758,27 +1758,37 @@ async function renderCalendar() {
     const j = d2j(jdn);
     const g = d2g(jdn);
     const gDateStr = `${g.gy}-${String(g.gm).padStart(2,'0')}-${String(g.gd).padStart(2,'0')}`;
-    
-    // 👇 ۱. فیلتر رویدادها و تکالیف
-    const dayEvents = events.filter(e => e.start_at && e.start_at.startsWith(gDateStr));
-    const dayAssignments = assignments.filter(a => a.deadline && a.deadline.startsWith(gDateStr));
 
-    // 👇 ۲. تشخیص نوع رویدادهای دستی
-    const manualExams = dayEvents.filter(e => e.event_type === "exam");
-    const manualAssignments = dayEvents.filter(e => e.event_type === "assignment");
+    // 👇 ۱. فیلتر رویدادها (دستی) و تکالیف
+    const dayManualEvents = events.filter(e => e.start_at && e.start_at.startsWith(gDateStr));
 
-    // 👇 ۳. آیا آزمون یا تکلیف در این روز داریم؟
+    // 👇 ۲. جدا کردن تکالیف LMS و کوئرا
+    const dayAssignments = assignments.filter(a =>
+      a.source === "lms" && a.deadline && a.deadline.startsWith(gDateStr)
+    );
+    const dayQueraAssignments = assignments.filter(a =>
+      a.source === "quera" && a.deadline && a.deadline.startsWith(gDateStr)
+    );
+
+    // 👇 ۳. دسته‌بندی رویدادهای دستی
+    const manualExams = dayManualEvents.filter(e => e.event_type === "exam");
+    const manualAssignments = dayManualEvents.filter(e => e.event_type === "assignment");
+
+    // 👇 ۴. بررسی وجود آزمون/تکلیف/کوئرا
     const hasExam = manualExams.length > 0;
     const hasAssignment = dayAssignments.length > 0 || manualAssignments.length > 0;
+    const hasQuera = dayQueraAssignments.length > 0;
 
     weekDays.push({
       jdn, j, g, gDateStr,
-      events: dayEvents, // شامل همه رویدادها (دستی و غیره)
-      assignments: dayAssignments, // تکالیف LMS
+      manualEvents: dayManualEvents,
+      assignments: dayAssignments,
+      queraAssignments: dayQueraAssignments,
       manualExams,
       manualAssignments,
       hasExam,
       hasAssignment,
+      hasQuera,
       isToday: jdn === j2d(todayJ.jy, todayJ.jm, todayJ.jd),
       isSelected: jdn === selectedDayJdn
     });
@@ -1791,6 +1801,7 @@ async function renderCalendar() {
 
   const selectedDayData = weekDays.find(d => d.isSelected) || weekDays[0];
 
+  // 👇 ساخت HTML
   contentEl.innerHTML = `
     ${pageHead("تقویم هفتگی", "مهلت تکالیف و رویدادها")}
     
@@ -1812,15 +1823,14 @@ async function renderCalendar() {
         // 👇 استایل‌های گرادیانتی شیشه‌ای
         if (day.isSelected) {
           cardStyle += " border: 2px solid var(--primary); background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.05) 100%); transform: translateY(-2px); box-shadow: 0 4px 15px var(--ring), inset 0 1px 0 var(--glass-hi);";
-        } else if (day.hasExam && day.hasAssignment) {
-          // هم آزمون هم تکلیف (ترکیب نارنجی و قرمز)
+        } else if (day.hasExam && (day.hasAssignment || day.hasQuera)) {
           cardStyle += " border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
         } else if (day.hasExam) {
-          // فقط آزمون (نارنجی/زرد)
           cardStyle += " border: 1px solid rgba(245, 158, 11, 0.5); background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
         } else if (day.hasAssignment) {
-          // فقط تکلیف (قرمز)
           cardStyle += " border: 1px solid rgba(239, 68, 68, 0.5); background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
+        } else if (day.hasQuera) {
+          cardStyle += " border: 1px solid rgba(42, 166, 163, 0.5); background: linear-gradient(135deg, rgba(42, 166, 163, 0.2) 0%, rgba(42, 166, 163, 0.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);";
         } else if (day.isToday) {
           cardStyle += " border: 1px solid var(--primary); background: rgba(59, 130, 246, 0.05);";
         } else {
@@ -1829,6 +1839,7 @@ async function renderCalendar() {
 
         const examCount = day.manualExams.length;
         const deadlineCount = day.assignments.length + day.manualAssignments.length;
+        const queraCount = day.queraAssignments.length;
 
         return `
           <div class="card" style="${cardStyle}" onclick="selectDay(${day.jdn})">
@@ -1836,7 +1847,7 @@ async function renderCalendar() {
 
             ${day.isToday ? '<span class="badge badge-new" style="font-size:0.6rem; padding:2px 6px; margin-bottom:4px;">امروز</span>' : '<div style="height:18px;"></div>'}
             <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary); margin-top:4px;">${weekdaysNames[idx]}</div>
-            <div style="font-size: 1.5rem; font-weight: 800; color: ${day.hasExam ? 'var(--warning)' : (day.hasAssignment ? 'var(--danger)' : (day.isSelected ? 'var(--primary)' : 'var(--text)'))}; margin: 0.2rem 0; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">${faDigits(day.j.jd)}</div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: ${day.hasExam ? 'var(--warning)' : (day.hasAssignment ? 'var(--danger)' : (day.hasQuera ? 'var(--primary)' : (day.isSelected ? 'var(--primary)' : 'var(--text)'))) }; margin: 0.2rem 0; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">${faDigits(day.j.jd)}</div>
             <div style="font-size: 0.75rem; color: var(--text-muted);">${J_MONTHS[day.j.jm - 1]}</div>
             
             <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.2rem; align-items: center;">
@@ -1848,6 +1859,11 @@ async function renderCalendar() {
               ${deadlineCount > 0 ? `
                 <div class="badge badge-expired" style="font-size: 0.65rem; box-shadow: 0 2px 8px var(--danger-soft);">
                   ${faDigits(deadlineCount)} ددلاین
+                </div>
+              ` : ""}
+              ${queraCount > 0 ? `
+                <div class="badge" style="font-size: 0.65rem; background: var(--primary-soft); color: var(--primary); box-shadow: 0 2px 8px var(--primary-soft); border: 1px solid var(--primary);">
+                  ${faDigits(queraCount)} کوئرا
                 </div>
               ` : ""}
             </div>
@@ -1862,12 +1878,12 @@ async function renderCalendar() {
         <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">
           ${weekdaysNames[jWeekday(selectedDayJdn)]} — ${faDigits(selectedDayData.j.jd)} ${J_MONTHS[selectedDayData.j.jm - 1]} ${faDigits(selectedDayData.j.jy)}
         </h3>
-        <span class="badge badge-domain">${faDigits(selectedDayData.events.length + selectedDayData.assignments.length)} مورد</span>
+        <span class="badge badge-domain">${faDigits(selectedDayData.manualEvents.length + selectedDayData.assignments.length + selectedDayData.queraAssignments.length)} مورد</span>
       </div>
 
-            <div class="item-list">
-        ${selectedDayData.events.length || selectedDayData.assignments.length ? [
-                    // 👇 رویدادهای دستی: آزمون‌ها
+      <div class="item-list">
+        ${selectedDayData.manualEvents.length || selectedDayData.assignments.length || selectedDayData.queraAssignments.length ? [
+          // 👇 رویدادهای دستی: آزمون‌ها
           ...selectedDayData.manualExams.map(e => {
             const hm = e.start_at ? String(e.start_at).slice(11, 16) : "";
             return `
@@ -1880,8 +1896,7 @@ async function renderCalendar() {
                   </div>
                   <div class="row-meta">
                     ${hm ? `<span class="badge badge-info" style="padding: 0.2rem 0.6rem;">⏰ ${hm}</span>` : ""}
-                    <!-- 👇 نمایش نام درس -->
-                    <span class="badge badge-domain">${esc(e.course_name)}</span>
+                    <span class="badge badge-domain">${esc(e.course_name || "عمومی")}</span>
                     ${e.description ? `<span>${esc(e.description)}</span>` : ""}
                   </div>
                 </div>
@@ -1901,8 +1916,7 @@ async function renderCalendar() {
                   </div>
                   <div class="row-meta">
                     ${hm ? `<span class="badge badge-info" style="padding: 0.2rem 0.6rem;">⏰ ${hm}</span>` : ""}
-                    <!-- 👇 نمایش نام درس -->
-                    <span class="badge badge-domain">${esc(e.course_name)}</span>
+                    <span class="badge badge-domain">${esc(e.course_name || "عمومی")}</span>
                     ${e.description ? `<span>${esc(e.description)}</span>` : ""}
                   </div>
                 </div>
@@ -1920,8 +1934,23 @@ async function renderCalendar() {
                 </div>
                 <div class="row-meta">
                   ${a.deadline ? `<span class="badge badge-expired" style="padding: 0.2rem 0.6rem;">⏰ ${String(a.deadline).slice(11, 16)}</span>` : ""}
-                  <!-- 👇 استفاده از a.course_name که از بک‌اند می‌آید -->
                   <span class="badge badge-domain">${esc(a.course_name || "درس نامشخص")}</span>
+                </div>
+              </div>
+            </div>
+          `),
+          // 👇 تکالیف کوئرا
+          ...selectedDayData.queraAssignments.map(qa => `
+            <div class="list-row" style="margin-bottom: 0.8rem; border-radius: 12px; border-color:var(--primary-soft);">
+              <span class="row-icon" style="background: var(--primary-soft); color: var(--primary); font-size:1.2rem;">🎯</span>
+              <div class="row-body">
+                <div class="row-title">
+                  ${esc(qa.title)}
+                  <span class="badge" style="background: var(--primary-soft); color: var(--primary);">کوئرا</span>
+                </div>
+                <div class="row-meta">
+                  ${qa.deadline ? `<span class="badge badge-expired" style="padding: 0.2rem 0.6rem;">⏰ ${String(qa.deadline).slice(11, 16)}</span>` : ""}
+                  <span class="badge badge-domain">${esc(qa.course_name)}</span>
                 </div>
               </div>
             </div>

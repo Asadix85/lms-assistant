@@ -1,68 +1,79 @@
-"""تست login به Quera."""
+"""تست لاگین کوئرا با تاخیر (برای جلوگیری از Rate Limit)."""
 
-from config.settings import settings
-from src.core.quera_auth import QueraAuth
+import time
+from loguru import logger
 from src.core.quera_client import QueraHttpClient
 
+# 👇 اطلاعات لاگین خود را اینجا وارد کنید
+IDENTIFIER = "4043613005"
+PASSWORD = "580813850928Ma"
 
-def main() -> None:
-    if not settings.quera_username or not settings.quera_password:
-        print("❌ QUERA_USERNAME و QUERA_PASSWORD رو توی .env تنظیم کن")
-        return
-
-    print("=" * 50)
-    print("🧪 تست Login به Quera")
-    print("=" * 50)
+def main():
+    logger.info("شروع تست لاگین کوئرا (با تاخیر)...")
 
     client = QueraHttpClient()
-    auth = QueraAuth(client)
 
-    try:
-        success = auth.login(
-            settings.quera_username,
-            settings.quera_password,
-        )
+    # ۱. دریافت CSRF
+    logger.info("۱. دریافت CSRF...")
+    login_page = client.get("/accounts/login")
 
-        if success:
-            print("✅ Login موفق!")
-            print(f"👤 Identifier: {auth.identifier}")
+    csrf_token = None
+    for name in ["csrftoken", "csrf_token"]:
+        csrf_token = client.cookies.get(name)
+        if csrf_token:
+            break
 
-            # تست: گرفتن /dashboard
-            print("\n📚 تست دریافت /dashboard...")
-            r = client.get("/dashboard")
-            print(f"   Status: {r.status_code}")
-            print(f"   Size: {len(r.text)} کاراکتر")
-            print(f"   URL نهایی: {r.url}")
+    if not csrf_token:
+        import re
+        match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
+        if match:
+            csrf_token = match.group(1)
 
-            # ذخیره HTML
-            from pathlib import Path
-            Path("debug_quera_dashboard.html").write_text(
-                r.text, encoding="utf-8"
-            )
-            print("   💾 ذخیره شد: debug_quera_dashboard.html")
+    if not csrf_token:
+        logger.error("❌ CSRF پیدا نشد.")
+        return
 
-            # تست: /course
-            print("\n🎓 تست دریافت /course...")
-            r2 = client.get("/course")
-            print(f"   Status: {r2.status_code}")
-            print(f"   Size: {len(r2.text)} کاراکتر")
-            print(f"   URL نهایی: {r2.url}")
+    logger.success(f"✅ CSRF: {csrf_token[:20]}...")
 
-            Path("debug_quera_course.html").write_text(
-                r2.text, encoding="utf-8"
-            )
-            print("   💾 ذخیره شد: debug_quera_course.html")
-        else:
-            print("❌ Login ناموفق")
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "X-CSRFToken": csrf_token,
+        "Referer": "https://quera.org/accounts/login",
+        "Origin": "https://quera.org",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
 
-    except Exception as e:
-        print(f"❌ خطا: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
+    # ۲. ساختارهای مختلف با تاخیر ۵ ثانیه
+    payloads = [
+        {"identifier": IDENTIFIER},
+        {"email": IDENTIFIER},
+        {"username": IDENTIFIER},
+        {"identifier": IDENTIFIER, "preferred_process": "password"},
+        {"email": IDENTIFIER, "preferred_process": "password"},
+    ]
 
-    finally:
-        client.close()
+    for i, payload in enumerate(payloads):
+        if i > 0:
+            logger.info("⏳ صبر ۵ ثانیه برای جلوگیری از Rate Limit...")
+            time.sleep(5)
 
+        logger.info(f"تلاش {i+1}: {payload}")
+        try:
+            r = client.post("/accounts/api/login/", json=payload, headers=headers)
+            logger.info(f"پاسخ: {r.status_code} - {r.text[:200]}")
+
+            if r.status_code == 200:
+                logger.success(f"✅✅ موفق! payload: {payload}")
+                logger.success(f"پاسخ کامل: {r.json()}")
+                return
+            elif r.status_code == 429:
+                logger.warning("⏳ بلاک شدیم. ۱۰ ثانیه صبر می‌کنیم...")
+                time.sleep(10)
+        except Exception as e:
+            logger.warning(f"خطا: {e}")
+
+    logger.error("❌ هیچ‌کدام از ساختارها کار نکرد.")
 
 if __name__ == "__main__":
     main()

@@ -326,7 +326,7 @@ async def list_assignments(request: Request, new_only: bool = False) -> list[dic
         result.append({
             "id": a.id,
             "course_id": a.course_id,
-            "course_name": course_name,  # 👈 اضافه شد
+            "course_name": course_name,
             "title": a.title,
             "description": a.description,
             "start_at": a.start_at.isoformat() if a.start_at else None,
@@ -339,7 +339,37 @@ async def list_assignments(request: Request, new_only: bool = False) -> list[dic
             "is_manual": getattr(a, "is_manual", False),
             "is_done": getattr(a, "is_done", False),
             "is_expired": getattr(a, "is_expired", False),
+            "source": "lms", # 👈 منبع
         })
+
+    # 👇 اضافه کردن تکالیف کوئرا
+    try:
+        from src.storage.repositories import QueraAssignmentRepository
+        quera_repo = QueraAssignmentRepository(db)
+        quera_assignments = quera_repo.get_all()
+
+        for qa in quera_assignments:
+            result.append({
+                "id": f"quera_{qa.id}",
+                "course_id": f"quera_{qa.course_name}",
+                "course_name": f"کوئرا - {qa.course_name}",
+                "title": qa.name,
+                "description": "",
+                "start_at": None,
+                "deadline": qa.finish_time.isoformat() if qa.finish_time else None,
+                "deadline_jalali": None,
+                "submit_url": None,
+                "view_url": None,
+                "response_count": qa.submitted_count,
+                "is_new": False,
+                "is_manual": False,
+                "is_done": qa.is_done,
+                "is_expired": qa.is_expired,
+                "source": "quera", # 👈 منبع
+            })
+    except Exception as e:
+        logger.warning(f"خطا در دریافت تکالیف کوئرا: {e}")
+
     return result
 
 
