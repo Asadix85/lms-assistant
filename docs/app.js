@@ -202,15 +202,18 @@ $("#login-form").addEventListener("submit", async (e) => {
   }
 });
 
-$("#btn-logout").addEventListener("click", async () => {
-  if (window.DEMO_DATA) {
-    toast("⚠️ این یک نسخه نمایشی است. برای لاگین به نسخه اصلی بروید.");
-    return;
-  }
-  await api("/auth/logout", { method: "POST" });
-  toast("از حساب خارج شدید");
-  refreshUserBox();
-});
+const logoutBtn = $("#btn-logout");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    if (window.DEMO_DATA) {
+      toast("⚠️ این یک نسخه نمایشی است. برای لاگین به نسخه اصلی بروید.");
+      return;
+    }
+    await api("/auth/logout", { method: "POST" });
+    toast("از حساب خارج شدید");
+    refreshUserBox();
+  });
+}
 
 // ============================================================
 // DEMO MODE: مدیریت دکمه ورود
