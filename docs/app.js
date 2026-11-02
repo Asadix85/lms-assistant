@@ -4,16 +4,18 @@
 
 "use strict";
 
-// ---------- Helpers ----------
+// =========================================================================
+// LMS Assistant Web — Frontend (SPA با Hash Routing) — DEMO VERSION
+// =========================================================================
 
+// ---------- Helpers ----------
 const $ = (sel) => document.querySelector(sel);
 const contentEl = $("#content");
 
 // ============================================================
-// DEMO MODE: تعریف داده‌های تستی (اگر وجود نداشته باشد)
+// DEMO DATA (تعریف داده‌های تستی اگر وجود نداشته باشد)
 // ============================================================
 if (!window.DEMO_DATA) {
-  // تاریخ‌های داینامیک
   const now = new Date();
   const d = (offsetDays) => { const dt = new Date(now); dt.setDate(dt.getDate() + offsetDays); return dt; };
   const iso = (dt) => dt.toISOString().slice(0, 19).replace('T', ' ');
@@ -67,8 +69,7 @@ if (!window.DEMO_DATA) {
   };
 }
 
-// ---------- API (با پشتیبانی از دمو) ----------
-
+// ---------- API ----------
 async function api(path, options = {}) {
   if (window.DEMO_DATA) {
     await new Promise(r => setTimeout(r, 100));
@@ -86,7 +87,6 @@ async function api(path, options = {}) {
     if (path.startsWith("/courses/") && path.endsWith("/detail")) return window.DEMO_DATA.courseDetail;
     return [];
   }
-
   const res = await fetch("/api" + path, {
     headers: { "Content-Type": "application/json" },
     ...options,
@@ -95,48 +95,23 @@ async function api(path, options = {}) {
   return res.json();
 }
 
+// ---------- Other Helpers ----------
+function esc(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+function proxyUrl(url) { return url ? `/api/jaam-proxy?url=${encodeURIComponent(url)}` : "#"; }
+
 let toastTimer = null;
 function toast(msg) {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.classList.remove("hidden");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.add("hidden"), 3600);
+  const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add("hidden"), 3600);
 }
-
 function emptyState(text, hint = "ابتدا همگام‌سازی را اجرا کنید") {
   return `<div class="empty"><span class="empty-icon">📭</span>${esc(text)}<small>${esc(hint)}</small></div>`;
 }
 
-// ---------- Course name cache ----------
-
-let _courseNames = null;
-async function courseNameMap() {
-  if (_courseNames) return _courseNames;
-  try {
-    const cs = await api("/courses");
-    _courseNames = Object.fromEntries(cs.map((c) => [c.id, c.name]));
-  } catch (_) {
-    _courseNames = {};
-  }
-  return _courseNames;
-}
-
-// ---------- Event type metadata ----------
-
-const EVENT_TYPES = {
-  exam: { icon: "📝", label: "آزمون", cls: "badge-warn", chipCls: "t-exam" },
-  deadline: { icon: "⏰", label: "ددلاین", cls: "badge-expired", chipCls: "t-deadline" },
-  live_session: { icon: "🎥", label: "جلسه آنلاین", cls: "badge-info", chipCls: "t-live" },
-  announcement: { icon: "📢", label: "اطلاعیه", cls: "badge-new", chipCls: "t-ann" },
-  unknown: { icon: "📅", label: "رویداد", cls: "", chipCls: "t-other" },
-};
-function eventMeta(type) {
-  return EVENT_TYPES[type] || EVENT_TYPES.unknown;
-}
-
 // ---------- Theme ----------
-
 function setTheme(theme) {
   document.body.dataset.theme = theme;
   $("#btn-theme").textContent = theme === "dark" ? "☀️" : "🌙";
@@ -162,6 +137,8 @@ $("#btn-sync").addEventListener("click", () => {
     toast("⚠️ در نسخه نمایشی، همگام‌سازی غیرفعال است. برای استفاده‌ی کامل، به نسخه اصلی بروید.");
     return;
   }
+  // کد اصلی سینک برای حالت غیر دمو (اختیاری)
+});
 
 // ---------- Login Modal ----------
 
@@ -2458,4 +2435,4 @@ function setupWheel(elementId, hiddenInputId, defaultVal) {
       }
     }, 150);
   });
-}}
+}
