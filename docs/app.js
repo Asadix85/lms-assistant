@@ -121,36 +121,74 @@ $("#btn-theme").addEventListener("click", () => {
   setTheme(document.body.dataset.theme === "dark" ? "light" : "dark");
 });
 
-// ---------- DEMO Login Button ----------
-document.addEventListener('DOMContentLoaded', () => {
-  const demoBtn = document.getElementById('btn-demo-login');
-  if (demoBtn) {
-    demoBtn.addEventListener('click', () => {
-      toast("⚠️ این یک نسخه نمایشی است. برای ورود به حساب خود، از دکمه «ورود به نسخه اصلی» در بالای صفحه استفاده کنید.");
-    });
-  }
-});
-
-// ---------- Sync Button (Demo Mode) ----------
-$("#btn-sync").addEventListener("click", () => {
-  if (window.DEMO_DATA) {
-    toast("⚠️ در نسخه نمایشی، همگام‌سازی غیرفعال است. برای استفاده‌ی کامل، به نسخه اصلی بروید.");
-    return;
-  }
-  // کد اصلی سینک برای حالت غیر دمو (اختیاری)
-});
-
-// ---------- Login Modal ----------
+// ---------- Auth / User state ----------
+let authState = {
+  loggedIn: false,
+  fullName: "کاربر مهمان",
+  username: "",
+};
 
 const loginModal = $("#login-modal");
 
-function showLogin() { loginModal.classList.remove("hidden"); }
+function showLogin() {
+  loginModal.classList.remove("hidden");
+  const err = $("#login-error");
+  if (err) err.classList.add("hidden");
+}
 function hideLogin() {
   loginModal.classList.add("hidden");
-  $("#login-error").classList.add("hidden");
+  const err = $("#login-error");
+  if (err) err.classList.add("hidden");
 }
 
-// password eye toggles
+function refreshUserBox(status) {
+  if (status) {
+    authState.loggedIn = !!status.lms_logged_in;
+    authState.fullName = status.full_name || (authState.loggedIn ? "کاربر" : "کاربر مهمان");
+    authState.username = status.username || "";
+  }
+
+  const box = $("#user-box");
+  if (!box) return;
+
+  if (authState.loggedIn) {
+    const initial = (authState.fullName || "ک").trim().charAt(0) || "ک";
+    box.innerHTML = `
+      <div class="user-chip" style="display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.7rem;border-radius:16px;background:var(--glass-bg-soft);border:1px solid var(--glass-border);">
+        <span class="avatar" id="user-avatar" style="width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;font-weight:800;">${esc(initial)}</span>
+        <div class="user-meta" style="min-width:0;flex:1;text-align:start;">
+          <div id="user-name" style="font-weight:700;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(authState.fullName)}</div>
+          <small id="user-status" class="muted">وارد شده</small>
+        </div>
+      </div>
+    `;
+  } else {
+    box.innerHTML = `
+      <button id="btn-demo-login" class="btn btn-block" style="
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white; border: none; border-radius: 20px; padding: 0.8rem 1rem;
+        font-weight: 700; font-size: 0.95rem;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      ">
+        <span style="font-size: 1.2rem;">🔐</span>
+        ورود با حساب LMS
+      </button>
+    `;
+    const demoBtn = $("#btn-demo-login");
+    if (demoBtn) demoBtn.addEventListener("click", () => showLogin());
+  }
+
+  // آینه موبایل
+  const mmName = $("#mm-name");
+  const mmStatus = $("#mm-status");
+  const mmAvatar = $("#mm-avatar");
+  if (mmName) mmName.textContent = authState.fullName;
+  if (mmStatus) mmStatus.textContent = authState.loggedIn ? "وارد شده" : "حالت مهمان";
+  if (mmAvatar) mmAvatar.textContent = (authState.fullName || "؟").trim().charAt(0) || "؟";
+}
+
+// password eye toggles + modal close
 document.addEventListener("click", (e) => {
   const eye = e.target.closest("[data-toggle]");
   if (eye) {
@@ -167,26 +205,84 @@ document.addEventListener("click", (e) => {
   }
 });
 
+/** شروع همگام‌سازی — در دمو شبیه‌سازی می‌شود */
+async function startSyncFlow({ silent = false } = {}) {
+  if (window.DEMO_DATA) {
+    setSyncButton(true);
+    setSyncUI(true, 8, "شروع همگام‌سازی…");
+    const steps = [
+      [22, "ورود به LMS"],
+      [40, "دریافت درس‌ها"],
+      [58, "دریافت محتواها"],
+      [75, "دریافت رویدادها و وال"],
+      [90, "همگام‌سازی کوئرا"],
+      [100, "پایان"],
+    ];
+    for (const [pct, label] of steps) {
+      await new Promise((r) => setTimeout(r, 380));
+      setSyncUI(true, pct, label);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+    setSyncUI(false);
+    setSyncButton(false);
+    if (!silent) toast("✅ همگام‌سازی انجام شد — داده‌های نمایشی آماده است");
+    renderPage(currentRoute());
+    refreshNavBadge();
+    return;
+  }
+
+  setSyncButton(true);
+  try {
+    const r = await api("/sync/start", { method: "POST" });
+    if (!r.ok && r.error) {
+      toast("⏳ " + r.error);
+      setSyncButton(false);
+      return;
+    }
+    setSyncUI(true, 0, "شروع همگام‌سازی…");
+    listenSyncEvents();
+  } catch (e) {
+    toast("❌ خطا در شروع همگام‌سازی");
+    setSyncButton(false);
+  }
+}
+
 $("#login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = $("#btn-login-submit");
   btn.disabled = true;
   btn.textContent = "در حال ورود…";
   try {
-    const result = await api("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({
-        lms_username: $("#lms-username").value,
-        lms_password: $("#lms-password").value,
-        quera_username: $("#quera-username").value,
-        quera_password: $("#quera-password").value,
-      }),
-    });
+    let result;
+    if (window.DEMO_DATA) {
+      // در نسخه نمایشی ورود را شبیه‌سازی می‌کنیم
+      await new Promise((r) => setTimeout(r, 450));
+      const name = $("#lms-username").value?.trim() || "کاربر دمو";
+      result = { ok: true, full_name: name, username: name };
+    } else {
+      result = await api("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          lms_username: $("#lms-username").value,
+          lms_password: $("#lms-password").value,
+          quera_username: $("#quera-username").value,
+          quera_password: $("#quera-password").value,
+        }),
+      });
+    }
+
     if (result.ok) {
       hideLogin();
+      dismissWelcome(true);
+      refreshUserBox({
+        lms_logged_in: true,
+        full_name: result.full_name || "کاربر",
+        username: result.username || "",
+      });
       toast(`✅ خوش آمدید${result.full_name ? "، " + result.full_name : ""}`);
-      refreshUserBox();
-      renderPage(currentRoute());
+      // بعد از ورود موفق → سینک خودکار و ورود به داشبورد (حالت نهایی)
+      location.hash = "#/";
+      await startSyncFlow();
     } else {
       const err = $("#login-error");
       err.textContent = "❌ " + (result.error || "ورود ناموفق بود");
@@ -203,30 +299,50 @@ $("#login-form").addEventListener("submit", async (e) => {
 });
 
 const logoutBtn = $("#btn-logout");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      if (window.DEMO_DATA) {
-        toast("⚠️ این یک نسخه نمایشی است.");
-        return;
-      }
-      await api("/auth/logout", { method: "POST" });
-      toast("از حساب خارج شدید");
-      refreshUserBox();
-    });
-  }
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    if (window.DEMO_DATA) {
+      refreshUserBox({ lms_logged_in: false, full_name: "کاربر مهمان", username: "" });
+      toast("از حساب خارج شدید (نسخه نمایشی)");
+      return;
+    }
+    await api("/auth/logout", { method: "POST" });
+    toast("از حساب خارج شدید");
+    refreshUserBox({ lms_logged_in: false, full_name: "کاربر مهمان", username: "" });
+  });
+}
 
-// ============================================================
-// DEMO MODE: مدیریت دکمه ورود
-// ============================================================
-window.addEventListener('DOMContentLoaded', () => {
-  const demoBtn = document.getElementById('btn-demo-login');
-  if (demoBtn) {
-    demoBtn.addEventListener('click', () => {
-      // نمایش پیام هشدار
-      toast("⚠️ این یک نسخه نمایشی است. برای ورود به حساب خود، از دکمه «ورود به نسخه اصلی» در بالای صفحه استفاده کنید.");
-    });
-  }
-});
+// ---------- Welcome Overlay + Guide ----------
+const WELCOME_KEY = "lms-welcome-dismissed";
+
+function showWelcome() {
+  const el = $("#welcome-overlay");
+  if (el) el.classList.remove("hidden");
+}
+function dismissWelcome(persist = true) {
+  const el = $("#welcome-overlay");
+  if (el) el.classList.add("hidden");
+  if (persist) localStorage.setItem(WELCOME_KEY, "1");
+}
+function showGuide() {
+  const g = $("#guide-modal");
+  if (g) g.classList.remove("hidden");
+}
+
+function wireWelcomeUI() {
+  $("#btn-welcome-close")?.addEventListener("click", () => dismissWelcome(true));
+  $("#btn-welcome-guide")?.addEventListener("click", () => {
+    dismissWelcome(true);
+    showGuide();
+  });
+  $("#btn-welcome-login")?.addEventListener("click", () => {
+    dismissWelcome(true);
+    showLogin();
+  });
+  // دکمه ورود سایدبار (حالت اولیه)
+  const demoBtn = $("#btn-demo-login");
+  if (demoBtn) demoBtn.addEventListener("click", () => showLogin());
+}
 
 // ---------- Sync + SSE ----------
 
@@ -259,21 +375,8 @@ function setSyncButton(running) {
   btn.querySelector(".btn-sync-label").textContent = running ? "در حال همگام‌سازی…" : "🔄 همگام‌سازی";
 }
 
-$("#btn-sync").addEventListener("click", async () => {
-  if (window.DEMO_DATA) {
-    toast("⚠️ در نسخه نمایشی، همگام‌سازی غیرفعال است. برای استفاده‌ی کامل، به نسخه اصلی بروید.");
-    return;
-  }
-  setSyncButton(true);
-  try {
-    const r = await api("/sync/start", { method: "POST" });
-    if (!r.ok && r.error) { toast("⏳ " + r.error); setSyncButton(false); return; }
-    setSyncUI(true, 0, "شروع همگام‌سازی…");
-    listenSyncEvents();
-  } catch (e) {
-    toast("❌ خطا در شروع همگام‌سازی");
-    setSyncButton(false);
-  }
+$("#btn-sync").addEventListener("click", () => {
+  startSyncFlow();
 });
 
 // ۱. نگاشت نام درس‌ها (کش)
@@ -365,18 +468,6 @@ function listenSyncEvents() {
     try { msg = JSON.parse(e.data).data.message; } catch (_) {}
     finish("❌ خطا: " + msg);
   });
-
-  // ============================================================
-// DEMO MODE: مدیریت دکمه ورود
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  const demoBtn = document.getElementById('btn-demo-login');
-  if (demoBtn) {
-    demoBtn.addEventListener('click', () => {
-      toast("⚠️ این یک نسخه نمایشی است. برای ورود به حساب خود، از دکمه «ورود به نسخه اصلی» در بالای صفحه استفاده کنید.");
-    });
-  }
-});
 
   eventSource.onerror = () => {
     setTimeout(async () => {
@@ -2211,11 +2302,29 @@ document.querySelectorAll(".nav-item").forEach((el) => {
     } catch (_) {}
   }
 
-  // در تابع init (بعد از تنظیم تم):
-if (window.DEMO_DATA) {
-  // حالت دمو: نیازی به لاگین نیست
-  document.querySelectorAll('.modal-overlay').forEach(el => el.classList.add('hidden'));
-}
+  // بستن مودال‌های باز مانده
+  document.querySelectorAll(".modal-overlay").forEach((el) => el.classList.add("hidden"));
+
+  // وضعیت ورود اولیه
+  // در دمو: شروع به‌صورت مهمان تا کاربر عمداً وارد شود (حالت اولیه)
+  if (window.DEMO_DATA) {
+    refreshUserBox({ lms_logged_in: false, full_name: "کاربر مهمان", username: "" });
+  } else {
+    try {
+      const st = await api("/auth/status");
+      refreshUserBox(st);
+    } catch (_) {
+      refreshUserBox({ lms_logged_in: false, full_name: "کاربر مهمان", username: "" });
+    }
+  }
+
+  wireWelcomeUI();
+
+  // حالت اولیه: نمایش پیام خوش‌آمد در اولین بازدید
+  if (!localStorage.getItem(WELCOME_KEY) && !authState.loggedIn) {
+    showWelcome();
+  }
+
   refreshNavBadge();
   renderPage(currentRoute());
 

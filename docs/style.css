@@ -2927,3 +2927,134 @@ a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز
     bottom: 1rem !important;
   }
 }
+/* =========================================================================
+   Welcome Overlay (حالت اولیه)
+   ========================================================================= */
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(8, 14, 30, 0.45);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  animation: fade-in 0.22s ease;
+}
+.welcome-overlay.hidden {
+  display: none !important;
+}
+.welcome-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 1.75rem 1.5rem 1.4rem;
+  border-radius: 24px;
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 var(--glass-hi);
+  text-align: center;
+  animation: pop-in 0.28s ease;
+}
+.welcome-close {
+  position: absolute;
+  top: 0.85rem;
+  inset-inline-end: 0.85rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-soft);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.welcome-close:hover {
+  background: var(--glass-bg-strong);
+  color: var(--text);
+}
+.welcome-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+  margin-bottom: 0.65rem;
+}
+.welcome-card h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0 0 0.55rem;
+  color: var(--text);
+}
+.welcome-text {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0 0 1.25rem;
+}
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.welcome-actions .btn {
+  min-height: 46px;
+  font-weight: 700;
+}
+
+/* Guide modal steps */
+.modal-guide {
+  max-width: 480px;
+}
+.guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.25rem 0 0.5rem;
+}
+.guide-step {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  text-align: start;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: var(--glass-bg-soft);
+  border: 1px solid var(--glass-border);
+}
+.guide-step-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+}
+.guide-step strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+.guide-step p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  .welcome-card {
+    padding: 1.45rem 1.15rem 1.2rem;
+    border-radius: 20px;
+  }
+  .welcome-card h2 {
+    font-size: 1.1rem;
+  }
+}
