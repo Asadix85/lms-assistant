@@ -1,14 +1,20 @@
 {
   "notified_assignments": [
-    "38875",
     "37786",
     "38924",
-    "37700"
+    "39339",
+    "37700",
+    "38875"
   ],
   "notified_quera": [],
   "notified_posts": [
     "6b0dfb2ae63cd338",
     "cb079b03c76ea451"
   ],
-  "notified_events": []
+  "notified_events": [
+    "jaam_135",
+    "manual_1793126611",
+    "manual_1793126649",
+    "jaam_133"
+  ]
 }
