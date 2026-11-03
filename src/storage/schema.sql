@@ -181,3 +181,43 @@ CREATE TABLE IF NOT EXISTS course_schedules (
 );
 
 CREATE INDEX IF NOT EXISTS idx_course_schedules_course ON course_schedules(course_id);
+
+-- ============================================================
+-- Identity (وب چندکاربره)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    lms_username TEXT NOT NULL UNIQUE,
+    lms_user_id TEXT,
+    full_name TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    created_at TEXT NOT NULL,
+    last_login_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_lms_username ON users(lms_username);
+
+CREATE TABLE IF NOT EXISTS web_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    user_agent TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_sessions_user ON web_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_web_sessions_expires ON web_sessions(expires_at);
+
+-- اسرار خارجی (رمزنگاری‌شده در سطح اپلیکیشن)
+CREATE TABLE IF NOT EXISTS user_secrets (
+    user_id TEXT PRIMARY KEY,
+    lms_password_enc TEXT,
+    quera_username TEXT,
+    quera_password_enc TEXT,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

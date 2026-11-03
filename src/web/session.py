@@ -1,32 +1,33 @@
-"""Session Manager: مدیریت لاگین LMS/Quera و Sync در بک‌گراند (جایگزین Worker کیوتی)."""
+"""Session Manager: مدیریت per-user برای LMS/Quera و Sync در بک‌گراند."""
+
+from __future__ import annotations
 
 import asyncio
 import threading
-import time
 from collections.abc import Callable
 
 from loguru import logger
 
-from src.services.credential_provider import CredentialProvider, Credentials
-from src.services.credentials_manager import CredentialsManager
 from src.services.lms_assistant import LMSAssistant
 from src.services.quera_sync import QueraSyncService
 from src.services.sync_progress import SyncProgress
 from src.services.sync_result import SyncResult
 from src.services.sync_service import SyncService
 from src.storage.database import Database
+from src.storage.repositories.user_repo import UserRepository
 
 
 class SessionManager:
-    """مدیریت session وب: credentials، اتصال LMS، و اجرای sync در thread."""
+    """مدیریت session وب چندکاربره: assistantها per-user و sync در thread."""
 
     def __init__(self, db: Database) -> None:
         self.db = db
         self._lock = threading.Lock()
-        self._assistant: LMSAssistant | None = None
-        self._creds: Credentials | None = None
+        # user_id -> LMSAssistant
+        self._assistants: dict[str, LMSAssistant] = {}
+        # user_id فعال برای sync تک‌نخی فعلی (فاز ۱: یک sync سراسری)
+        self._active_user_id: str | None = None
 
-        # === Sync state ===
         self._sync_thread: threading.Thread | None = None
         self._sync_running = False
         self._latest_progress: SyncProgress | None = None
@@ -35,83 +36,90 @@ class SessionManager:
         self._loop: asyncio.AbstractEventLoop | None = None
 
     # =========================================================
-    # Credentials / Login
+    # Per-user LMS assistant
     # =========================================================
 
+    def set_active_user(self, user_id: str | None) -> None:
+        self._active_user_id = user_id
+
     @property
-    def creds(self) -> Credentials:
-        if self._creds is None:
-            self._creds = CredentialProvider.load()
-        return self._creds
+    def active_user_id(self) -> str | None:
+        return self._active_user_id
 
-    def set_credentials(
-        self,
-        lms_username: str,
-        lms_password: str,
-        quera_username: str = "",
-        quera_password: str = "",
-    ) -> None:
-        # 👇 ذخیره در Keyring (دائمی)
-        if lms_username and lms_password:
-            CredentialsManager.save_lms(lms_username, lms_password)
-        if quera_username and quera_password:
-            CredentialsManager.save_quera(quera_username, quera_password)
-
-        # 👇 آپدیت در حافظه
-        CredentialProvider.update(lms_username, lms_password, quera_username, quera_password)
-        self._creds = Credentials(
-            lms_username=lms_username,
-            lms_password=lms_password,
-            quera_username=quera_username,
-            quera_password=quera_password,
-        )
-
+    def bind_assistant(self, user_id: str, assistant: LMSAssistant) -> None:
         with self._lock:
-            if self._assistant:
+            old = self._assistants.get(user_id)
+            if old is not None and old is not assistant:
                 try:
-                    self._assistant.close()
+                    old.close()
                 except Exception:
                     pass
-                self._assistant = None
+            self._assistants[user_id] = assistant
+            self._active_user_id = user_id
 
-    def get_assistant(self) -> LMSAssistant:
-        """دریافت assistant لاگین‌شده (lazy login با لاک)."""
+    def drop_assistant(self, user_id: str) -> None:
         with self._lock:
-            if self._assistant and self._assistant.is_authenticated:
-                return self._assistant
+            old = self._assistants.pop(user_id, None)
+            if old is not None:
+                try:
+                    old.close()
+                except Exception:
+                    pass
+            if self._active_user_id == user_id:
+                self._active_user_id = None
 
-            creds = self.creds
-            if not creds.lms_username or not creds.lms_password:
-                raise PermissionError("اعتبارنامه LMS تنظیم نشده است")
+    def get_assistant(self, user_id: str | None = None) -> LMSAssistant:
+        """assistant لاگین‌شده برای user؛ در صورت نیاز از secrets دوباره می‌سازد."""
+        uid = user_id or self._active_user_id
+        if not uid:
+            raise PermissionError("کاربر مشخص نیست")
 
-            assistant = LMSAssistant(creds.lms_username, creds.lms_password)
-            if not assistant.login():
-                raise PermissionError("Login به LMS ناموفق بود")
+        with self._lock:
+            existing = self._assistants.get(uid)
+            if existing and existing.is_authenticated:
+                return existing
 
-            self._assistant = assistant
-            return assistant
+        repo = UserRepository(self.db)
+        user = repo.get_by_id(uid)
+        if not user:
+            raise PermissionError("کاربر یافت نشد")
+        secrets = repo.load_secrets(uid)
+        if not secrets.get("lms_password"):
+            raise PermissionError("اعتبارنامه LMS تنظیم نشده است — دوباره وارد شوید")
 
+        assistant = LMSAssistant(user["lms_username"], secrets["lms_password"])
+        if not assistant.login():
+            raise PermissionError("Login به LMS ناموفق بود")
+
+        self.bind_assistant(uid, assistant)
+        return assistant
+
+    def is_lms_live(self, user_id: str) -> bool:
+        with self._lock:
+            a = self._assistants.get(user_id)
+            return bool(a and a.is_authenticated)
+
+    def full_name_for(self, user_id: str) -> str | None:
+        with self._lock:
+            a = self._assistants.get(user_id)
+            if a and a.full_name:
+                return a.full_name
+        user = UserRepository(self.db).get_by_id(user_id)
+        return user.get("full_name") if user else None
+
+    # سازگاری با کد قدیمی که بدون user_id صداید
     @property
     def lms_logged_in(self) -> bool:
-        a = self._assistant
-        return bool(a and a.is_authenticated)
+        uid = self._active_user_id
+        return self.is_lms_live(uid) if uid else False
 
     @property
     def full_name(self) -> str | None:
-        a = self._assistant
-        return a.full_name if a else None
+        uid = self._active_user_id
+        return self.full_name_for(uid) if uid else None
 
-    def logout(self) -> None:
-        with self._lock:
-            if self._assistant:
-                try:
-                    self._assistant.close()
-                except Exception:
-                    pass
-                self._assistant = None
-        # 👇 فقط LMS را پاک کن، کوئرا را نگه دار
-        if self._creds:
-            self.set_credentials("", "", self._creds.quera_username, self._creds.quera_password)
+    def logout_user(self, user_id: str) -> None:
+        self.drop_assistant(user_id)
 
     # =========================================================
     # Sync (background thread + pub/sub برای SSE)
@@ -130,7 +138,6 @@ class SessionManager:
         return self._last_result
 
     def attach_loop(self, loop: asyncio.AbstractEventLoop) -> None:
-        """اتصال event loop فست‌API برای publish رویدادهای sync."""
         self._loop = loop
 
     def subscribe(self) -> asyncio.Queue:
@@ -150,88 +157,107 @@ class SessionManager:
             try:
                 loop.call_soon_threadsafe(q.put_nowait, event)
             except RuntimeError:
-                pass  # loop بسته شده
+                pass
 
-    def start_lms_sync(self) -> bool:
+    def start_lms_sync(self, user_id: str | None = None) -> bool:
         if self._sync_running:
             return False
+
+        uid = user_id or self._active_user_id
+        if not uid:
+            raise PermissionError("برای sync باید وارد شده باشید")
+
+        self._active_user_id = uid
         self._sync_running = True
         self._latest_progress = None
         self._last_result = None
 
         def on_progress(p: SyncProgress) -> None:
             self._latest_progress = p
-            self._publish({"type": "progress", "data": p.to_dict() if hasattr(p, "to_dict") else {
-                "phase": p.phase,
-                "phase_index": p.phase_index,
-                "total_phases": p.total_phases,
-                "current": p.current,
-                "total": p.total,
-                "message": p.message,
-                "percent": p.percent,
-                "elapsed": round(p.elapsed, 1),
-                "changes": p.changes,
-            }})
+            self._publish(
+                {
+                    "type": "progress",
+                    "data": p.to_dict()
+                    if hasattr(p, "to_dict")
+                    else {
+                        "phase": p.phase,
+                        "phase_index": p.phase_index,
+                        "total_phases": p.total_phases,
+                        "current": p.current,
+                        "total": p.total,
+                        "message": p.message,
+                        "percent": p.percent,
+                        "elapsed": round(p.elapsed, 1),
+                        "changes": p.changes,
+                    },
+                }
+            )
 
         def run() -> None:
             try:
-                # ==================== ۱. LMS ====================
-                assistant = self.get_assistant()
+                assistant = self.get_assistant(uid)
                 service = SyncService(assistant, self.db)
                 result = service.sync(on_progress=on_progress)
                 self._last_result = result
 
                 if result.has_error:
-                    # اگر LMS خطا داد، کوئرا را سینک نکن
-                    self._publish({
-                        "type": "result",
-                        "data": {
-                            "ok": False,
-                            "error": result.error,
-                            "summary": "سینک LMS ناموفق بود. سینک کوئرا انجام نشد.",
-                        },
-                    })
+                    self._publish(
+                        {
+                            "type": "result",
+                            "data": {
+                                "ok": False,
+                                "error": result.error,
+                                "summary": "سینک LMS ناموفق بود. سینک کوئرا انجام نشد.",
+                            },
+                        }
+                    )
                     return
 
-                # ==================== ۲. Quera ====================
-                self._publish({
-                    "type": "progress",
-                    "data": {
-                        "phase": "quera",
-                        "phase_index": 99,
-                        "total_phases": 100,
-                        "current": 0,
-                        "total": 1,
-                        "message": "در حال همگام‌سازی کوئرا...",
-                        "percent": 99,
-                        "elapsed": 0,
-                        "changes": {},
-                    },
-                })
+                self._publish(
+                    {
+                        "type": "progress",
+                        "data": {
+                            "phase": "quera",
+                            "phase_index": 99,
+                            "total_phases": 100,
+                            "current": 0,
+                            "total": 1,
+                            "message": "در حال همگام‌سازی کوئرا...",
+                            "percent": 99,
+                            "elapsed": 0,
+                            "changes": {},
+                        },
+                    }
+                )
 
-                quera_result = self.run_quera_sync()
+                quera_result = self.run_quera_sync(uid)
 
                 if quera_result.get("error"):
-                    # اگر کوئرا خطا داد، حداقل LMS موفق بوده
-                    self._publish({
-                        "type": "result",
-                        "data": {
-                            "ok": True,
-                            "error": None,
-                            "summary": f"LMS: موفق | کوئرا: {quera_result['error']}",
-                        },
-                    })
+                    self._publish(
+                        {
+                            "type": "result",
+                            "data": {
+                                "ok": True,
+                                "error": None,
+                                "summary": f"LMS: موفق | کوئرا: {quera_result['error']}",
+                            },
+                        }
+                    )
                 else:
-                    # هر دو موفق
-                    self._publish({
-                        "type": "result",
-                        "data": {
-                            "ok": True,
-                            "error": None,
-                            "summary": f"LMS: {result.summary()} | کوئرا: {quera_result.get('new', 0)} جدید، {quera_result.get('updated', 0)} به‌روز",
-                        },
-                    })
-
+                    self._publish(
+                        {
+                            "type": "result",
+                            "data": {
+                                "ok": True,
+                                "error": None,
+                                "summary": (
+                                    f"LMS: {result.summary()} | کوئرا: "
+                                    f"{quera_result.get('new', 0)} جدید، "
+                                    f"{quera_result.get('updated', 0)} به‌روز"
+                                ),
+                            },
+                        }
+                    )
             except Exception as e:
                 logger.exception("خطا در sync پس‌زمینه")
                 self._publish({"type": "error", "data": {"message": str(e)}})
@@ -242,12 +268,18 @@ class SessionManager:
         self._sync_thread.start()
         return True
 
-    def run_quera_sync(self) -> dict:
-        """Sync Quera با استفاده از CredentialProvider."""
-        creds = CredentialProvider.get()
+    def run_quera_sync(self, user_id: str | None = None) -> dict:
+        uid = user_id or self._active_user_id
+        if not uid:
+            return {"error": "کاربر مشخص نیست"}
 
-        if not creds.quera_username or not creds.quera_password:
+        secrets = UserRepository(self.db).load_secrets(uid)
+        if not secrets.get("quera_username") or not secrets.get("quera_password"):
             return {"error": "اعتبارنامه Quera تنظیم نشده"}
 
-        service = QueraSyncService(creds.quera_username, creds.quera_password, self.db)
+        service = QueraSyncService(
+            secrets["quera_username"],
+            secrets["quera_password"],
+            self.db,
+        )
         return service.sync()

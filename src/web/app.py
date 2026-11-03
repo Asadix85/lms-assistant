@@ -1,17 +1,25 @@
 """App اصلی FastAPI وب LMS Assistant."""
 
+from __future__ import annotations
+
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from loguru import logger
 
 from config.settings import settings
 from src.storage.database import Database
+from src.storage.migrations import migrate
+from src.web.routers import auth, courses, proxy, quera
+from src.web.routers import settings as settings_router
+from src.web.routers import sync
 from src.web.session import SessionManager
-from src.web.routers import auth, courses, quera, settings as settings_router, sync, proxy
 
 WEB_DIR = Path(__file__).resolve().parent.parent.parent / "web"
 ASSETS_DIR = Path(__file__).resolve().parent.parent.parent / "assets"
@@ -29,7 +37,28 @@ def _prepare_db() -> Database:
         has_tables = None
     if has_tables is None:
         db.init_schema()
+    else:
+        # DB از قبل هست → فقط مهاجرت‌های جدید (مثل users)
+        try:
+            migrate(db.connection)
+            db.connection.commit()
+        except Exception as e:
+            logger.error("خطا در migrate هنگام startup: {}", e)
+            raise
     return db
+
+
+def _cors_origins() -> list[str]:
+    raw = os.environ.get("LMS_CORS_ORIGINS", "").strip()
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    # توسعه محلی
+    return [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
 
 @asynccontextmanager
@@ -40,9 +69,6 @@ async def lifespan(app: FastAPI):
 
     app.state.db = db
     app.state.session = session
-
-    # 👇 اضافه کردن lms_assistant برای دسترسی پروکسی
-    # (در صورت لاگین موفق، این متغیر در روت auth پر می‌شود)
     app.state.lms_assistant = None
 
     yield
@@ -52,65 +78,30 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="LMS Assistant Web",
     description="نسخه وب دستیار LMS دانشگاه اصفهان (FastAPI + HTML/CSS)",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
-from fastapi.middleware.cors import CORSMiddleware
 
-# 👇 اضافه کردن CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # در محیط توسعه همه را مجاز می‌کنیم
+    allow_origins=_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# === API Routers ===
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(courses.router, prefix="/api", tags=["lms"])
 app.include_router(sync.router, prefix="/api/sync", tags=["sync"])
 app.include_router(quera.router, prefix="/api/quera", tags=["quera"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["settings"])
-
-# 👇 ثبت روت پروکسی
 app.include_router(proxy.router, prefix="/api", tags=["proxy"])
 
-# === Static files ===
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
-app.mount("/fonts", StaticFiles(directory=str(ASSETS_DIR / "fonts")), name="fonts")
+if ASSETS_DIR.exists():
+    app.mount("/fonts", StaticFiles(directory=str(ASSETS_DIR / "fonts")), name="fonts")
+
 
 @app.get("/", include_in_schema=False)
 async def index() -> FileResponse:
     return FileResponse(str(WEB_DIR / "index.html"))
-
-async def keep_lms_session_alive(app: FastAPI):
-    """تسک پس‌زمینه برای زنده نگه داشتن نشست LMS."""
-    while True:
-        try:
-            await asyncio.sleep(600)  # هر ۱۰ دقیقه
-            
-            # 👇 دسترسی به SessionManager از state برنامه
-            session_manager = getattr(app.state, "session", None)
-            if not session_manager:
-                continue
-            
-            # 👇 دریافت assistant از SessionManager
-            try:
-                assistant = session_manager.get_assistant()
-            except PermissionError:
-                # اگر لاگین نشده بود، ادامه بده
-                continue
-
-            if assistant and assistant.is_authenticated:
-                r = assistant.client.get("/pages/nodemain")
-                if "/login" in str(r.url):
-                    logger.warning("⚠️ نشست LMS در پس‌زمینه منقضی شد. تلاش برای لاگین مجدد...")
-                    creds = session_manager.creds
-                    assistant.login(creds.lms_username, creds.lms_password)
-                else:
-                    logger.debug("💚 نشست LMS در پس‌زمینه زنده است.")
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f"خطا در تسک keep-alive: {e}")

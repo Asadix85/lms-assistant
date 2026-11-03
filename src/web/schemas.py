@@ -270,6 +270,8 @@ class SessionStatus(BaseModel):
     quera_logged_in: bool
     full_name: str | None = None
     username: str | None = None
+    lms_session_live: bool = False
+    role: str | None = None
 
 
 class SyncProgressOut(BaseModel):

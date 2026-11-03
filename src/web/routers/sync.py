@@ -1,19 +1,39 @@
-"""Router Sync: شروع همگام‌سازی + استریم پیشرفت با SSE (جایگزین سیگنال‌های Worker کیوتی)."""
+"""Router Sync: شروع همگام‌سازی + استریم پیشرفت با SSE."""
+
+from __future__ import annotations
 
 import asyncio
 import json
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+
+from src.storage.repositories.user_repo import UserRepository
+from src.web.security import SESSION_COOKIE_NAME
 
 router = APIRouter()
 
 
+def _require_user(request: Request) -> dict:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        raise HTTPException(401, "ابتدا وارد شوید")
+    user = UserRepository(request.app.state.db).get_user_by_token(token)
+    if not user:
+        raise HTTPException(401, "نشست منقضی شده است")
+    return user
+
+
 @router.post("/start")
 async def start_sync(request: Request) -> dict:
-    """شروع sync کامل LMS در بک‌گراند."""
+    """شروع sync کامل LMS در بک‌گراند برای کاربر لاگین‌شده."""
+    user = _require_user(request)
     session = request.app.state.session
-    started = session.start_lms_sync()
+    session.set_active_user(user["id"])
+    try:
+        started = session.start_lms_sync(user["id"])
+    except PermissionError as e:
+        return {"ok": False, "error": str(e)}
     if not started:
         return {"ok": False, "error": "همگام‌سازی در حال انجام است"}
     return {"ok": True}

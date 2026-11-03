@@ -389,13 +389,23 @@ async def submit_assignment(
     description: str = Form("")
 ):
     """ارسال فایل تکلیف به LMS با استفاده از نشست فعال."""
-    # 👇 گرفتن assistant از SessionManager
+    from src.storage.repositories.user_repo import UserRepository
+    from src.web.security import SESSION_COOKIE_NAME
+
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        raise HTTPException(401, "ابتدا لاگین کنید")
+    user = UserRepository(request.app.state.db).get_user_by_token(token)
+    if not user:
+        raise HTTPException(401, "نشست منقضی شده است")
+
     session = request.app.state.session
+    session.set_active_user(user["id"])
     try:
-        assistant = session.get_assistant()
+        assistant = session.get_assistant(user["id"])
     except PermissionError as e:
         raise HTTPException(401, f"ابتدا لاگین کنید: {e}")
-    
+
     if not assistant or not assistant.is_authenticated:
         raise HTTPException(401, "ابتدا لاگین کنید")
 

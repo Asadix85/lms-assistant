@@ -25,18 +25,11 @@ function proxyUrl(url) {
 }
 
 async function api(path, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   const res = await fetch("/api" + path, {
-    headers: { "Content-Type": "application/json" },
+    credentials: "include",
     ...options,
-  });
-  if (!res.ok) throw new Error(`خطای سرور (${res.status})`);
-  return res.json();
-}
-
-async function api(path, options = {}) {
-  const res = await fetch("/api" + path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
+    headers,
   });
   if (!res.ok) throw new Error(`خطای سرور (${res.status})`);
   return res.json();

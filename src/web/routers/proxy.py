@@ -8,12 +8,27 @@ from urllib.parse import urljoin, quote
 
 router = APIRouter()
 
+def _assistant_for_request(request: Request):
+    """assistant مربوط به کاربر session فعلی."""
+    from src.storage.repositories.user_repo import UserRepository
+    from src.web.security import SESSION_COOKIE_NAME
+
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        raise PermissionError("وارد نشده‌اید")
+    user = UserRepository(request.app.state.db).get_user_by_token(token)
+    if not user:
+        raise PermissionError("نشست منقضی شده است")
+    sm = request.app.state.session
+    sm.set_active_user(user["id"])
+    return sm.get_assistant(user["id"])
+
+
 @router.get("/jaam-proxy")
 async def jaam_proxy(request: Request, url: str):
     """دریافت صفحه HTML و تغییر لینک‌ها به دامنه‌ی خودمان."""
-    session_manager = request.app.state.session
     try:
-        assistant = session_manager.get_assistant()
+        assistant = _assistant_for_request(request)
     except PermissionError as e:
         return HTMLResponse(f"<h1>خطای احراز هویت</h1><p>{e}</p>", status_code=401)
 
@@ -84,9 +99,8 @@ async def jaam_proxy(request: Request, url: str):
 @router.get("/jaam-proxy/static")
 async def jaam_static(request: Request, url: str):
     """پروکسی فایل‌های استاتیک (CSS, JS, تصاویر)."""
-    session_manager = request.app.state.session
     try:
-        assistant = session_manager.get_assistant()
+        assistant = _assistant_for_request(request)
     except PermissionError:
         return Response("Unauthorized", status_code=401)
 
