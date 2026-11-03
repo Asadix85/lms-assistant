@@ -2883,3 +2883,46 @@ a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز
     display: block !important;
   }
 }
+/* =========================================================================
+   Mobile: Fix for Glass Cards Overlap
+   ========================================================================= */
+@media (max-width: 900px) {
+  /* فاصله‌ی بیشتر بین کارت‌های داخل محتوای اصلی */
+  .content {
+    gap: 1.5rem !important; /* فاصله عمودی بین کارت‌ها */
+    padding-bottom: 8rem !important; /* فضای بیشتر برای نوار پایین */
+  }
+
+  /* فاصله‌ی داخلی مناسب برای کارت‌های شیشه‌ای */
+  .card {
+    padding: 1.5rem 1.2rem !important;
+    border-radius: 24px !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* افزایش فاصله بین ردیف‌های داخل کارت‌ها */
+  .item-list {
+    gap: 1rem !important;
+  }
+
+  /* تنظیم ارتفاع کارت‌های آماری */
+  .stat-card {
+    min-height: 120px !important;
+    padding: 1.2rem 1rem !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* افزایش فاصله‌ی داخلی ردیف‌ها */
+  .list-row {
+    padding: 1rem !important;
+    margin-bottom: 0.8rem !important;
+  }
+
+  /* تنظیم فاصله‌ی بین نوار پایین و محتوا */
+  .bottom-nav {
+    bottom: 1rem !important;
+  }
+}
