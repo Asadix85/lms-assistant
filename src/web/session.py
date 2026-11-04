@@ -196,7 +196,7 @@ class SessionManager:
         def run() -> None:
             try:
                 assistant = self.get_assistant(uid)
-                service = SyncService(assistant, self.db)
+                service = SyncService(assistant, self.db, uid)
                 result = service.sync(on_progress=on_progress)
                 self._last_result = result
 
@@ -281,5 +281,6 @@ class SessionManager:
             secrets["quera_username"],
             secrets["quera_password"],
             self.db,
+            uid,
         )
         return service.sync()

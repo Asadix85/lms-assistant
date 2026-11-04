@@ -1,4 +1,4 @@
-"""Repository برای Event."""
+"""Repository برای Event (scoped به user_id)."""
 
 from datetime import datetime
 
@@ -9,15 +9,13 @@ from src.storage.repositories.base import BaseRepository
 
 
 class EventRepository(BaseRepository):
-    """ذخیره و بازیابی Event."""
-
     TABLE_NAME = "events"
 
     def save(self, event: Event) -> None:
         data = self._to_dict(event)
         existing = self.db.fetch_one(
-            "SELECT id FROM events WHERE id = ?",
-            (event.id,),
+            "SELECT id FROM events WHERE user_id = ? AND id = ?",
+            (self.user_id, event.id),
         )
 
         if existing:
@@ -25,21 +23,24 @@ class EventRepository(BaseRepository):
                 """
                 UPDATE events SET
                     title = ?, url = ?, start_at = ?, last_seen_at = ?
-                WHERE id = ?
+                WHERE user_id = ? AND id = ?
                 """,
-                (data["title"], data["url"], data["start_at"],
-                 data["last_seen_at"], data["id"]),
+                (
+                    data["title"], data["url"], data["start_at"],
+                    data["last_seen_at"], self.user_id, data["id"],
+                ),
             )
         else:
             self.db.execute(
                 """
                 INSERT INTO events (
-                    id, course_id, title, event_type, url, room_token,
+                    user_id, id, course_id, title, event_type, url, room_token,
                     start_at, end_at, description,
                     is_new, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    self.user_id,
                     data["id"], data["course_id"], data["title"],
                     data["event_type"], data["url"], data["room_token"],
                     data["start_at"], data["end_at"], data["description"],
@@ -51,40 +52,48 @@ class EventRepository(BaseRepository):
         self.db.connection.commit()
 
     def get_by_id(self, event_id: str) -> Event | None:
-        row = self.db.fetch_one("SELECT * FROM events WHERE id = ?", (event_id,))
+        row = self.db.fetch_one(
+            "SELECT * FROM events WHERE user_id = ? AND id = ?",
+            (self.user_id, event_id),
+        )
         return self._from_dict(row) if row else None
 
     def get_all(self) -> list[Event]:
-        rows = self.db.fetch_all("SELECT * FROM events ORDER BY start_at")
+        rows = self.db.fetch_all(
+            "SELECT * FROM events WHERE user_id = ? ORDER BY start_at",
+            (self.user_id,),
+        )
         return [self._from_dict(r) for r in rows]
 
     def get_upcoming(self, limit: int = 10) -> list[Event]:
-        """رویدادهای آینده."""
         now = datetime.now().isoformat()
         rows = self.db.fetch_all(
-            "SELECT * FROM events WHERE start_at >= ? ORDER BY start_at LIMIT ?",
-            (now, limit),
+            "SELECT * FROM events WHERE user_id = ? AND start_at >= ? "
+            "ORDER BY start_at LIMIT ?",
+            (self.user_id, now, limit),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_by_course(self, course_id: str) -> list[Event]:
         rows = self.db.fetch_all(
-            "SELECT * FROM events WHERE course_id = ? ORDER BY start_at",
-            (course_id,),
+            "SELECT * FROM events WHERE user_id = ? AND course_id = ? ORDER BY start_at",
+            (self.user_id, course_id),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_new(self) -> list[Event]:
         rows = self.db.fetch_all(
-            "SELECT * FROM events WHERE is_new = 1 ORDER BY start_at"
+            "SELECT * FROM events WHERE user_id = ? AND is_new = 1 ORDER BY start_at",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def mark_all_seen(self) -> None:
-        self.db.execute("UPDATE events SET is_new = 0")
+        self.db.execute(
+            "UPDATE events SET is_new = 0 WHERE user_id = ?",
+            (self.user_id,),
+        )
         self.db.connection.commit()
-
-    # === Helpers ===
 
     def _to_dict(self, e: Event) -> dict:
         return {

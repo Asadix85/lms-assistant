@@ -1,4 +1,4 @@
-"""Repository برای Course."""
+"""Repository برای Course (scoped به user_id)."""
 
 from datetime import datetime
 
@@ -9,49 +9,43 @@ from src.storage.repositories.base import BaseRepository
 
 
 class CourseRepository(BaseRepository):
-    """ذخیره و بازیابی Course."""
-
     TABLE_NAME = "courses"
 
     def save(self, course: Course) -> None:
-        """ذخیره یا به‌روزرسانی یک درس."""
         data = self._to_dict(course)
-
-        # بررسی وجود
         existing = self.db.fetch_one(
-            "SELECT id FROM courses WHERE id = ?",
-            (course.id,),
+            "SELECT id FROM courses WHERE user_id = ? AND id = ?",
+            (self.user_id, course.id),
         )
 
         if existing:
-            # UPDATE
             self.db.execute(
                 """
                 UPDATE courses SET
                     name = ?, url = ?, group_id = ?, domain = ?,
                     nodeg_url = ?, teacher = ?, code = ?, term = ?,
                     status = ?, last_seen_at = ?
-                WHERE id = ?
+                WHERE user_id = ? AND id = ?
                 """,
                 (
                     data["name"], data["url"], data["group_id"], data["domain"],
                     data["nodeg_url"], data["teacher"], data["code"], data["term"],
                     data["status"], data["last_seen_at"],
-                    data["id"],
+                    self.user_id, data["id"],
                 ),
             )
             logger.debug(f"به‌روزرسانی درس: {course.name}")
         else:
-            # INSERT
             self.db.execute(
                 """
                 INSERT INTO courses (
-                    id, name, url, group_id, domain, nodeg_url,
+                    user_id, id, name, url, group_id, domain, nodeg_url,
                     teacher, code, term, status,
                     is_new, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    self.user_id,
                     data["id"], data["name"], data["url"], data["group_id"],
                     data["domain"], data["nodeg_url"], data["teacher"],
                     data["code"], data["term"], data["status"],
@@ -63,46 +57,53 @@ class CourseRepository(BaseRepository):
         self.db.connection.commit()
 
     def get_by_id(self, course_id: str) -> Course | None:
-        row = self.db.fetch_one("SELECT * FROM courses WHERE id = ?", (course_id,))
+        row = self.db.fetch_one(
+            "SELECT * FROM courses WHERE user_id = ? AND id = ?",
+            (self.user_id, course_id),
+        )
         return self._from_dict(row) if row else None
 
     def get_all(self) -> list[Course]:
-        rows = self.db.fetch_all("SELECT * FROM courses ORDER BY name")
+        rows = self.db.fetch_all(
+            "SELECT * FROM courses WHERE user_id = ? ORDER BY name",
+            (self.user_id,),
+        )
         return [self._from_dict(r) for r in rows]
 
     def get_by_domain(self, domain: str) -> list[Course]:
         rows = self.db.fetch_all(
-            "SELECT * FROM courses WHERE domain = ? ORDER BY name",
-            (domain,),
+            "SELECT * FROM courses WHERE user_id = ? AND domain = ? ORDER BY name",
+            (self.user_id, domain),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_active(self) -> list[Course]:
         rows = self.db.fetch_all(
-            "SELECT * FROM courses WHERE status = 'active' ORDER BY name"
+            "SELECT * FROM courses WHERE user_id = ? AND status = 'active' ORDER BY name",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_new(self) -> list[Course]:
         rows = self.db.fetch_all(
-            "SELECT * FROM courses WHERE is_new = 1 ORDER BY first_seen_at"
+            "SELECT * FROM courses WHERE user_id = ? AND is_new = 1 ORDER BY first_seen_at",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def mark_seen(self, course_id: str) -> None:
-        """علامت‌گذاری به‌عنوان دیده‌شده (is_new = 0)."""
         self.db.execute(
-            "UPDATE courses SET is_new = 0 WHERE id = ?",
-            (course_id,),
+            "UPDATE courses SET is_new = 0 WHERE user_id = ? AND id = ?",
+            (self.user_id, course_id),
         )
         self.db.connection.commit()
 
     def mark_all_seen(self) -> None:
-        """علامت‌گذاری همه به‌عنوان دیده‌شده."""
-        self.db.execute("UPDATE courses SET is_new = 0")
+        self.db.execute(
+            "UPDATE courses SET is_new = 0 WHERE user_id = ?",
+            (self.user_id,),
+        )
         self.db.connection.commit()
-
-    # === Helpers ===
 
     def _to_dict(self, c: Course) -> dict:
         return {
@@ -116,7 +117,7 @@ class CourseRepository(BaseRepository):
             "code": c.code,
             "term": c.term,
             "status": c.status.value,
-            "is_new": 0,  # همیشه 0 برای جدیدها (در sync مشخص می‌شود)
+            "is_new": 0,
             "first_seen_at": c.first_seen_at.isoformat(),
             "last_seen_at": c.last_seen_at.isoformat(),
         }

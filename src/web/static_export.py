@@ -53,21 +53,21 @@ SYNC_KEYS = {
 }
 
 
-def _repos(db: Database) -> dict:
+def _repos(db: Database, user_id: str) -> dict:
     return {
-        "courses": CourseRepository(db),
-        "contents": ContentRepository(db),
-        "events": EventRepository(db),
-        "posts": PostRepository(db),
-        "assignments": AssignmentRepository(db),
-        "members": MemberRepository(db),
-        "changes": ChangeRepository(db),
+        "courses": CourseRepository(db, user_id),
+        "contents": ContentRepository(db, user_id),
+        "events": EventRepository(db, user_id),
+        "posts": PostRepository(db, user_id),
+        "assignments": AssignmentRepository(db, user_id),
+        "members": MemberRepository(db, user_id),
+        "changes": ChangeRepository(db, user_id),
     }
 
 
-def build_dashboard(db: Database) -> dict:
+def build_dashboard(db: Database, user_id: str) -> dict:
     """همان ساختار GET /api/dashboard — بین روتر وب و اکسپورت استاتیک مشترک."""
-    r = _repos(db)
+    r = _repos(db, user_id)
     upcoming_events = r["events"].get_upcoming(limit=8)
     upcoming_assignments = r["assignments"].get_upcoming(limit=8)
     recent_posts = r["posts"].get_all()[:8]
@@ -108,29 +108,30 @@ def build_dashboard(db: Database) -> dict:
 def build_bundle(
     db: Database,
     *,
+    user_id: str = "__local__",
     full_name: str | None = None,
     username: str | None = None,
     source: str = "db",
     generated_at: str | None = None,
 ) -> dict:
     """باندل کامل داده برای سایت استاتیک (هم‌شکل پاسخ‌های API)."""
-    r = _repos(db)
+    r = _repos(db, user_id)
     try:
         quera_assignments = [
             QueraAssignmentOut.from_model(a)
-            for a in QueraAssignmentRepository(db).get_all()
+            for a in QueraAssignmentRepository(db, user_id).get_all()
         ]
     except Exception:
         quera_assignments = []
     try:
         quera_courses = [
-            QueraCourseOut.from_model(c) for c in QueraCourseRepository(db).get_all()
+            QueraCourseOut.from_model(c) for c in QueraCourseRepository(db, user_id).get_all()
         ]
     except Exception:
         quera_courses = []
 
     try:
-        setting_repo = SettingRepository(db)
+        setting_repo = SettingRepository(db, user_id)
         sync_settings = {
             ui_key: setting_repo.get(db_key, "true") == "true"
             for ui_key, db_key in SYNC_KEYS.items()
@@ -147,7 +148,7 @@ def build_bundle(
             "username": username,
             "lms_logged_in": bool(username),
         },
-        "dashboard": build_dashboard(db),
+        "dashboard": build_dashboard(db, user_id),
         "courses": [CourseOut.from_model(c) for c in r["courses"].get_all()],
         "contents": [ContentOut.from_model(c) for c in r["contents"].get_all()],
         "events": [EventOut.from_model(e) for e in r["events"].get_all()],

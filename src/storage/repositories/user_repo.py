@@ -32,11 +32,11 @@ class UserRepository:
         )
 
     def upsert_from_lms_login(
-        self,
-        *,
-        lms_username: str,
-        full_name: str | None,
-        lms_user_id: str | None,
+            self,
+            *,
+            lms_username: str,
+            full_name: str | None,
+            lms_user_id: str | None,
     ) -> dict[str, Any]:
         now = utcnow_iso()
         existing = self.get_by_lms_username(lms_username)
@@ -44,10 +44,10 @@ class UserRepository:
             self.db.execute(
                 """
                 UPDATE users
-                   SET full_name = COALESCE(?, full_name),
-                       lms_user_id = COALESCE(?, lms_user_id),
-                       last_login_at = ?
-                 WHERE id = ?
+                SET full_name     = COALESCE(?, full_name),
+                    lms_user_id   = COALESCE(?, lms_user_id),
+                    last_login_at = ?
+                WHERE id = ?
                 """,
                 (full_name, lms_user_id, now, existing["id"]),
             )
@@ -68,12 +68,12 @@ class UserRepository:
     # --- secrets ---
 
     def save_secrets(
-        self,
-        user_id: str,
-        *,
-        lms_password: str | None = None,
-        quera_username: str | None = None,
-        quera_password: str | None = None,
+            self,
+            user_id: str,
+            *,
+            lms_password: str | None = None,
+            quera_username: str | None = None,
+            quera_password: str | None = None,
     ) -> None:
         now = utcnow_iso()
         row = self.db.fetch_one(
@@ -100,11 +100,11 @@ class UserRepository:
             self.db.execute(
                 """
                 UPDATE user_secrets
-                   SET lms_password_enc = ?,
-                       quera_username = ?,
-                       quera_password_enc = ?,
-                       updated_at = ?
-                 WHERE user_id = ?
+                SET lms_password_enc   = ?,
+                    quera_username     = ?,
+                    quera_password_enc = ?,
+                    updated_at         = ?
+                WHERE user_id = ?
                 """,
                 (lms_enc, q_user, q_enc, now, user_id),
             )
@@ -112,7 +112,7 @@ class UserRepository:
             self.db.execute(
                 """
                 INSERT INTO user_secrets
-                    (user_id, lms_password_enc, quera_username, quera_password_enc, updated_at)
+                (user_id, lms_password_enc, quera_username, quera_password_enc, updated_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (user_id, lms_enc, q_user, q_enc, now),
@@ -146,12 +146,12 @@ class UserRepository:
     # --- web sessions ---
 
     def create_session(
-        self,
-        user_id: str,
-        raw_token: str,
-        *,
-        user_agent: str | None = None,
-        days: int = 30,
+            self,
+            user_id: str,
+            raw_token: str,
+            *,
+            user_agent: str | None = None,
+            days: int = 30,
     ) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
         now = utcnow_iso()
@@ -176,9 +176,9 @@ class UserRepository:
         row = self.db.fetch_one(
             """
             SELECT s.id AS session_id, s.expires_at, u.*
-              FROM web_sessions s
-              JOIN users u ON u.id = s.user_id
-             WHERE s.token_hash = ?
+            FROM web_sessions s
+                     JOIN users u ON u.id = s.user_id
+            WHERE s.token_hash = ?
             """,
             (hash_token(raw_token),),
         )

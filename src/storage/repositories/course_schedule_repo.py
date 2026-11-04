@@ -1,4 +1,4 @@
-"""Repository برای CourseSchedule."""
+"""Repository برای CourseSchedule (scoped به user_id)."""
 
 import json
 from datetime import datetime
@@ -10,19 +10,15 @@ from src.storage.repositories.base import BaseRepository
 
 
 class CourseScheduleRepository(BaseRepository):
-    """ذخیره و بازیابی CourseSchedule."""
-
     TABLE_NAME = "course_schedules"
 
     def save(self, schedule: CourseSchedule) -> None:
         existing = self.db.fetch_one(
-            "SELECT course_id FROM course_schedules WHERE course_id = ?",
-            (schedule.course_id,),
+            "SELECT course_id FROM course_schedules WHERE user_id = ? AND course_id = ?",
+            (self.user_id, schedule.course_id),
         )
 
         now = datetime.now().isoformat()
-
-        # سریالایز sessions به JSON
         sessions_data = [
             {
                 "weekday": s.weekday,
@@ -40,22 +36,24 @@ class CourseScheduleRepository(BaseRepository):
                 UPDATE course_schedules SET
                     course_code = ?, sessions_json = ?,
                     raw_text = ?, last_seen_at = ?
-                WHERE course_id = ?
+                WHERE user_id = ? AND course_id = ?
                 """,
                 (
                     schedule.course_code, sessions_json,
-                    schedule.raw_text, now, schedule.course_id,
+                    schedule.raw_text, now,
+                    self.user_id, schedule.course_id,
                 ),
             )
         else:
             self.db.execute(
                 """
                 INSERT INTO course_schedules (
-                    course_id, course_code, sessions_json,
+                    user_id, course_id, course_code, sessions_json,
                     raw_text, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    self.user_id,
                     schedule.course_id, schedule.course_code,
                     sessions_json, schedule.raw_text, now, now,
                 ),
@@ -66,26 +64,31 @@ class CourseScheduleRepository(BaseRepository):
 
     def get_by_id(self, course_id: str) -> CourseSchedule | None:
         row = self.db.fetch_one(
-            "SELECT * FROM course_schedules WHERE course_id = ?",
-            (course_id,),
+            "SELECT * FROM course_schedules WHERE user_id = ? AND course_id = ?",
+            (self.user_id, course_id),
         )
         return self._from_dict(row) if row else None
 
     def get_all(self) -> list[CourseSchedule]:
-        rows = self.db.fetch_all("SELECT * FROM course_schedules")
+        rows = self.db.fetch_all(
+            "SELECT * FROM course_schedules WHERE user_id = ?",
+            (self.user_id,),
+        )
         return [self._from_dict(r) for r in rows]
 
     def _from_dict(self, row: dict) -> CourseSchedule:
         sessions = []
         try:
-            data = json.loads(row.get("sessions_json", "[]"))
+            data = json.loads(row.get("sessions_json") or "[]")
             for s in data:
-                sessions.append(ClassSession(
-                    weekday=s.get("weekday", ""),
-                    start_time=s.get("start_time", ""),
-                    end_time=s.get("end_time", ""),
-                    location=s.get("location", ""),
-                ))
+                sessions.append(
+                    ClassSession(
+                        weekday=s.get("weekday", ""),
+                        start_time=s.get("start_time", ""),
+                        end_time=s.get("end_time", ""),
+                        location=s.get("location", ""),
+                    )
+                )
         except json.JSONDecodeError:
             pass
 

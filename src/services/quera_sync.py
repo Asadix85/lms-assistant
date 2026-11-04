@@ -19,16 +19,20 @@ class QueraSyncService:
         username: str,
         password: str,
         db,
+        user_id: str,
     ) -> None:
+        if not user_id:
+            raise ValueError("QueraSyncService نیازمند user_id است")
         self.username = username
         self.password = password
         self.db = db
+        self.user_id = user_id
 
         self.client = QueraHttpClient()
         self.auth = QueraAuth(self.client)
         self.parser = QueraParser()
-        self.repo = QueraAssignmentRepository(db)
-        self.course_repo = QueraCourseRepository(db)
+        self.repo = QueraAssignmentRepository(db, user_id)
+        self.course_repo = QueraCourseRepository(db, user_id)
 
     def sync(self) -> dict:
         """اجرای Sync کامل."""

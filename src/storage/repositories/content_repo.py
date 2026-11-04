@@ -1,4 +1,4 @@
-"""Repository برای Content."""
+"""Repository برای Content (scoped به user_id)."""
 
 from datetime import datetime
 
@@ -9,15 +9,13 @@ from src.storage.repositories.base import BaseRepository
 
 
 class ContentRepository(BaseRepository):
-    """ذخیره و بازیابی Content."""
-
     TABLE_NAME = "contents"
 
     def save(self, content: Content) -> None:
         data = self._to_dict(content)
         existing = self.db.fetch_one(
-            "SELECT id FROM contents WHERE id = ?",
-            (content.id,),
+            "SELECT id FROM contents WHERE user_id = ? AND id = ?",
+            (self.user_id, content.id),
         )
 
         if existing:
@@ -26,22 +24,24 @@ class ContentRepository(BaseRepository):
                 UPDATE contents SET
                     title = ?, url = ?, content_type = ?, filename = ?,
                     last_seen_at = ?
-                WHERE id = ?
+                WHERE user_id = ? AND id = ?
                 """,
                 (
                     data["title"], data["url"], data["content_type"],
-                    data["filename"], data["last_seen_at"], data["id"],
+                    data["filename"], data["last_seen_at"],
+                    self.user_id, data["id"],
                 ),
             )
         else:
             self.db.execute(
                 """
                 INSERT INTO contents (
-                    id, course_id, title, url, content_type, filename,
+                    user_id, id, course_id, title, url, content_type, filename,
                     is_new, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    self.user_id,
                     data["id"], data["course_id"], data["title"], data["url"],
                     data["content_type"], data["filename"], data["is_new"],
                     data["first_seen_at"], data["last_seen_at"],
@@ -52,38 +52,43 @@ class ContentRepository(BaseRepository):
         self.db.connection.commit()
 
     def save_many(self, contents: list[Content]) -> None:
-        """ذخیره چند محتوا یک‌جا (سریع‌تر)."""
-        if not contents:
-            return
         for c in contents:
             self.save(c)
 
     def get_by_id(self, content_id: str) -> Content | None:
-        row = self.db.fetch_one("SELECT * FROM contents WHERE id = ?", (content_id,))
+        row = self.db.fetch_one(
+            "SELECT * FROM contents WHERE user_id = ? AND id = ?",
+            (self.user_id, content_id),
+        )
         return self._from_dict(row) if row else None
 
     def get_all(self) -> list[Content]:
-        rows = self.db.fetch_all("SELECT * FROM contents ORDER BY title")
+        rows = self.db.fetch_all(
+            "SELECT * FROM contents WHERE user_id = ? ORDER BY title",
+            (self.user_id,),
+        )
         return [self._from_dict(r) for r in rows]
 
     def get_by_course(self, course_id: str) -> list[Content]:
         rows = self.db.fetch_all(
-            "SELECT * FROM contents WHERE course_id = ? ORDER BY title",
-            (course_id,),
+            "SELECT * FROM contents WHERE user_id = ? AND course_id = ? ORDER BY title",
+            (self.user_id, course_id),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_new(self) -> list[Content]:
         rows = self.db.fetch_all(
-            "SELECT * FROM contents WHERE is_new = 1 ORDER BY first_seen_at"
+            "SELECT * FROM contents WHERE user_id = ? AND is_new = 1 ORDER BY first_seen_at",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def mark_all_seen(self) -> None:
-        self.db.execute("UPDATE contents SET is_new = 0")
+        self.db.execute(
+            "UPDATE contents SET is_new = 0 WHERE user_id = ?",
+            (self.user_id,),
+        )
         self.db.connection.commit()
-
-    # === Helpers ===
 
     def _to_dict(self, c: Content) -> dict:
         return {

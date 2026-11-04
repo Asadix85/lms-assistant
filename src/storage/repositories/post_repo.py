@@ -1,4 +1,4 @@
-"""Repository برای Post."""
+"""Repository برای Post (scoped به user_id)."""
 
 from datetime import datetime
 
@@ -9,14 +9,13 @@ from src.storage.repositories.base import BaseRepository
 
 
 class PostRepository(BaseRepository):
-    """ذخیره و بازیابی Post."""
-
     TABLE_NAME = "posts"
 
     def save(self, post: Post) -> None:
         data = self._to_dict(post)
         existing = self.db.fetch_one(
-            "SELECT id FROM posts WHERE id = ?", (post.id,)
+            "SELECT id FROM posts WHERE user_id = ? AND id = ?",
+            (self.user_id, post.id),
         )
 
         if existing:
@@ -24,21 +23,24 @@ class PostRepository(BaseRepository):
                 """
                 UPDATE posts SET
                     text = ?, posted_at = ?, last_seen_at = ?
-                WHERE id = ?
+                WHERE user_id = ? AND id = ?
                 """,
-                (data["text"], data["posted_at"],
-                 data["last_seen_at"], data["id"]),
+                (
+                    data["text"], data["posted_at"], data["last_seen_at"],
+                    self.user_id, data["id"],
+                ),
             )
         else:
             self.db.execute(
                 """
                 INSERT INTO posts (
-                    id, course_id, author, author_id, text,
+                    user_id, id, course_id, author, author_id, text,
                     posted_at, posted_at_jalali, post_url,
                     is_new, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    self.user_id,
                     data["id"], data["course_id"], data["author"],
                     data["author_id"], data["text"], data["posted_at"],
                     data["posted_at_jalali"], data["post_url"],
@@ -50,31 +52,39 @@ class PostRepository(BaseRepository):
         self.db.connection.commit()
 
     def get_by_id(self, post_id: str) -> Post | None:
-        row = self.db.fetch_one("SELECT * FROM posts WHERE id = ?", (post_id,))
+        row = self.db.fetch_one(
+            "SELECT * FROM posts WHERE user_id = ? AND id = ?",
+            (self.user_id, post_id),
+        )
         return self._from_dict(row) if row else None
 
     def get_all(self) -> list[Post]:
         rows = self.db.fetch_all(
-            "SELECT * FROM posts ORDER BY posted_at DESC"
+            "SELECT * FROM posts WHERE user_id = ? ORDER BY posted_at DESC",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_by_course(self, course_id: str, limit: int = 50) -> list[Post]:
         rows = self.db.fetch_all(
-            "SELECT * FROM posts WHERE course_id = ? "
+            "SELECT * FROM posts WHERE user_id = ? AND course_id = ? "
             "ORDER BY posted_at DESC LIMIT ?",
-            (course_id, limit),
+            (self.user_id, course_id, limit),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_new(self) -> list[Post]:
         rows = self.db.fetch_all(
-            "SELECT * FROM posts WHERE is_new = 1 ORDER BY posted_at DESC"
+            "SELECT * FROM posts WHERE user_id = ? AND is_new = 1 ORDER BY posted_at DESC",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def mark_all_seen(self) -> None:
-        self.db.execute("UPDATE posts SET is_new = 0")
+        self.db.execute(
+            "UPDATE posts SET is_new = 0 WHERE user_id = ?",
+            (self.user_id,),
+        )
         self.db.connection.commit()
 
     def _to_dict(self, p: Post) -> dict:

@@ -1,4 +1,4 @@
-"""Repository برای Assignment."""
+"""Repository برای Assignment (scoped به user_id)."""
 
 from datetime import datetime
 
@@ -9,14 +9,13 @@ from src.storage.repositories.base import BaseRepository
 
 
 class AssignmentRepository(BaseRepository):
-    """ذخیره و بازیابی Assignment."""
-
     TABLE_NAME = "assignments"
 
     def save(self, a: Assignment) -> None:
         data = self._to_dict(a)
         existing = self.db.fetch_one(
-            "SELECT id FROM assignments WHERE id = ?", (a.id,)
+            "SELECT id FROM assignments WHERE user_id = ? AND id = ?",
+            (self.user_id, a.id),
         )
 
         if existing:
@@ -26,23 +25,27 @@ class AssignmentRepository(BaseRepository):
                     title = ?, description = ?, deadline = ?,
                     response_count = ?, last_seen_at = ?,
                     is_manual = ?, is_done = ?
-                WHERE id = ?
+                WHERE user_id = ? AND id = ?
                 """,
-                (data["title"], data["description"], data["deadline"],
-                 data["response_count"], data["last_seen_at"],
-                 data["is_manual"], data["is_done"], data["id"]),
+                (
+                    data["title"], data["description"], data["deadline"],
+                    data["response_count"], data["last_seen_at"],
+                    data["is_manual"], data["is_done"],
+                    self.user_id, data["id"],
+                ),
             )
         else:
             self.db.execute(
                 """
                 INSERT INTO assignments (
-                    id, course_id, title, description, post_id,
+                    user_id, id, course_id, title, description, post_id,
                     start_at, deadline, start_at_jalali, deadline_jalali,
                     submit_url, view_url, response_count,
                     is_new, is_manual, is_done, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    self.user_id,
                     data["id"], data["course_id"], data["title"],
                     data["description"], data["post_id"], data["start_at"],
                     data["deadline"], data["start_at_jalali"],
@@ -57,52 +60,61 @@ class AssignmentRepository(BaseRepository):
         self.db.connection.commit()
 
     def get_by_id(self, aid: str) -> Assignment | None:
-        row = self.db.fetch_one("SELECT * FROM assignments WHERE id = ?", (aid,))
+        row = self.db.fetch_one(
+            "SELECT * FROM assignments WHERE user_id = ? AND id = ?",
+            (self.user_id, aid),
+        )
         return self._from_dict(row) if row else None
 
     def get_all(self) -> list[Assignment]:
         rows = self.db.fetch_all(
-            "SELECT * FROM assignments ORDER BY deadline"
+            "SELECT * FROM assignments WHERE user_id = ? ORDER BY deadline",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_by_course(self, course_id: str) -> list[Assignment]:
         rows = self.db.fetch_all(
-            "SELECT * FROM assignments WHERE course_id = ? ORDER BY deadline",
-            (course_id,),
+            "SELECT * FROM assignments WHERE user_id = ? AND course_id = ? ORDER BY deadline",
+            (self.user_id, course_id),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_upcoming(self, limit: int = 10) -> list[Assignment]:
         now = datetime.now().isoformat()
         rows = self.db.fetch_all(
-            "SELECT * FROM assignments WHERE deadline >= ? "
+            "SELECT * FROM assignments WHERE user_id = ? AND deadline >= ? "
             "ORDER BY deadline LIMIT ?",
-            (now, limit),
+            (self.user_id, now, limit),
         )
         return [self._from_dict(r) for r in rows]
 
     def get_new(self) -> list[Assignment]:
         rows = self.db.fetch_all(
-            "SELECT * FROM assignments WHERE is_new = 1 ORDER BY deadline"
+            "SELECT * FROM assignments WHERE user_id = ? AND is_new = 1 ORDER BY deadline",
+            (self.user_id,),
         )
         return [self._from_dict(r) for r in rows]
 
     def mark_all_seen(self) -> None:
-        self.db.execute("UPDATE assignments SET is_new = 0")
+        self.db.execute(
+            "UPDATE assignments SET is_new = 0 WHERE user_id = ?",
+            (self.user_id,),
+        )
         self.db.connection.commit()
 
     def set_done(self, aid: str, done: bool = True) -> None:
-        """تغییر وضعیت «انجام شده» یک تکلیف (بدون دست‌زدن به بقیه فیلدها)."""
         self.db.execute(
-            "UPDATE assignments SET is_done = ? WHERE id = ?",
-            (1 if done else 0, aid),
+            "UPDATE assignments SET is_done = ? WHERE user_id = ? AND id = ?",
+            (1 if done else 0, self.user_id, aid),
         )
         self.db.connection.commit()
 
     def delete(self, aid: str) -> None:
-        """حذف یک تکلیف (مثلاً تکلیف دستی)."""
-        self.db.execute("DELETE FROM assignments WHERE id = ?", (aid,))
+        self.db.execute(
+            "DELETE FROM assignments WHERE user_id = ? AND id = ?",
+            (self.user_id, aid),
+        )
         self.db.connection.commit()
 
     def _to_dict(self, a: Assignment) -> dict:
@@ -131,7 +143,7 @@ class AssignmentRepository(BaseRepository):
             id=row["id"],
             course_id=row["course_id"],
             title=row["title"],
-            description=row.get("description", ""),
+            description=row.get("description") or "",
             post_id=row.get("post_id"),
             start_at=datetime.fromisoformat(row["start_at"]) if row.get("start_at") else None,
             deadline=datetime.fromisoformat(row["deadline"]) if row.get("deadline") else None,
@@ -139,8 +151,8 @@ class AssignmentRepository(BaseRepository):
             deadline_jalali=row.get("deadline_jalali"),
             submit_url=row.get("submit_url"),
             view_url=row.get("view_url"),
-            response_count=row.get("response_count", 0),
-            is_new=bool(row.get("is_new", 1)),
+            response_count=int(row.get("response_count") or 0),
+            is_new=bool(row.get("is_new", 0)),
             is_manual=bool(row.get("is_manual", 0)),
             is_done=bool(row.get("is_done", 0)),
             first_seen_at=datetime.fromisoformat(row["first_seen_at"]),

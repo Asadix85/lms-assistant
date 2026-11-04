@@ -33,16 +33,29 @@ from src.web.static_export import build_dashboard
 router = APIRouter()
 
 
-def _repos(request: Request):
+def _require_user(request: Request) -> dict:
+    from src.storage.repositories.user_repo import UserRepository
+    from src.web.security import SESSION_COOKIE_NAME
+
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        raise HTTPException(401, "ابتدا وارد شوید")
+    user = UserRepository(request.app.state.db).get_user_by_token(token)
+    if not user:
+        raise HTTPException(401, "نشست منقضی شده است")
+    return user
+
+
+def _repos(request: Request, user_id: str):
     db = request.app.state.db
     return {
-        "courses": CourseRepository(db),
-        "contents": ContentRepository(db),
-        "events": EventRepository(db),
-        "posts": PostRepository(db),
-        "assignments": AssignmentRepository(db),
-        "members": MemberRepository(db),
-        "changes": ChangeRepository(db),
+        "courses": CourseRepository(db, user_id),
+        "contents": ContentRepository(db, user_id),
+        "events": EventRepository(db, user_id),
+        "posts": PostRepository(db, user_id),
+        "assignments": AssignmentRepository(db, user_id),
+        "members": MemberRepository(db, user_id),
+        "changes": ChangeRepository(db, user_id),
     }
 
 
@@ -51,7 +64,8 @@ def _repos(request: Request):
 
 @router.get("/dashboard")
 async def dashboard(request: Request) -> dict:
-    return build_dashboard(request.app.state.db)
+    user = _require_user(request)
+    return build_dashboard(request.app.state.db, user["id"])
 
 
 # === Courses ===
@@ -63,7 +77,8 @@ async def list_courses(request: Request, active_only: bool = False) -> list[dict
     db = request.app.state.db
 
     # ۱. دریافت دروس LMS
-    course_repo = CourseRepository(db)
+    user = _require_user(request)
+    course_repo = CourseRepository(db, user["id"])
     lms_courses = course_repo.get_active() if active_only else course_repo.get_all()
 
     result = []
@@ -84,7 +99,7 @@ async def list_courses(request: Request, active_only: bool = False) -> list[dict
 
     # ۲. دریافت کلاس‌های کوئرا
     try:
-        quera_repo = QueraCourseRepository(db)
+        quera_repo = QueraCourseRepository(db, user["id"])
         quera_courses = quera_repo.get_all()
         for q in quera_courses:
             if active_only and not q.is_active:
@@ -114,7 +129,8 @@ async def list_courses(request: Request, active_only: bool = False) -> list[dict
 
 @router.get("/courses/{course_id}", response_model=CourseOut)
 async def get_course(request: Request, course_id: str) -> CourseOut:
-    repo = CourseRepository(request.app.state.db)
+    user = _require_user(request)
+    repo = CourseRepository(request.app.state.db, user["id"])
     course = repo.get_by_id(course_id)
     if not course:
         raise HTTPException(404, "درس یافت نشد")
@@ -123,13 +139,14 @@ async def get_course(request: Request, course_id: str) -> CourseOut:
 
 @router.get("/courses/{course_id}/detail")
 async def course_detail(request: Request, course_id: str) -> dict:
-    r = _repos(request)
+    user = _require_user(request)
+    r = _repos(request, user["id"])
     course = r["courses"].get_by_id(course_id)
     if not course:
         raise HTTPException(404, "درس یافت نشد")
 
     locations_data = []
-    schedule_repo = CourseScheduleRepository(request.app.state.db)
+    schedule_repo = CourseScheduleRepository(request.app.state.db, user["id"])
     schedule = schedule_repo.get_by_id(course_id)
 
     if schedule and schedule.sessions:
@@ -181,14 +198,15 @@ async def course_detail(request: Request, course_id: str) -> dict:
 @router.get("/contents", response_model=list[dict])
 async def list_contents(request: Request, new_only: bool = False) -> list[dict]:
     db = request.app.state.db
-    repo = ContentRepository(db)
+    user = _require_user(request)
+    repo = ContentRepository(db, user["id"])
     items = repo.get_new() if new_only else repo.get_all()
-    
+
     # دریافت لیست دروس برای تطبیق نام و استاد
-    course_repo = CourseRepository(db)
+    course_repo = CourseRepository(db, user["id"])
     courses = course_repo.get_all()
     course_map = {c.id: c for c in courses}
-    
+
     result = []
     for c in items:
         course = course_map.get(c.course_id)
@@ -210,11 +228,12 @@ async def list_contents(request: Request, new_only: bool = False) -> list[dict]:
 @router.get("/events")
 async def list_events(request: Request, upcoming: bool = False) -> list[dict]:
     db = request.app.state.db
-    repo = EventRepository(db)
+    user = _require_user(request)
+    repo = EventRepository(db, user["id"])
     items = repo.get_upcoming(limit=100) if upcoming else repo.get_all()
 
     # دریافت لیست دروس برای پیدا کردن نام
-    course_repo = CourseRepository(db)
+    course_repo = CourseRepository(db, user["id"])
     courses = course_repo.get_all()
     course_map = {c.id: c.name for c in courses}
 
@@ -258,7 +277,8 @@ class ManualEventSchema(BaseModel):
 @router.post("/events/manual")
 async def add_manual_event(request: Request, body: ManualEventSchema):
     db = request.app.state.db
-    event_repo = EventRepository(db)
+    user = _require_user(request)
+    event_repo = EventRepository(db, user["id"])
 
     event_id = f"manual_{int(datetime.now().timestamp())}"
 
@@ -293,7 +313,8 @@ async def add_manual_event(request: Request, body: ManualEventSchema):
 
 @router.get("/posts", response_model=list[PostOut])
 async def list_posts(request: Request, new_only: bool = False) -> list[PostOut]:
-    repo = PostRepository(request.app.state.db)
+    user = _require_user(request)
+    repo = PostRepository(request.app.state.db, user["id"])
     items = repo.get_new() if new_only else repo.get_all()
     return [PostOut.from_model(p) for p in items]
 
@@ -301,7 +322,8 @@ async def list_posts(request: Request, new_only: bool = False) -> list[PostOut]:
 @router.post("/posts/read")
 async def mark_posts_read(request: Request) -> dict:
     """علامت‌گذاری همه پست‌ها به‌عنوان خوانده‌شده (is_new = 0)."""
-    repo = PostRepository(request.app.state.db)
+    user = _require_user(request)
+    repo = PostRepository(request.app.state.db, user["id"])
     repo.mark_all_seen()
     return {"ok": True}
 
@@ -312,10 +334,11 @@ async def mark_posts_read(request: Request) -> dict:
 @router.get("/assignments")
 async def list_assignments(request: Request, new_only: bool = False) -> list[dict]:
     db = request.app.state.db
-    repo = AssignmentRepository(db)
+    user = _require_user(request)
+    repo = AssignmentRepository(db, user["id"])
     items = repo.get_new() if new_only else repo.get_all()
 
-    course_repo = CourseRepository(db)
+    course_repo = CourseRepository(db, user["id"])
     courses = course_repo.get_all()
     course_map = {c.id: c.name for c in courses}
 
@@ -345,7 +368,7 @@ async def list_assignments(request: Request, new_only: bool = False) -> list[dic
     # 👇 اضافه کردن تکالیف کوئرا
     try:
         from src.storage.repositories import QueraAssignmentRepository
-        quera_repo = QueraAssignmentRepository(db)
+        quera_repo = QueraAssignmentRepository(db, user["id"])
         quera_assignments = quera_repo.get_all()
 
         for qa in quera_assignments:
@@ -375,7 +398,8 @@ async def list_assignments(request: Request, new_only: bool = False) -> list[dic
 
 @router.post("/assignments/{assignment_id}/done")
 async def set_assignment_done(request: Request, assignment_id: str, done: bool = True) -> dict:
-    repo = AssignmentRepository(request.app.state.db)
+    user = _require_user(request)
+    repo = AssignmentRepository(request.app.state.db, user["id"])
     if not repo.exists(assignment_id):
         raise HTTPException(404, "تکلیف یافت نشد")
     repo.set_done(assignment_id, done)
@@ -412,9 +436,9 @@ async def submit_assignment(
     try:
         # ۱. پیدا کردن URL ارسال تکلیف از دیتابیس
         db = request.app.state.db
-        assignment_repo = AssignmentRepository(db)
+        assignment_repo = AssignmentRepository(db, user["id"])
         assignment = assignment_repo.get_by_id(assignment_id)
-        
+
         if not assignment or not assignment.submit_url:
             raise HTTPException(404, "آدرس ارسال تکلیف یافت نشد")
 
@@ -425,7 +449,7 @@ async def submit_assignment(
         # ⚠️ ساختار دقیق این درخواست بستگی به فرم LMS دارد
         files = {'file': (file.filename, file_content, file.content_type)}
         data = {'description': description}
-        
+
         response = assistant.client.post(
             assignment.submit_url,
             files=files,
@@ -448,10 +472,11 @@ async def submit_assignment(
 @router.get("/changes")
 async def list_changes(request: Request, limit: int = 100) -> list[dict]:
     db = request.app.state.db
-    repo = ChangeRepository(db)
+    user = _require_user(request)
+    repo = ChangeRepository(db, user["id"])
     changes = repo.get_all(limit=limit)
 
-    course_repo = CourseRepository(db)
+    course_repo = CourseRepository(db, user["id"])
     courses = course_repo.get_all()
     course_map = {c.id: c for c in courses}
 
@@ -508,8 +533,9 @@ async def list_changes(request: Request, limit: int = 100) -> list[dict]:
 async def get_all_locations(request: Request) -> list[dict]:
     """استخراج تمام مکان‌های منحصر به فرد از کلاس‌های فعال برای نمایش روی نقشه."""
     db = request.app.state.db
-    course_repo = CourseRepository(db)
-    schedule_repo = CourseScheduleRepository(db)
+    user = _require_user(request)
+    course_repo = CourseRepository(db, user["id"])
+    schedule_repo = CourseScheduleRepository(db, user["id"])
 
     courses = course_repo.get_active()  # فقط دروس فعال
     unique_locations = {}

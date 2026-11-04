@@ -45,18 +45,21 @@ class SyncService:
         "lms5": "https://lms5.ui.ac.ir",
     }
 
-    def __init__(self, assistant, db) -> None:
+    def __init__(self, assistant, db, user_id: str) -> None:
+        if not user_id:
+            raise ValueError("SyncService نیازمند user_id است")
         self.assistant = assistant
         self.db = db
+        self.user_id = user_id
 
-        self.course_repo = CourseRepository(db)
-        self.content_repo = ContentRepository(db)
-        self.event_repo = EventRepository(db)
-        self.post_repo = PostRepository(db)
-        self.assignment_repo = AssignmentRepository(db)
-        self.member_repo = MemberRepository(db)
-        self.change_repo = ChangeRepository(db)
-        self.setting_repo = SettingRepository(db)
+        self.course_repo = CourseRepository(db, user_id)
+        self.content_repo = ContentRepository(db, user_id)
+        self.event_repo = EventRepository(db, user_id)
+        self.post_repo = PostRepository(db, user_id)
+        self.assignment_repo = AssignmentRepository(db, user_id)
+        self.member_repo = MemberRepository(db, user_id)
+        self.change_repo = ChangeRepository(db, user_id)
+        self.setting_repo = SettingRepository(db, user_id)
 
         self._on_progress: ProgressCallback = lambda p: None
         self._start_time: float = 0.0
@@ -665,7 +668,7 @@ class SyncService:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         parser = CourseScheduleParser()
-        repo = CourseScheduleRepository(self.db)
+        repo = CourseScheduleRepository(self.db, self.user_id)
 
         def fetch(course):
             try:
