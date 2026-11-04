@@ -1,20 +1,34 @@
 {
   "notified_assignments": [
-    "37786",
-    "38924",
-    "39339",
     "37700",
-    "38875"
+    "38924",
+    "38875",
+    "39339",
+    "37826",
+    "37786"
   ],
   "notified_quera": [],
   "notified_posts": [
+    "49487bcc2d30b1d8",
+    "ef842526ae115fea",
+    "5cdc79a2643c8d83",
+    "e9d3efb147d66152",
+    "47b36fbb27318aa8",
+    "4186cb284903544c",
+    "adfd2ac73b7dab44",
+    "ef40a0090e07a9f2",
     "6b0dfb2ae63cd338",
-    "cb079b03c76ea451"
+    "257bc18e7bd4a44d",
+    "cb079b03c76ea451",
+    "80991c0e28a48854"
   ],
   "notified_events": [
-    "jaam_135",
-    "manual_1793126611",
     "manual_1793126649",
-    "jaam_133"
+    "jaam_130",
+    "jaam_137",
+    "jaam_132",
+    "manual_1793126611",
+    "jaam_133",
+    "jaam_135"
   ]
 }
