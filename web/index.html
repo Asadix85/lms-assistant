@@ -113,11 +113,12 @@
       <button id="btn-logout-m" class="btn btn-ghost btn-icon mobile-only" title="خروج" aria-label="خروج">⏻</button>
       <button id="btn-theme" class="btn btn-ghost btn-icon" title="تغییر تم" aria-label="تغییر تم">🌙</button>
     </header>
+
 <!-- ===== Mobile "More" page (فقط موبایل، فقط #/more) ===== -->
 <section class="mobile-more" id="mobile-more" aria-label="سایر امکانات">
   <h2 class="mm-title">سایر امکانات</h2>
 
-  <div class="mm-user" id="mm-user" role="button" tabindex="0">
+  <div class="mm-user" id="mm-user">
     <span class="avatar" id="mm-avatar">؟</span>
     <div class="user-meta">
       <span id="mm-name">کاربر مهمان</span>
@@ -126,6 +127,7 @@
     <button type="button" class="btn btn-primary btn-sm" id="mm-sync">🔄 همگام‌سازی</button>
   </div>
 
+  <p class="mm-section">درس و تکلیف</p>
   <div class="mm-grid">
     <a href="#/courses" class="mm-tile" style="--c:#2563eb">
       <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/></svg></span>
@@ -154,25 +156,48 @@
       <span class="mm-label">تغییرات</span>
       <small>آخرین به‌روزرسانی‌ها</small>
     </a>
-    <a href="#/map" class="mm-tile" style="--c:#2563eb">
-      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
-      <span class="mm-label">نقشه</span>
-      <small>مکان‌های کلاس</small>
-    </a>
-    <a href="#/quera" class="mm-tile" style="--c:#d97706">
-      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+    <a href="#/quera" class="mm-tile" style="--c:#ca8a04">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
       <span class="mm-label">کوئرا</span>
-      <small>مدیریت تمرین‌ها</small>
+      <small>تمرین‌ها و کلاس‌ها</small>
     </a>
+  </div>
+
+  <p class="mm-section">حساب و پشتیبانی</p>
+  <div class="mm-grid">
     <a href="#/settings" class="mm-tile" style="--c:#6b7280">
-      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4"/></svg></span>
       <span class="mm-label">تنظیمات</span>
-      <small>پیکربندی همگام‌سازی</small>
+      <small>همگام‌سازی و حساب</small>
+    </a>
+    <a href="#/help" class="mm-tile" style="--c:#4f46e5">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></span>
+      <span class="mm-label">راهنما</span>
+      <small>حریم خصوصی و شروع</small>
+    </a>
+    <a href="#/support" class="mm-tile" style="--c:#0d9488">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></span>
+      <span class="mm-label">پشتیبانی</span>
+      <small>گزارش باگ و تیکت</small>
     </a>
     <a href="#/about" class="mm-tile" style="--c:#2563eb">
       <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg></span>
       <span class="mm-label">درباره ما</span>
-      <small>درباره پروژه و سازنده</small>
+      <small>پروژه و سازنده</small>
+    </a>
+    <a href="#/admin" class="mm-tile hidden" id="mm-admin" style="--c:#7c3aed">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V7z"/></svg></span>
+      <span class="mm-label">ادمین</span>
+      <small>مدیریت کاربران</small>
+    </a>
+  </div>
+
+  <p class="mm-section muted" style="font-size:.8rem;opacity:.75;margin-top:1rem">خروجی‌ها</p>
+  <div class="mm-grid">
+    <a href="/api/calendar.ics" class="mm-tile" style="--c:#059669" download="lms-assistant.ics">
+      <span class="mm-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg></span>
+      <span class="mm-label">دانلود ICS</span>
+      <small>تقویم گوشی / گوگل</small>
     </a>
   </div>
 </section>
@@ -297,6 +322,7 @@
       <span class="bn-label" data-label="سایر">سایر</span>
     </a>
   </nav>
+
 
   <!-- ===== Toast ===== -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
