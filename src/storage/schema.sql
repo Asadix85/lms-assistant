@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     lms_user_id TEXT,
     full_name TEXT,
     role TEXT NOT NULL DEFAULT 'user',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    password_hash TEXT,
+    auth_provider TEXT NOT NULL DEFAULT 'lms',
     created_at TEXT NOT NULL,
     last_login_at TEXT
 );
@@ -33,6 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_web_sessions_expires ON web_sessions(expires_at);
 CREATE TABLE IF NOT EXISTS user_secrets (
     user_id TEXT PRIMARY KEY,
     lms_password_enc TEXT,
+    lms_cookies_enc TEXT,
     quera_username TEXT,
     quera_password_enc TEXT,
     updated_at TEXT NOT NULL,
@@ -236,3 +240,32 @@ CREATE TABLE IF NOT EXISTS course_schedules (
 );
 
 CREATE INDEX IF NOT EXISTS idx_course_schedules_user ON course_schedules(user_id);
+
+
+-- ============================================================
+-- Support
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
+
+CREATE TABLE IF NOT EXISTS support_messages (
+    id TEXT PRIMARY KEY,
+    ticket_id TEXT NOT NULL,
+    author_user_id TEXT NOT NULL,
+    is_staff INTEGER NOT NULL DEFAULT 0,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);

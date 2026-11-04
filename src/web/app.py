@@ -16,9 +16,10 @@ from loguru import logger
 from config.settings import settings
 from src.storage.database import Database
 from src.storage.migrations import migrate
-from src.web.routers import auth, courses, proxy, quera
+from src.web.routers import admin, auth, courses, proxy, quera, support
 from src.web.routers import settings as settings_router
 from src.web.routers import sync
+from src.web.admin_bootstrap import ensure_local_admin
 from src.web.session import SessionManager
 
 WEB_DIR = Path(__file__).resolve().parent.parent.parent / "web"
@@ -71,6 +72,11 @@ async def lifespan(app: FastAPI):
     app.state.session = session
     app.state.lms_assistant = None
 
+    try:
+        ensure_local_admin(db)
+    except Exception as e:
+        logger.error("bootstrap ادمین محلی ناموفق: {}", e)
+
     yield
     db.close()
 
@@ -91,6 +97,8 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(support.router, prefix="/api/support", tags=["support"])
 app.include_router(courses.router, prefix="/api", tags=["lms"])
 app.include_router(sync.router, prefix="/api/sync", tags=["sync"])
 app.include_router(quera.router, prefix="/api/quera", tags=["quera"])

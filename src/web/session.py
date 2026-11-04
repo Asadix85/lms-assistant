@@ -69,7 +69,13 @@ class SessionManager:
                 self._active_user_id = None
 
     def get_assistant(self, user_id: str | None = None) -> LMSAssistant:
-        """assistant لاگین‌شده برای user؛ در صورت نیاز از secrets دوباره می‌سازد."""
+        """assistant لاگین‌شده برای user.
+
+        اولویت:
+        1) assistant زنده در حافظه
+        2) بازیابی از کوکی LMS ذخیره‌شده (بدون زدن دوباره پسورد به شبکه)
+        3) لاگین با پسورد رمزنگاری‌شده (fallback)
+        """
         uid = user_id or self._active_user_id
         if not uid:
             raise PermissionError("کاربر مشخص نیست")
@@ -84,12 +90,50 @@ class SessionManager:
         if not user:
             raise PermissionError("کاربر یافت نشد")
         secrets = repo.load_secrets(uid)
-        if not secrets.get("lms_password"):
-            raise PermissionError("اعتبارنامه LMS تنظیم نشده است — دوباره وارد شوید")
 
-        assistant = LMSAssistant(user["lms_username"], secrets["lms_password"])
+        from src.web.lms_cookies import load_httpx_cookies
+
+        username = user["lms_username"]
+        password = secrets.get("lms_password") or ""
+        cookies_json = secrets.get("lms_cookies_json") or ""
+
+        # --- مسیر ۱: کوکی ذخیره‌شده ---
+        if cookies_json:
+            assistant = LMSAssistant(username, password or "unused")
+            loaded = load_httpx_cookies(assistant.client, cookies_json)
+            if loaded > 0:
+                try:
+                    if assistant.auth.verify():
+                        assistant.auth._authenticated = True
+                        # نام را اگر نبود از DB بگیر
+                        if not assistant.full_name and user.get("full_name"):
+                            assistant._full_name = user["full_name"]
+                        self.bind_assistant(uid, assistant)
+                        logger.debug("LMS session از کوکی بازیابی شد user={}", uid)
+                        return assistant
+                except Exception as e:
+                    logger.warning("بازیابی کوکی LMS ناموفق: {}", e)
+
+        # --- مسیر ۲: لاگین با پسورد ---
+        if not password:
+            raise PermissionError(
+                "نشست LMS منقضی شده و پسورد ذخیره نیست — دوباره وارد شوید"
+            )
+
+        assistant = LMSAssistant(username, password)
         if not assistant.login():
-            raise PermissionError("Login به LMS ناموفق بود")
+            raise PermissionError("Login به LMS ناموفق بود — دوباره وارد شوید")
+
+        # کوکی تازه را ذخیره کن
+        try:
+            from src.web.lms_cookies import dump_httpx_cookies
+
+            repo.save_secrets(
+                uid,
+                lms_cookies_json=dump_httpx_cookies(assistant.client.cookies),
+            )
+        except Exception as e:
+            logger.warning("ذخیره کوکی LMS بعد از re-login ناموفق: {}", e)
 
         self.bind_assistant(uid, assistant)
         return assistant

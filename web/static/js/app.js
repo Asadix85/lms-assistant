@@ -152,19 +152,74 @@ $("#login-form").addEventListener("submit", async (e) => {
   }
 });
 
+
+// Admin local login toggle
+$("#btn-toggle-admin-login")?.addEventListener("click", () => {
+  $("#login-form").classList.add("hidden");
+  $("#admin-login-form").classList.remove("hidden");
+  $("#login-title").textContent = "ورود ادمین";
+});
+$("#btn-toggle-lms-login")?.addEventListener("click", () => {
+  $("#admin-login-form").classList.add("hidden");
+  $("#login-form").classList.remove("hidden");
+  $("#login-title").textContent = "ورود به حساب کاربری";
+});
+$("#admin-login-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("#btn-admin-login-submit");
+  btn.disabled = true;
+  btn.textContent = "در حال ورود…";
+  try {
+    const result = await api("/auth/local-login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: $("#admin-username").value.trim(),
+        password: $("#admin-password").value,
+      }),
+    });
+    if (result.ok) {
+      hideLogin();
+      toast(`✅ خوش آمدید${result.full_name ? "، " + result.full_name : ""}`);
+      await refreshUserBox();
+      location.hash = "#/admin";
+      renderPage("admin");
+    } else {
+      const err = $("#admin-login-error");
+      err.textContent = "❌ " + (result.error || "ورود ناموفق");
+      err.classList.remove("hidden");
+    }
+  } catch (ex) {
+    const err = $("#admin-login-error");
+    err.textContent = "❌ خطای ارتباط با سرور";
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "ورود ادمین";
+  }
+});
+
 $("#btn-logout").addEventListener("click", async () => {
   await api("/auth/logout", { method: "POST" });
   toast("از حساب خارج شدید");
   refreshUserBox();
 });
 
+let authRole = "user";
+
 async function refreshUserBox() {
   try {
     const st = await api("/auth/status");
+    authRole = st.role || "user";
     $("#user-name").textContent = st.full_name || st.username || "کاربر مهمان";
     const initial = (st.full_name || st.username || "؟").trim().charAt(0);
     $("#user-avatar").textContent = initial || "؟";
-    $("#user-status").textContent = st.lms_logged_in ? "متصل به LMS" : "وارد نشده";
+    $("#user-status").textContent = st.lms_logged_in
+      ? (authRole === "admin" ? "ادمین · متصل به LMS" : "متصل به LMS")
+      : "وارد نشده";
+    const adminNav = document.getElementById("nav-admin");
+    if (adminNav) {
+      adminNav.classList.toggle("hidden", !(st.lms_logged_in && authRole === "admin"));
+    }
     if (!st.lms_logged_in) showLogin();
   } catch (_) {
     showLogin();
@@ -326,6 +381,8 @@ const TITLES = {
   changes: "تغییرات",
   quera: "کوئرا",
   settings: "تنظیمات",
+  admin: "پنل ادمین",
+  support: "پشتیبانی",
   map: "نقشه مکان‌ها",
   more: "سایر امکانات",
   about: "درباره ما",
@@ -598,7 +655,7 @@ async function renderCourseDetail(courseId) {
 
 
     // 👇 ساخت کارت برای هر فرد با آیکون شیشه‌ای دایره‌ای (مینیمال و باریک)
-  const membersHtml = d.members.length 
+  const membersHtml = d.members.length
     ? d.members.map((m) => {
         let roleColor = "var(--text-muted)";
         let roleBg = "var(--glass-bg-soft)"; // استفاده از رنگ شیشه‌ای خنثی
@@ -949,7 +1006,7 @@ async function renderContents() {
   const renderList = (list) => {
     const el = document.getElementById("list-container");
     if (!el) return;
-    
+
     el.innerHTML = list.length
       ? list.map((c) => `
         <div class="list-row" style="padding: 1rem;">
@@ -990,7 +1047,7 @@ async function renderContents() {
     c,
     get searchText() { return `${c.title} ${c.filename} ${c.course_name} ${c.teacher}`.toLowerCase(); },
   }));
-  
+
   attachFilter(records, {
     searchText: (it) => it.searchText,
     render: (filtered) => renderList(filtered.map((it) => it.c)),
@@ -1133,10 +1190,282 @@ async function renderChanges() {
   renderList();
 }
 
+
+
+async function renderSupport() {
+  let list;
+  try {
+    list = await api("/support/tickets");
+  } catch (e) {
+    contentEl.innerHTML = emptyState("برای پشتیبانی وارد شوید", "ابتدا لاگین کنید");
+    showLogin();
+    return;
+  }
+  const tickets = list.tickets || [];
+
+  contentEl.innerHTML = `
+    ${pageHead("پشتیبانی", "گزارش باگ و پیگیری پاسخ تیم")}
+    <div class="card" style="margin-bottom:1rem">
+      <h4 style="margin:0 0 .75rem">تیکت جدید</h4>
+      <form id="support-form" style="display:flex;flex-direction:column;gap:.6rem">
+        <input id="sup-subject" class="input" placeholder="موضوع (مثلاً خطا در sync)" required maxlength="200" />
+        <textarea id="sup-body" class="input" rows="4" placeholder="توضیح مشکل…" required maxlength="5000"></textarea>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-start">ارسال گزارش</button>
+      </form>
+    </div>
+    <div class="card">
+      <h4 style="margin:0 0 .75rem">تیکت‌های من</h4>
+      <div id="sup-list">
+        ${tickets.length ? tickets.map(t => `
+          <button class="row" data-ticket="${esc(t.id)}" style="width:100%;text-align:right;cursor:pointer;border:none;background:transparent;padding:.75rem 0;border-bottom:1px solid var(--glass-border)">
+            <div style="font-weight:600">${esc(t.subject)} <span class="badge">${esc(t.status)}</span></div>
+            <div style="font-size:.8rem;opacity:.7">${esc(t.updated_at || "")} · ${t.message_count || 0} پیام</div>
+          </button>
+        `).join("") : '<div style="opacity:.7;padding:.5rem 0">هنوز تیکتی ثبت نکرده‌اید</div>'}
+      </div>
+      <div id="sup-thread" class="hidden" style="margin-top:1rem"></div>
+    </div>
+  `;
+
+  $("#support-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const subject = $("#sup-subject").value.trim();
+    const body = $("#sup-body").value.trim();
+    try {
+      await api("/support/tickets", { method: "POST", body: JSON.stringify({ subject, body }) });
+      toast("✅ گزارش ثبت شد");
+      await renderSupport();
+    } catch (ex) {
+      toast("❌ " + (ex.message || "خطا"));
+    }
+  });
+
+  async function openThread(id) {
+    const data = await api(`/support/tickets/${encodeURIComponent(id)}`);
+    const box = $("#sup-thread");
+    box.classList.remove("hidden");
+    const msgs = (data.messages || []).map(m => `
+      <div style="padding:.6rem;margin:.4rem 0;border-radius:10px;background:${m.is_staff ? "rgba(42,166,163,.12)" : "var(--glass-bg-soft)"}">
+        <div style="font-size:.75rem;opacity:.75">${esc(m.author_name)} · ${esc(m.created_at)}</div>
+        <div style="white-space:pre-wrap">${esc(m.body)}</div>
+      </div>
+    `).join("");
+    box.innerHTML = `
+      <h4 style="margin:0 0 .5rem">${esc(data.ticket.subject)} <span class="badge">${esc(data.ticket.status)}</span></h4>
+      ${msgs}
+      ${data.ticket.status !== "closed" ? `
+        <form id="sup-reply" style="display:flex;gap:.5rem;margin-top:.75rem">
+          <input id="sup-reply-body" class="input" style="flex:1" placeholder="پاسخ شما…" required />
+          <button class="btn btn-primary" type="submit">ارسال</button>
+        </form>` : '<p style="opacity:.7">این تیکت بسته شده است</p>'}
+    `;
+    const form = $("#sup-reply");
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const body = $("#sup-reply-body").value.trim();
+        await api(`/support/tickets/${encodeURIComponent(id)}/messages`, {
+          method: "POST", body: JSON.stringify({ body }),
+        });
+        toast("ارسال شد");
+        await openThread(id);
+      });
+    }
+  }
+
+  contentEl.querySelectorAll("[data-ticket]").forEach((btn) => {
+    btn.addEventListener("click", () => openThread(btn.dataset.ticket));
+  });
+}
+
+async function renderAdmin() {
+  if (authRole !== "admin") {
+    contentEl.innerHTML = `<div class="empty"><span class="empty-icon">🔒</span>دسترسی ادمین لازم است<small>اگر اخیراً ارتقا یافته‌اید، یک‌بار خارج و دوباره وارد شوید</small></div>`;
+    return;
+  }
+  let data;
+  try {
+    data = await api("/admin/users");
+  } catch (e) {
+    contentEl.innerHTML = emptyState("خطا در دریافت لیست کاربران", String(e.message || e));
+    return;
+  }
+  const st = data.stats || {};
+  const rows = (data.users || []).map((u) => {
+    const activeBadge = u.is_active
+      ? '<span class="badge badge-new">فعال</span>'
+      : '<span class="badge badge-expired">غیرفعال</span>';
+    const roleBadge = u.role === "admin"
+      ? '<span class="badge badge-warn">ادمین</span>'
+      : '<span class="badge">کاربر</span>';
+    const selfMark = u.is_self ? ' <small style="opacity:.7">(شما)</small>' : '';
+    return `<tr data-id="${esc(u.id)}">
+      <td>
+        <div style="font-weight:600">${esc(u.full_name || "—")}${selfMark}</div>
+        <div style="font-size:.8rem;opacity:.75;direction:ltr;text-align:right">${esc(u.lms_username)}</div>
+      </td>
+      <td>${roleBadge}</td>
+      <td>${activeBadge}</td>
+      <td style="direction:ltr;text-align:right;font-size:.85rem">${esc(u.last_login_at || "—")}</td>
+      <td>${u.session_count ?? 0}</td>
+      <td style="display:flex;flex-wrap:wrap;gap:.35rem">
+        <button class="btn btn-soft btn-sm" data-act="role" data-id="${esc(u.id)}" data-role="${u.role === "admin" ? "user" : "admin"}" ${u.is_self && u.role === "admin" ? "disabled title=\"نقش خود را از اینجا تغییر ندهید\"" : ""}>
+          ${u.role === "admin" ? "↓ کاربر" : "↑ ادمین"}
+        </button>
+        <button class="btn btn-soft btn-sm" data-act="active" data-id="${esc(u.id)}" data-active="${u.is_active ? "0" : "1"}" ${u.is_self ? "disabled" : ""}>
+          ${u.is_active ? "غیرفعال" : "فعال‌سازی"}
+        </button>
+        <button class="btn btn-soft btn-sm" data-act="revoke" data-id="${esc(u.id)}">قطع نشست</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  contentEl.innerHTML = `
+    ${pageHead("پنل ادمین", "مدیریت کاربران، نقش‌ها و نشست‌ها")}
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+        <div><div class="stat-value" style="font-size:1.4rem">${st.total ?? 0}</div><div class="stat-label">کل کاربران</div></div>
+        <div><div class="stat-value" style="font-size:1.4rem">${st.admins ?? 0}</div><div class="stat-label">ادمین</div></div>
+        <div><div class="stat-value" style="font-size:1.4rem">${st.inactive ?? 0}</div><div class="stat-label">غیرفعال</div></div>
+      </div>
+    </div>
+    <div class="card" style="overflow:auto">
+      <table class="table" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="text-align:right;border-bottom:1px solid var(--glass-border)">
+            <th style="padding:.6rem">کاربر</th>
+            <th>نقش</th>
+            <th>وضعیت</th>
+            <th>آخرین ورود</th>
+            <th>نشست</th>
+            <th>عملیات</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="6" style="padding:1rem;opacity:.7">هنوز کاربری نیست</td></tr>'}</tbody>
+      </table>
+    </div>
+    <p style="margin-top:1rem;font-size:.85rem;opacity:.75">
+      ادمین‌های اولیه را با متغیر محیطی <code>LMS_ADMIN_USERNAMES</code> (لیست شماره‌دانشجویی جدا با ویرگول) مشخص کنید.
+      اگر خالی باشد، اولین کاربر لاگین‌شده به‌صورت خودکار ادمین می‌شود.
+    </p>
+  `;
+
+
+  // --- بخش پشتیبانی ادمین ---
+  let ticketsData = { tickets: [] };
+  try {
+    ticketsData = await api("/support/admin/tickets");
+  } catch (_) {}
+  const trows = (ticketsData.tickets || []).map((tk) => `
+    <tr>
+      <td>
+        <div style="font-weight:600">${esc(tk.subject)}</div>
+        <div style="font-size:.8rem;opacity:.7">${esc(tk.full_name || "")} · ${esc(tk.lms_username || "")}</div>
+      </td>
+      <td><span class="badge">${esc(tk.status)}</span></td>
+      <td style="font-size:.85rem;direction:ltr;text-align:right">${esc(tk.updated_at || "")}</td>
+      <td>
+        <button class="btn btn-soft btn-sm" data-open-ticket="${esc(tk.id)}">مشاهده / پاسخ</button>
+      </td>
+    </tr>
+  `).join("");
+
+  contentEl.insertAdjacentHTML("beforeend", `
+    <div class="card" style="margin-top:1.5rem">
+      <h3 style="margin:0 0 .75rem">تیکت‌های پشتیبانی</h3>
+      <div style="overflow:auto">
+        <table class="table" style="width:100%;border-collapse:collapse">
+          <thead><tr style="text-align:right;border-bottom:1px solid var(--glass-border)">
+            <th style="padding:.5rem">موضوع</th><th>وضعیت</th><th>به‌روزرسانی</th><th></th>
+          </tr></thead>
+          <tbody>${trows || '<tr><td colspan="4" style="padding:1rem;opacity:.7">تیکتی نیست</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div id="admin-ticket-thread" class="hidden" style="margin-top:1rem"></div>
+    </div>
+  `);
+
+  async function adminOpenTicket(id) {
+    const data = await api(`/support/tickets/${encodeURIComponent(id)}`);
+    const box = $("#admin-ticket-thread");
+    box.classList.remove("hidden");
+    const msgs = (data.messages || []).map(m => `
+      <div style="padding:.6rem;margin:.4rem 0;border-radius:10px;background:${m.is_staff ? "rgba(42,166,163,.12)" : "var(--glass-bg-soft)"}">
+        <div style="font-size:.75rem;opacity:.75">${esc(m.author_name)} · ${esc(m.created_at)}</div>
+        <div style="white-space:pre-wrap">${esc(m.body)}</div>
+      </div>`).join("");
+    box.innerHTML = `
+      <h4>${esc(data.ticket.subject)}</h4>
+      ${msgs}
+      <form id="admin-reply" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem">
+        <textarea id="admin-reply-body" class="input" rows="3" placeholder="پاسخ پشتیبانی…" required></textarea>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button type="submit" class="btn btn-primary">ارسال پاسخ</button>
+          <button type="button" class="btn btn-soft" data-close-ticket="${esc(id)}">بستن تیکت</button>
+        </div>
+      </form>`;
+    $("#admin-reply").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = $("#admin-reply-body").value.trim();
+      await api(`/support/tickets/${encodeURIComponent(id)}/messages`, {
+        method: "POST", body: JSON.stringify({ body }),
+      });
+      toast("پاسخ ارسال شد");
+      await adminOpenTicket(id);
+    });
+    box.querySelector("[data-close-ticket]")?.addEventListener("click", async () => {
+      await api(`/support/admin/tickets/${encodeURIComponent(id)}/status`, {
+        method: "PATCH", body: JSON.stringify({ status: "closed" }),
+      });
+      toast("تیکت بسته شد");
+      await renderAdmin();
+    });
+  }
+
+  contentEl.querySelectorAll("[data-open-ticket]").forEach((btn) => {
+    btn.addEventListener("click", () => adminOpenTicket(btn.dataset.openTicket));
+  });
+
+  contentEl.querySelectorAll("[data-act]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const act = btn.dataset.act;
+      btn.disabled = true;
+      try {
+        if (act === "role") {
+          await api(`/admin/users/${encodeURIComponent(id)}/role`, {
+            method: "PATCH",
+            body: JSON.stringify({ role: btn.dataset.role }),
+          });
+          toast("نقش به‌روز شد");
+        } else if (act === "active") {
+          await api(`/admin/users/${encodeURIComponent(id)}/active`, {
+            method: "PATCH",
+            body: JSON.stringify({ active: btn.dataset.active === "1" }),
+          });
+          toast("وضعیت حساب به‌روز شد");
+        } else if (act === "revoke") {
+          await api(`/admin/users/${encodeURIComponent(id)}/revoke-sessions`, {
+            method: "POST",
+            body: "{}",
+          });
+          toast("نشست‌های کاربر قطع شد");
+        }
+        await renderAdmin();
+      } catch (e) {
+        toast("❌ " + (e.message || "خطا"));
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
 async function renderMore() {
   const cards = [
     { href: "#/quera", icon: "⚙️", title: "کوئرا", desc: "مدیریت تمرین‌ها و کلاس‌های کوئرا", isExternal: false },
     { href: "#/settings", icon: "🔧", title: "تنظیمات", desc: "پیکربندی همگام‌سازی و حساب", isExternal: false },
+    { href: "#/support", icon: "💬", title: "پشتیبانی", desc: "گزارش باگ و پیگیری پاسخ", isExternal: false },
+    { href: "#/admin", icon: "🛡️", title: "پنل ادمین", desc: "مدیریت کاربران و نقش‌ها", isExternal: false, adminOnly: true },
     { href: "https://lms4.ui.ac.ir/pages/nodemain", icon: "🏠", title: "پنل اصلی LMS", desc: "ورود به صفحه اصلی سامانه", isExternal: true },
     { href: "https://lms4.ui.ac.ir/pages/messages", icon: "📥", title: "صندوق پیام‌ها", desc: "مشاهده پیام‌های خصوصی", isExternal: true },
     { href: "https://lms4.ui.ac.ir/pages/nodemain", icon: "🆘", title: "راهنما و پشتیبانی", desc: "دریافت راهنمایی از سامانه", isExternal: true },
@@ -1148,7 +1477,7 @@ async function renderMore() {
     ${pageHead("سایر امکانات", "دسترسی به ابزارهای جانبی و پنل اصلی سامانه")}
     
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; padding-top: 1rem;">
-      ${cards.map(c => `
+      ${cards.filter(c => !c.adminOnly || authRole === "admin").map(c => `
         <a href="${c.href}" 
            class="ios-card" 
            ${c.isExternal ? 'target="_blank" rel="noopener"' : ''}
@@ -1726,7 +2055,7 @@ function calRenderDay() {
 
 // ---------- تقویم هفتگی افقی (Liquid Glass Desktop Style) ----------
 
-let currentWeekOffset = 0; 
+let currentWeekOffset = 0;
 let selectedDayJdn = null;
 
 async function renderCalendar() {
@@ -1734,13 +2063,13 @@ async function renderCalendar() {
     api("/events"),
     api("/assignments")
   ]);
-  
+
   const now = new Date();
   const todayJ = d2j(g2d(now.getFullYear(), now.getMonth() + 1, now.getDate()));
-  
-  const currentWeekday = jWeekday(j2d(todayJ.jy, todayJ.jm, todayJ.jd)); 
+
+  const currentWeekday = jWeekday(j2d(todayJ.jy, todayJ.jm, todayJ.jd));
   const startOfWeekJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd) - currentWeekday + (currentWeekOffset * 7);
-  
+
   if (selectedDayJdn === null || currentWeekOffset === 0 && selectedDayJdn < startOfWeekJdn) {
     selectedDayJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd);
   }
@@ -1955,7 +2284,7 @@ async function renderCalendar() {
 }
 window.changeWeek = (offset) => {
   if (offset === 0) {
-    currentWeekOffset = 0; 
+    currentWeekOffset = 0;
     const now = new Date();
     const todayJ = d2j(g2d(now.getFullYear(), now.getMonth() + 1, now.getDate()));
     selectedDayJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd);
@@ -1963,7 +2292,7 @@ window.changeWeek = (offset) => {
     currentWeekOffset += offset;
     const now = new Date();
     const todayJ = d2j(g2d(now.getFullYear(), now.getMonth() + 1, now.getDate()));
-    const currentWeekday = jWeekday(j2d(todayJ.jy, todayJ.jm, todayJ.jd)); 
+    const currentWeekday = jWeekday(j2d(todayJ.jy, todayJ.jm, todayJ.jd));
     selectedDayJdn = j2d(todayJ.jy, todayJ.jm, todayJ.jd) - currentWeekday + (currentWeekOffset * 7);
   }
   renderCalendar();
@@ -2064,6 +2393,8 @@ async function renderPage(route) {
         changes: renderChanges,
         quera: renderQuera,
         settings: renderSettings,
+        admin: renderAdmin,
+        support: renderSupport,
         map: renderMap,
       }[route] || renderDashboard;
       await fn();

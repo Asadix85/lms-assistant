@@ -439,10 +439,71 @@ def _migrate_to_4(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA foreign_keys = ON")
 
 
+def _migrate_to_5(conn: sqlite3.Connection) -> None:
+    """ذخیره کوکی نشست LMS رمزنگاری‌شده برای re-auth بدون تکیه صرف به پسورد."""
+    cols = _table_columns(conn, "user_secrets")
+    if "lms_cookies_enc" not in cols:
+        conn.execute(
+            "ALTER TABLE user_secrets ADD COLUMN lms_cookies_enc TEXT"
+        )
+
+
+def _migrate_to_6(conn: sqlite3.Connection) -> None:
+    """وضعیت فعال/غیرفعال کاربر برای پنل ادمین."""
+    cols = _table_columns(conn, "users")
+    if "is_active" not in cols:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+        )
+
+
+def _migrate_to_7(conn: sqlite3.Connection) -> None:
+    """رمز محلی ادمین + جداول پشتیبانی."""
+    cols = _table_columns(conn, "users")
+    if "password_hash" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+    if "auth_provider" not in cols:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'lms'"
+        )
+
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets(user_id);
+        CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
+        CREATE INDEX IF NOT EXISTS idx_support_tickets_updated ON support_tickets(updated_at);
+
+        CREATE TABLE IF NOT EXISTS support_messages (
+            id TEXT PRIMARY KEY,
+            ticket_id TEXT NOT NULL,
+            author_user_id TEXT NOT NULL,
+            is_staff INTEGER NOT NULL DEFAULT 0,
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE,
+            FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);
+        """
+    )
+
+
 MIGRATIONS: list[tuple[int, object]] = [
     (2, _migrate_to_2),
     (3, _migrate_to_3),
     (4, _migrate_to_4),
+    (5, _migrate_to_5),
+    (6, _migrate_to_6),
+    (7, _migrate_to_7),
 ]
 
 

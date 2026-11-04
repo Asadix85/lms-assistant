@@ -225,9 +225,31 @@
         <div id="login-error" class="error-banner hidden"></div>
         <div class="modal-actions">
           <button type="submit" class="btn btn-primary btn-block" id="btn-login-submit">ورود</button>
+          <button type="button" class="btn btn-soft btn-block" id="btn-toggle-admin-login" style="margin-top:.5rem">ورود ادمین (محلی)</button>
         </div>
       </form>
-      <p class="modal-foot muted">رمز عبور شما فقط برای همگام‌سازی محلی ذخیره می‌شود.</p>
+      <form id="admin-login-form" class="hidden">
+        <div class="field">
+          <label for="admin-username">نام کاربری ادمین</label>
+          <div class="input-wrap">
+            <span class="input-icon">🛡️</span>
+            <input type="text" id="admin-username" autocomplete="username" placeholder="admin_xxxxxx" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="admin-password">رمز عبور ادمین</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="admin-password" autocomplete="current-password" placeholder="رمز ادمین" />
+          </div>
+        </div>
+        <div id="admin-login-error" class="error-banner hidden"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary btn-block" id="btn-admin-login-submit">ورود ادمین</button>
+          <button type="button" class="btn btn-soft btn-block" id="btn-toggle-lms-login" style="margin-top:.5rem">بازگشت به ورود LMS</button>
+        </div>
+      </form>
+      <p class="modal-foot muted">ورود دانشجویان با حساب LMS است. ادمین محلی جداگانه است.</p>
     </div>
   </div>
 

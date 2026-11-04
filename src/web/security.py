@@ -82,3 +82,30 @@ def hash_token(token: str) -> str:
 
 def constant_time_equal(a: str, b: str) -> bool:
     return hmac.compare_digest(a, b)
+
+
+def hash_password(password: str) -> str:
+    """هش پسورد محلی (PBKDF2-SHA256) — برای ادمین سایت، نه پسورد LMS."""
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return f"pbkdf2_sha256$200000${salt.hex()}${dk.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        algo, iterations, salt_hex, hash_hex = stored.split("$", 3)
+        if algo != "pbkdf2_sha256":
+            return False
+        dk = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            bytes.fromhex(salt_hex),
+            int(iterations),
+        )
+        return hmac.compare_digest(dk.hex(), hash_hex)
+    except Exception:
+        return False
+
+
+MAX_ADMINS = 3
+
