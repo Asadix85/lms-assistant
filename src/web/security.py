@@ -40,14 +40,37 @@ def parse_iso(value: str) -> datetime:
 
 def get_secret_key() -> str:
     key = os.environ.get("LMS_SECRET_KEY") or os.environ.get("SECRET_KEY")
+    env = (os.environ.get("LMS_ENV") or "").lower()
+    is_prod = env in ("prod", "production")
     if not key:
-        # توسعه محلی — در production باید ست شود
+        if is_prod:
+            raise RuntimeError(
+                "در production حتماً LMS_SECRET_KEY را ست کنید — بدون آن اسرار ناامن‌اند."
+            )
         key = "dev-only-change-me-in-production-please-32b"
         logger.warning(
             "SECRET_KEY تنظیم نشده؛ از کلید توسعه استفاده می‌شود. "
             "قبل از deploy عمومی LMS_SECRET_KEY را ست کنید."
         )
+    elif is_prod and key.startswith("dev-only"):
+        raise RuntimeError(
+            "LMS_SECRET_KEY مقدار توسعه دارد؛ در production یک مقدار تصادفی بلند بگذارید."
+        )
     return key
+
+
+def enforce_production_security() -> None:
+    """در استارت اپ برای production صدا زده شود."""
+    env = (os.environ.get("LMS_ENV") or "").lower()
+    if env not in ("prod", "production"):
+        return
+    get_secret_key()  # raises if bad
+    secure = os.environ.get("LMS_COOKIE_SECURE", "0") in ("1", "true", "True")
+    if not secure:
+        logger.error(
+            "LMS_ENV=production ولی LMS_COOKIE_SECURE روشن نیست — "
+            "روی HTTPS مقدار 1 بگذارید."
+        )
 
 
 def _fernet() -> Fernet:

@@ -17,10 +17,12 @@ from loguru import logger
 from config.settings import settings
 from src.storage.database import Database
 from src.storage.migrations import migrate
-from src.web.routers import admin, auth, courses, proxy, quera, support
+from src.web.routers import account, admin, auth, courses, proxy, quera, support
 from src.web.routers import settings as settings_router
 from src.web.routers import sync
 from src.web.admin_bootstrap import ensure_local_admin
+from src.web.backup_service import BackupScheduler, restore_instructions
+from src.web.security import enforce_production_security
 from src.web.session import SessionManager
 
 WEB_DIR = Path(__file__).resolve().parent.parent.parent / "web"
@@ -74,19 +76,29 @@ async def lifespan(app: FastAPI):
     app.state.lms_assistant = None
 
     try:
+        enforce_production_security()
+    except Exception as e:
+        logger.error("توقف به‌خاطر تنظیمات ناامن production: {}", e)
+        db.close()
+        raise
+
+    try:
         ensure_local_admin(db)
     except Exception as e:
         logger.error("bootstrap ادمین محلی ناموفق: {}", e)
 
-    # در production اگر SECRET_KEY پیش‌فرض باشد هشدار شدید
-    if os.environ.get("LMS_ENV", "").lower() in ("prod", "production"):
-        from src.web.security import get_secret_key
-        if get_secret_key().startswith("dev-only"):
-            logger.error(
-                "LMS_ENV=production ولی LMS_SECRET_KEY تنظیم نشده — اسرار ناامن‌اند!"
-            )
+    backup_hours = float(os.environ.get("LMS_BACKUP_INTERVAL_HOURS", "24"))
+    backup_keep = int(os.environ.get("LMS_BACKUP_KEEP", "14"))
+    scheduler = BackupScheduler(interval_hours=backup_hours, keep=backup_keep)
+    scheduler.start()
+    app.state.backup_scheduler = scheduler
+    logger.info("راهنمای restore:\n{}", restore_instructions())
 
     yield
+    try:
+        scheduler.stop()
+    except Exception:
+        pass
     db.close()
 
 
@@ -106,6 +118,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(account.router, prefix="/api/account", tags=["account"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(support.router, prefix="/api/support", tags=["support"])
 app.include_router(courses.router, prefix="/api", tags=["lms"])

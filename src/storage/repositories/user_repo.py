@@ -327,3 +327,47 @@ class UserRepository:
         )
         self.db.connection.commit()
 
+    def delete_user_account(self, user_id: str) -> None:
+        """حذف کامل حساب و دادهٔ scoped کاربر."""
+        tables = [
+            "assignments",
+            "posts",
+            "contents",
+            "events",
+            "members",
+            "changes",
+            "courses",
+            "course_schedules",
+            "quera_courses",
+            "quera_assignments",
+            "settings",
+            "support_messages",
+            "support_tickets",
+            "web_sessions",
+            "user_secrets",
+            "users",
+        ]
+        # support_messages by ticket ownership handled via tickets first
+        for table in tables:
+            try:
+                if table == "support_messages":
+                    self.db.execute(
+                        """
+                        DELETE FROM support_messages WHERE ticket_id IN
+                          (SELECT id FROM support_tickets WHERE user_id = ?)
+                        """,
+                        (user_id,),
+                    )
+                elif table in ("users", "user_secrets", "web_sessions", "support_tickets"):
+                    col = "id" if table == "users" else "user_id"
+                    if table == "users":
+                        self.db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+                    else:
+                        self.db.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+                else:
+                    self.db.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+            except Exception:
+                # جدول ممکن است نباشد
+                pass
+        self.db.connection.commit()
+

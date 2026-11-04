@@ -1,4 +1,4 @@
-"""Router Sync: شروع همگام‌سازی + استریم پیشرفت با SSE."""
+"""Router Sync: شروع همگام‌سازی + استریم پیشرفت با SSE (per-user)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ def _require_user(request: Request) -> dict:
 
 @router.post("/start")
 async def start_sync(request: Request) -> dict:
-    """شروع sync کامل LMS در بک‌گراند برای کاربر لاگین‌شده."""
     user = _require_user(request)
     session = request.app.state.session
     session.set_active_user(user["id"])
@@ -35,7 +34,7 @@ async def start_sync(request: Request) -> dict:
     except PermissionError as e:
         return {"ok": False, "error": str(e)}
     if not started:
-        return {"ok": False, "error": "همگام‌سازی در حال انجام است"}
+        return {"ok": False, "error": "همگام‌سازی شما از قبل در حال انجام است"}
     return {"ok": True}
 
 
@@ -44,10 +43,11 @@ async def sync_status(request: Request) -> dict:
     user = _require_user(request)
     session = request.app.state.session
     session.set_active_user(user["id"])
-    p = session.latest_progress
+    p = session.latest_progress_for(user["id"])
+    last_mem = session.last_result_for(user["id"])
     last = session.get_last_sync(user["id"])
     return {
-        "running": session.sync_running,
+        "running": session.is_sync_running(user["id"]),
         "progress": None
         if p is None
         else {
@@ -59,11 +59,11 @@ async def sync_status(request: Request) -> dict:
             "changes": p.changes,
         },
         "last_result": None
-        if session.last_result is None
+        if last_mem is None
         else {
-            "error": session.last_result.error,
-            "duration": session.last_result.duration_seconds,
-            "summary": session.last_result.summary(),
+            "error": last_mem.error,
+            "duration": last_mem.duration_seconds,
+            "summary": last_mem.summary(),
         },
         "last_sync": last,
     }
@@ -71,9 +71,10 @@ async def sync_status(request: Request) -> dict:
 
 @router.get("/stream")
 async def stream_sync(request: Request) -> StreamingResponse:
-    """SSE: رویدادهای زنده پیشرفت sync را به مرورگر می‌فرستد."""
+    user = _require_user(request)
     session = request.app.state.session
-    queue = session.subscribe()
+    session.set_active_user(user["id"])
+    queue = session.subscribe(user["id"])
 
     async def event_gen():
         try:
@@ -90,7 +91,7 @@ async def stream_sync(request: Request) -> StreamingResponse:
                 except asyncio.TimeoutError:
                     yield ": keep-alive\n\n"
         finally:
-            session.unsubscribe(queue)
+            session.unsubscribe(queue, user_id=user["id"])
 
     return StreamingResponse(
         event_gen(),

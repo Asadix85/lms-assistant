@@ -28,11 +28,11 @@ class SessionManager:
         # user_id فعال برای sync تک‌نخی فعلی (فاز ۱: یک sync سراسری)
         self._active_user_id: str | None = None
 
-        self._sync_thread: threading.Thread | None = None
-        self._sync_running = False
-        self._latest_progress: SyncProgress | None = None
-        self._last_result: SyncResult | None = None
-        self._subscribers: list[asyncio.Queue] = []
+        # per-user sync state
+        self._sync_running: set[str] = set()
+        self._latest_progress: dict[str, SyncProgress] = {}
+        self._last_result: dict[str, SyncResult] = {}
+        self._subscribers: dict[str, list[asyncio.Queue]] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     # =========================================================
@@ -166,43 +166,76 @@ class SessionManager:
         self.drop_assistant(user_id)
 
     # =========================================================
-    # Sync (background thread + pub/sub برای SSE)
+    # Sync per-user (background thread + pub/sub SSE)
     # =========================================================
+
+    def is_sync_running(self, user_id: str | None = None) -> bool:
+        uid = user_id or self._active_user_id
+        if not uid:
+            return bool(self._sync_running)
+        return uid in self._sync_running
 
     @property
     def sync_running(self) -> bool:
-        return self._sync_running
+        """سازگاری قدیمی: آیا کاربر فعال در حال sync است؟"""
+        if self._active_user_id:
+            return self._active_user_id in self._sync_running
+        return len(self._sync_running) > 0
+
+    def latest_progress_for(self, user_id: str | None = None) -> SyncProgress | None:
+        uid = user_id or self._active_user_id
+        if not uid:
+            return None
+        return self._latest_progress.get(uid)
 
     @property
     def latest_progress(self) -> SyncProgress | None:
-        return self._latest_progress
+        return self.latest_progress_for(self._active_user_id)
+
+    def last_result_for(self, user_id: str | None = None) -> SyncResult | None:
+        uid = user_id or self._active_user_id
+        if not uid:
+            return None
+        return self._last_result.get(uid)
 
     @property
     def last_result(self) -> SyncResult | None:
-        return self._last_result
+        return self.last_result_for(self._active_user_id)
 
     def attach_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
 
-    def subscribe(self) -> asyncio.Queue:
+    def subscribe(self, user_id: str | None = None) -> asyncio.Queue:
+        uid = user_id or self._active_user_id or "__broadcast__"
         q: asyncio.Queue = asyncio.Queue(maxsize=100)
-        self._subscribers.append(q)
+        self._subscribers.setdefault(uid, []).append(q)
         return q
 
-    def unsubscribe(self, q: asyncio.Queue) -> None:
-        if q in self._subscribers:
-            self._subscribers.remove(q)
+    def unsubscribe(self, q: asyncio.Queue, user_id: str | None = None) -> None:
+        if user_id:
+            lst = self._subscribers.get(user_id) or []
+            if q in lst:
+                lst.remove(q)
+            return
+        for lst in self._subscribers.values():
+            if q in lst:
+                lst.remove(q)
+                break
 
-    def _publish(self, event: dict) -> None:
+    def _publish(self, event: dict, user_id: str | None = None) -> None:
         loop = self._loop
         if loop is None:
             return
-        for q in list(self._subscribers):
+        targets: list[asyncio.Queue] = []
+        if user_id and user_id in self._subscribers:
+            targets.extend(self._subscribers[user_id])
+        # optional broadcast channel
+        targets.extend(self._subscribers.get("__broadcast__", []))
+        for q in list(targets):
             try:
                 loop.call_soon_threadsafe(q.put_nowait, event)
             except RuntimeError:
                 pass
-
 
     def _save_last_sync(
         self,
@@ -236,48 +269,48 @@ class SessionManager:
         )
 
     def start_lms_sync(self, user_id: str | None = None) -> bool:
-        if self._sync_running:
-            return False
-
         uid = user_id or self._active_user_id
         if not uid:
             raise PermissionError("برای sync باید وارد شده باشید")
 
+        with self._lock:
+            if uid in self._sync_running:
+                return False
+            self._sync_running.add(uid)
+
         self._active_user_id = uid
-        self._sync_running = True
-        self._latest_progress = None
-        self._last_result = None
+        self._latest_progress.pop(uid, None)
+        self._last_result.pop(uid, None)
 
         def on_progress(p: SyncProgress) -> None:
-            self._latest_progress = p
-            self._publish(
-                {
-                    "type": "progress",
-                    "data": p.to_dict()
-                    if hasattr(p, "to_dict")
-                    else {
-                        "phase": p.phase,
-                        "phase_index": p.phase_index,
-                        "total_phases": p.total_phases,
-                        "current": p.current,
-                        "total": p.total,
-                        "message": p.message,
-                        "percent": p.percent,
-                        "elapsed": round(p.elapsed, 1),
-                        "changes": p.changes,
-                    },
+            self._latest_progress[uid] = p
+            data = (
+                p.to_dict()
+                if hasattr(p, "to_dict")
+                else {
+                    "phase": p.phase,
+                    "phase_index": p.phase_index,
+                    "total_phases": p.total_phases,
+                    "current": p.current,
+                    "total": p.total,
+                    "message": p.message,
+                    "percent": p.percent,
+                    "elapsed": round(p.elapsed, 1),
+                    "changes": p.changes,
                 }
             )
+            self._publish({"type": "progress", "data": data}, user_id=uid)
 
         def run() -> None:
             try:
                 assistant = self.get_assistant(uid)
                 service = SyncService(assistant, self.db, uid)
                 result = service.sync(on_progress=on_progress)
-                self._last_result = result
+                self._last_result[uid] = result
 
                 if result.has_error:
                     from src.web.sync_messages import humanize_sync_error
+
                     err = result.error or "خطای LMS"
                     summary = "سینک LMS ناموفق بود. سینک کوئرا انجام نشد."
                     self._save_last_sync(uid, ok=False, summary=summary, error=err)
@@ -290,7 +323,8 @@ class SessionManager:
                                 "error_human": humanize_sync_error(err),
                                 "summary": summary,
                             },
-                        }
+                        },
+                        user_id=uid,
                     )
                     return
 
@@ -308,14 +342,17 @@ class SessionManager:
                             "elapsed": 0,
                             "changes": {},
                         },
-                    }
+                    },
+                    user_id=uid,
                 )
 
                 quera_result = self.run_quera_sync(uid)
 
                 if quera_result.get("error"):
                     summary = f"LMS: موفق | کوئرا: {quera_result['error']}"
-                    self._save_last_sync(uid, ok=True, summary=summary, error=str(quera_result.get("error")))
+                    self._save_last_sync(
+                        uid, ok=True, summary=summary, error=str(quera_result.get("error"))
+                    )
                     self._publish(
                         {
                             "type": "result",
@@ -325,7 +362,8 @@ class SessionManager:
                                 "summary": summary,
                                 "partial": True,
                             },
-                        }
+                        },
+                        user_id=uid,
                     )
                 else:
                     summary = (
@@ -342,25 +380,30 @@ class SessionManager:
                                 "error": None,
                                 "summary": summary,
                             },
-                        }
+                        },
+                        user_id=uid,
                     )
             except Exception as e:
-                logger.exception("خطا در sync پس‌زمینه")
+                logger.exception("خطا در sync پس‌زمینه user={}", uid)
                 from src.web.sync_messages import humanize_sync_error
+
                 msg = str(e)
                 try:
                     self._save_last_sync(uid, ok=False, error=msg, summary="خطای غیرمنتظره")
                 except Exception:
                     pass
-                self._publish({
-                    "type": "error",
-                    "data": {"message": msg, "error_human": humanize_sync_error(msg)},
-                })
+                self._publish(
+                    {
+                        "type": "error",
+                        "data": {"message": msg, "error_human": humanize_sync_error(msg)},
+                    },
+                    user_id=uid,
+                )
             finally:
-                self._sync_running = False
+                with self._lock:
+                    self._sync_running.discard(uid)
 
-        self._sync_thread = threading.Thread(target=run, daemon=True, name="full-sync")
-        self._sync_thread.start()
+        threading.Thread(target=run, daemon=True, name=f"full-sync-{uid[:8]}").start()
         return True
 
     def run_quera_sync(self, user_id: str | None = None) -> dict:

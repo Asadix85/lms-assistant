@@ -2335,6 +2335,45 @@ function calRenderDay() {
 let currentWeekOffset = 0;
 let selectedDayJdn = null;
 
+
+  // --- حساب من ---
+  const accountCard = document.createElement("div");
+  accountCard.className = "card";
+  accountCard.style.marginTop = "1.5rem";
+  accountCard.innerHTML = `
+    <h3 style="margin:0 0 .75rem">حساب من</h3>
+    <p style="opacity:.85;font-size:.9rem;margin:0 0 .75rem">خروج از همه دستگاه‌ها، دریافت کپی داده، یا حذف کامل حساب.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+      <button type="button" class="btn btn-soft btn-sm" id="btn-revoke-sessions">خروج از همه نشست‌ها</button>
+      <a class="btn btn-soft btn-sm" href="/api/account/export" download="lms-my-data.json" data-account-export>⬇ خروجی داده (JSON)</a>
+      <button type="button" class="btn btn-soft btn-sm" id="btn-delete-account" style="color:var(--danger)">حذف حساب</button>
+    </div>
+  `;
+  contentEl.appendChild(accountCard);
+  document.getElementById("btn-revoke-sessions")?.addEventListener("click", async () => {
+    if (!confirm("از همه دستگاه‌ها خارج می‌شوید. ادامه؟")) return;
+    try {
+      await api("/account/sessions/revoke-all", { method: "POST", body: "{}" });
+      toast("همه نشست‌ها قطع شد");
+      location.reload();
+    } catch (e) {
+      toast("❌ " + (e.message || "خطا"));
+    }
+  });
+  document.getElementById("btn-delete-account")?.addEventListener("click", async () => {
+    if (!confirm("همه داده‌های شما برای همیشه حذف می‌شود. مطمئنید؟")) return;
+    if (!confirm("این عمل برگشت‌پذیر نیست. حذف حساب؟")) return;
+    try {
+      await api("/account", { method: "DELETE" });
+      toast("حساب حذف شد");
+      location.hash = "#/";
+      location.reload();
+    } catch (e) {
+      toast("❌ " + (e.message || "خطا"));
+    }
+  });
+
+
 async function renderCalendar() {
   const [events, assignments] = await Promise.all([
     api("/events"),
