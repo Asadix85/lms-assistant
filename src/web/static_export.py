@@ -77,11 +77,69 @@ def build_dashboard(db: Database, user_id: str) -> dict:
     now = datetime.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start + timedelta(days=1)
+    soon_end = now + timedelta(hours=48)
 
     today_events = []
     for e in upcoming_events:
         if e.start_at and today_start <= e.start_at < today_end:
             today_events.append(EventOut.from_model(e))
+
+    # هشدار ددلاین: عقب‌افتاده + تا ۴۸ ساعت آینده (فقط تحویل‌نشده)
+    alerts: list[dict] = []
+    try:
+        all_pending = [a for a in r["assignments"].get_all() if not a.is_done and a.deadline]
+        overdue = sorted(
+            [a for a in all_pending if a.deadline < now],
+            key=lambda a: a.deadline or now,
+        )
+        due_soon = sorted(
+            [a for a in all_pending if now <= (a.deadline or now) <= soon_end],
+            key=lambda a: a.deadline or now,
+        )
+        for a in overdue[:8]:
+            alerts.append(
+                {
+                    "level": "danger",
+                    "kind": "overdue",
+                    "title": a.title,
+                    "course_id": a.course_id,
+                    "deadline": a.deadline.isoformat() if a.deadline else None,
+                    "deadline_jalali": a.deadline_jalali,
+                    "message": "مهلت گذشته",
+                }
+            )
+        for a in due_soon[:8]:
+            hours = max(0, int((a.deadline - now).total_seconds() // 3600)) if a.deadline else 0
+            alerts.append(
+                {
+                    "level": "warning",
+                    "kind": "due_soon",
+                    "title": a.title,
+                    "course_id": a.course_id,
+                    "deadline": a.deadline.isoformat() if a.deadline else None,
+                    "deadline_jalali": a.deadline_jalali,
+                    "message": f"حدود {hours} ساعت تا مهلت",
+                }
+            )
+    except Exception:
+        alerts = []
+
+    last_sync = None
+    try:
+        from src.storage.repositories.setting_repo import SettingRepository
+        from src.web.sync_messages import format_last_sync
+
+        srepo = SettingRepository(db, user_id)
+        ok_raw = srepo.get("last_sync_ok")
+        ok = None if ok_raw is None else (ok_raw == "1")
+        last_sync = format_last_sync(
+            ok=ok,
+            at=srepo.get("last_sync_at"),
+            summary=srepo.get("last_sync_summary") or None,
+            error=srepo.get("last_sync_error") or None,
+        )
+    except Exception:
+        last_sync = None
 
     return {
         "stats": {
@@ -94,7 +152,11 @@ def build_dashboard(db: Database, user_id: str) -> dict:
             "pending_assignments": sum(
                 1 for a in r["assignments"].get_all() if not a.is_done
             ),
+            "overdue_assignments": sum(1 for x in alerts if x["kind"] == "overdue"),
+            "due_soon_assignments": sum(1 for x in alerts if x["kind"] == "due_soon"),
         },
+        "last_sync": last_sync,
+        "alerts": alerts,
         "upcoming_events": [EventOut.from_model(e) for e in upcoming_events],
         "upcoming_assignments": [
             AssignmentOut.from_model(a) for a in upcoming_assignments

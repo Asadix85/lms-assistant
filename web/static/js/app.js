@@ -135,8 +135,9 @@ $("#login-form").addEventListener("submit", async (e) => {
     if (result.ok) {
       hideLogin();
       toast(`✅ خوش آمدید${result.full_name ? "، " + result.full_name : ""}`);
-      refreshUserBox();
-      renderPage(currentRoute());
+      await refreshUserBox();
+      await renderPage(currentRoute());
+      maybeAutoSync();
     } else {
       const err = $("#login-error");
       err.textContent = "❌ " + (result.error || "ورود ناموفق بود");
@@ -221,12 +222,50 @@ async function refreshUserBox() {
       adminNav.classList.toggle("hidden", !(st.lms_logged_in && authRole === "admin"));
     }
     if (!st.lms_logged_in) showLogin();
+    else maybeAutoSync();
   } catch (_) {
     showLogin();
   }
 }
 
 // ---------- Sync + SSE ----------
+/** اگر هرگز sync نشده یا بیش از ۶ ساعت گذشته، یک‌بار همگام‌سازی بزن */
+let _autoSyncTried = false;
+async function maybeAutoSync() {
+  if (_autoSyncTried) return;
+  try {
+    const st = await api("/sync/status");
+    if (st.running) return;
+    const ls = st.last_sync;
+    let need = !ls || ls.status === "never";
+    if (!need && ls.at) {
+      const ts = Date.parse(String(ls.at).replace(" ", "T") + "Z");
+      if (!Number.isNaN(ts)) {
+        need = Date.now() - ts > 6 * 3600 * 1000;
+      }
+    }
+    if (!need) return;
+    _autoSyncTried = true;
+    toast("🔄 همگام‌سازی خودکار شروع شد…");
+    const r = await api("/sync/start", { method: "POST" });
+    if (!r.ok && r.error) {
+      toast("⏳ " + r.error);
+      return;
+    }
+    setSyncButton(true);
+    setSyncUI(true, 0, "همگام‌سازی خودکار…");
+    listenSyncEvents();
+  } catch (_) {}
+}
+
+
+document.addEventListener("click", (e) => {
+  const btn = e.target && e.target.closest && e.target.closest("#btn-retry-sync");
+  if (!btn) return;
+  e.preventDefault();
+  $("#btn-sync")?.click();
+});
+
 
 const PHASE_LABELS = {
   idle: "آماده",
@@ -293,13 +332,20 @@ function listenSyncEvents() {
 
     eventSource.addEventListener("result", (e) => {
     const d = JSON.parse(e.data).data;
-    finish(d.ok ? `✅ همگام‌سازی انجام شد — ${d.summary || ""}` : `❌ خطا: ${d.error}`);
+    if (d.ok) {
+      finish(`✅ همگام‌سازی انجام شد — ${d.summary || ""}`);
+    } else {
+      finish(`❌ ${d.error_human || d.error || "همگام‌سازی ناموفق"}`);
+    }
   });
 
   eventSource.addEventListener("error", (e) => {
-    let msg = "همگام‌سازی";
-    try { msg = JSON.parse(e.data).data.message; } catch (_) {}
-    finish("❌ خطا: " + msg);
+    let msg = "همگام‌سازی ناموفق";
+    try {
+      const data = JSON.parse(e.data).data;
+      msg = data.error_human || data.message || msg;
+    } catch (_) {}
+    finish("❌ " + msg);
   });
 
   eventSource.onerror = () => {
@@ -386,12 +432,49 @@ const TITLES = {
   map: "نقشه مکان‌ها",
   more: "سایر امکانات",
   about: "درباره ما",
+  help: "راهنما و حریم خصوصی",
 };
 async function renderDashboard() {
   const d = await api("/dashboard");
   const s = d.stats;
+  const alerts = d.alerts || [];
+  const alertsHtml = alerts.length
+    ? `<div class="card" style="margin-bottom:1rem;border:1px solid var(--danger-soft, #fca5a5)">
+        <h3 style="margin:0 0 .5rem">⏰ هشدار مهلت‌ها</h3>
+        <div style="display:flex;flex-direction:column;gap:.4rem">
+          ${alerts.map(a => `
+            <div style="display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start;padding:.45rem .2rem;border-bottom:1px solid var(--glass-border)">
+              <div>
+                <div style="font-weight:600">${esc(a.title)}</div>
+                <div style="font-size:.8rem;opacity:.8">${esc(a.message)}${a.deadline_jalali ? " · " + esc(a.deadline_jalali) : ""}</div>
+              </div>
+              <span class="badge ${a.level === "danger" ? "badge-expired" : "badge-warn"}">${a.kind === "overdue" ? "گذشته" : "نزدیک"}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>`
+    : "";
 
-  const statCard = (value, label, icon, color, bg) => `
+
+
+  const ls = d.last_sync;
+  const lastSyncHtml = ls
+    ? `<div class="card" style="margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <div style="font-weight:700">${esc(ls.title)}</div>
+            <div style="font-size:.85rem;opacity:.85;margin-top:.25rem">${esc(ls.detail || "")}</div>
+            ${ls.at ? `<div style="font-size:.75rem;opacity:.65;margin-top:.35rem;direction:ltr;text-align:right">${esc(ls.at)}</div>` : ""}
+          </div>
+          <span class="badge ${ls.status === "success" ? "badge-new" : ls.status === "error" ? "badge-expired" : ""}">${
+            ls.status === "success" ? "موفق" : ls.status === "error" ? "ناموفق" : "—"
+          }</span>
+        </div>
+        ${ls.status === "error" ? `<button class="btn btn-soft btn-sm" id="btn-retry-sync" style="margin-top:.75rem">تلاش دوباره همگام‌سازی</button>` : ""}
+      </div>`
+    : "";
+
+const statCard = (value, label, icon, color, bg) => `
     <div class="card stat-card" style="--stat-color:${color};--stat-bg:${bg}">
       <span class="stat-icon">${icon}</span>
       <div class="stat-value">${value}</div>
@@ -446,6 +529,8 @@ async function renderDashboard() {
 
   contentEl.innerHTML = `
     ${pageHead("داشبورد", "نمای کلی وضعیت دروس و مهلت‌ها")}
+    ${alertsHtml}
+    ${lastSyncHtml}
     <div class="stats-grid">
       ${statCard(s.active_courses, "درس فعال", "📚", "var(--primary)", "var(--primary-soft)")}
       ${statCard(s.courses, "کل درس‌ها", "🎓", "var(--info)", "var(--info-soft)")}
@@ -835,62 +920,113 @@ async function renderCourseDetail(courseId) {
 
 async function renderAssignments() {
   const items = await api("/assignments");
-  if (!items.length) { contentEl.innerHTML = emptyState("تکلیفی یافت نشد"); return; }
+  if (!items.length) {
+    contentEl.innerHTML = emptyState("تکلیفی یافت نشد", "بعد از همگام‌سازی اینجا ظاهر می‌شوند");
+    return;
+  }
   const names = await courseNameMap();
+  const now = Date.now();
+  const weekMs = 7 * 24 * 3600 * 1000;
 
-  // وضعیت فیلترها
-  let filters = {
-    past: false,
-    future: false,
+  const parseDeadline = (a) => {
+    if (!a.deadline) return null;
+    const t = Date.parse(a.deadline);
+    return Number.isNaN(t) ? null : t;
   };
 
-  // ساخت HTML با نوار فیلتر
+  let filter = "open"; // open | overdue | week | done | all
+
+  const counts = {
+    all: items.length,
+    open: items.filter((a) => !a.is_done).length,
+    overdue: items.filter((a) => !a.is_done && a.is_expired).length,
+    week: items.filter((a) => {
+      if (a.is_done) return false;
+      const d = parseDeadline(a);
+      if (d == null) return false;
+      return d >= now && d <= now + weekMs;
+    }).length,
+    done: items.filter((a) => a.is_done).length,
+  };
+
   contentEl.innerHTML = `
-    ${pageHead("تکالیف", `${items.length} تکلیف ثبت شده`)}
-    
-    <div class="filter-bar" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; align-items:center;">
-      <button class="filter-btn" id="filter-past">⏰ گذشته</button>
-      <button class="filter-btn" id="filter-future">📅 آینده</button>
-      
-      <div class="search-box" style="flex:1; min-width:200px; margin-inline-start:auto;">
+    ${pageHead("تکالیف", `${items.length} تکلیف · ${counts.open} باز`)}
+    <div class="filter-bar" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+      <a class="btn btn-soft btn-sm" href="/api/calendar.ics" download="lms-assistant.ics">⬇ خروجی ICS</a>
+      <button type="button" class="filter-btn active" data-af="open">باز (${counts.open})</button>
+      <button type="button" class="filter-btn" data-af="overdue">عقب‌افتاده (${counts.overdue})</button>
+      <button type="button" class="filter-btn" data-af="week">این هفته (${counts.week})</button>
+      <button type="button" class="filter-btn" data-af="done">انجام‌شده (${counts.done})</button>
+      <button type="button" class="filter-btn" data-af="all">همه (${counts.all})</button>
+      <div class="search-box" style="flex:1;min-width:200px;margin-inline-start:auto">
         <span class="search-ico">🔍</span>
-        <input id="filter-input" type="search" placeholder="جستجوی عنوان تکلیف یا درس…" />
+        <input id="filter-input" type="search" placeholder="جستجوی عنوان یا درس…" />
       </div>
     </div>
-
     <div class="item-list" id="list-container"></div>`;
 
-  // تابع رندر لیست با اعمال فیلترها
+  const matchesFilter = (a) => {
+    const d = parseDeadline(a);
+    switch (filter) {
+      case "open":
+        return !a.is_done;
+      case "overdue":
+        return !a.is_done && !!a.is_expired;
+      case "week":
+        return !a.is_done && d != null && d >= now && d <= now + weekMs;
+      case "done":
+        return !!a.is_done;
+      default:
+        return true;
+    }
+  };
+
+  const sortItems = (list) =>
+    list.slice().sort((a, b) => {
+      // انجام‌نشده اول
+      if (!!a.is_done !== !!b.is_done) return a.is_done ? 1 : -1;
+      // عقب‌افتاده اول بین بازها
+      if (!!a.is_expired !== !!b.is_expired) return a.is_expired ? -1 : 1;
+      const da = parseDeadline(a);
+      const db = parseDeadline(b);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da - db;
+    });
+
   const renderList = () => {
     const el = document.getElementById("list-container");
     if (!el) return;
-
-    // اعمال فیلترها
-    let filtered = items.filter(a => {
-      // فیلتر گذشته (is_expired == true)
-      if (filters.past && !a.is_expired) return false;
-      // فیلتر آینده (is_expired == false)
-      if (filters.future && a.is_expired) return false;
-      return true;
-    });
-
-    // اعمال جستجو
+    let filtered = items.filter(matchesFilter);
     const q = (document.getElementById("filter-input")?.value || "").trim().toLowerCase();
     if (q) {
-      filtered = filtered.filter(a =>
+      filtered = filtered.filter((a) =>
         `${a.title} ${names[a.course_id] || a.course_id}`.toLowerCase().includes(q)
       );
     }
-
+    filtered = sortItems(filtered);
     el.innerHTML = filtered.length
-      ? filtered.map((a) => `
+      ? filtered
+          .map((a) => {
+            const d = parseDeadline(a);
+            let urgency = "";
+            if (!a.is_done && a.is_expired) urgency = "عقب‌افتاده";
+            else if (!a.is_done && d != null && d - now < 48 * 3600 * 1000)
+              urgency = "کمتر از ۴۸ ساعت";
+            return `
         <div class="list-row">
           <span class="row-icon">${a.is_done ? "✅" : a.is_expired ? "⏰" : "📝"}</span>
           <div class="row-body">
             <div class="row-title">
-              ${a.view_url ? `<a href="/api/jaam-proxy?url=${encodeURIComponent(a.view_url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}
+              ${
+                a.view_url
+                  ? `<a href="/api/jaam-proxy?url=${encodeURIComponent(a.view_url)}" target="_blank" rel="noopener">${esc(a.title)}</a>`
+                  : esc(a.title)
+              }
               ${a.is_new ? '<span class="badge badge-new">جدید</span>' : ""}
               ${a.is_expired && !a.is_done ? '<span class="badge badge-expired">گذشته</span>' : ""}
+              ${urgency && !a.is_expired ? `<span class="badge badge-warn">${urgency}</span>` : ""}
               ${a.is_done ? '<span class="badge badge-done">انجام شده</span>' : ""}
             </div>
             <div class="row-meta">
@@ -899,53 +1035,71 @@ async function renderAssignments() {
             </div>
           </div>
           <div class="row-actions">
-            ${!a.is_done && a.submit_url ? `<a class="btn-primary-glass" href="/api/jaam-proxy?url=${encodeURIComponent(a.submit_url)}" target="_blank" rel="noopener">ارسال ↗</a>` : ""}
-            
-            <button class="btn-ghost-glass"
-                    onclick="toggleAssignment('${esc(a.id)}', ${!a.is_done})">
+            ${
+              !a.is_done && a.submit_url
+                ? `<a class="btn-primary-glass" href="/api/jaam-proxy?url=${encodeURIComponent(a.submit_url)}" target="_blank" rel="noopener">ارسال ↗</a>`
+                : ""
+            }
+            <button class="btn-ghost-glass" onclick="toggleAssignment('${esc(a.id)}', ${!a.is_done})">
               ${a.is_done ? "لغو انجام" : "انجام شد ✓"}
             </button>
           </div>
-        </div>`).join("")
-      : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
+        </div>`;
+          })
+          .join("")
+      : emptyState("موردی با این فیلتر نیست", "فیلتر دیگری را امتحان کنید");
   };
 
-  // مدیریت رویداد کلیک دکمه‌های فیلتر
-  const toggleBtn = (id, isActive) => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.classList.toggle("active", isActive);
-  };
-
-  document.getElementById("filter-past")?.addEventListener("click", () => {
-    filters.past = !filters.past;
-    toggleBtn("filter-past", filters.past);
-    renderList();
+  contentEl.querySelectorAll("[data-af]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      filter = btn.dataset.af;
+      contentEl.querySelectorAll("[data-af]").forEach((b) => b.classList.toggle("active", b === btn));
+      renderList();
+    });
   });
-
-  document.getElementById("filter-future")?.addEventListener("click", () => {
-    filters.future = !filters.future;
-    toggleBtn("filter-future", filters.future);
-    renderList();
-  });
-
-  // مدیریت رویداد جستجو
   document.getElementById("filter-input")?.addEventListener("input", renderList);
-
-  // رندر اولیه
   renderList();
 }
 
+
 async function renderPosts() {
   const items = await api("/posts");
-  if (!items.length) { contentEl.innerHTML = emptyState("پیامی یافت نشد"); return; }
+  if (!items.length) {
+    contentEl.innerHTML = emptyState("پیامی یافت نشد", "بعد از همگام‌سازی پیام‌های وال اینجا می‌آیند");
+    return;
+  }
   const names = await courseNameMap();
+  let filter = "unread"; // unread | all
 
-  const renderList = (list) => {
+  const unreadCount = items.filter((p) => p.is_new).length;
+
+  contentEl.innerHTML = `
+    ${pageHead("پیام‌های وال", `${items.length} پیام · ${unreadCount} خوانده‌نشده`)}
+    <div class="filter-bar" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+      <button type="button" class="filter-btn active" data-pf="unread">خوانده‌نشده (${unreadCount})</button>
+      <button type="button" class="filter-btn" data-pf="all">همه (${items.length})</button>
+      <button class="btn btn-soft btn-sm" onclick="markPostsRead()" ${unreadCount ? "" : "disabled"}>✓ همه را خواندم</button>
+      <div class="search-box" style="flex:1;min-width:180px;margin-inline-start:auto">
+        <span class="search-ico">🔍</span>
+        <input id="posts-filter-input" type="search" placeholder="جستجو در متن یا نویسنده…" />
+      </div>
+    </div>
+    <div class="item-list" id="list-container"></div>`;
+
+  const renderList = () => {
     const el = document.getElementById("list-container");
     if (!el) return;
+    let list = items.filter((p) => (filter === "unread" ? p.is_new : true));
+    const q = (document.getElementById("posts-filter-input")?.value || "").trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) =>
+        `${p.author || ""} ${p.text || ""} ${names[p.course_id] || ""}`.toLowerCase().includes(q)
+      );
+    }
     el.innerHTML = list.length
-      ? list.map((p) => `
+      ? list
+          .map(
+            (p) => `
         <div class="list-row">
           <span class="row-icon">💬</span>
           <div class="row-body">
@@ -956,29 +1110,21 @@ async function renderPosts() {
               <span class="sep">·</span><span>${esc(names[p.course_id] || p.course_id)}</span>
             </div>
           </div>
-          <!-- 👇 لینک مشاهده پیام در LMS با پروکسی -->
-          ${p.post_url ? `<div class="row-actions"><a class="btn btn-ghost btn-sm" href="${proxyUrl(p.post_url)}" target="_blank" rel="noopener">مشاهده ↗</a></div>` : ""}
-        </div>`).join("")
-      : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
+        </div>`
+          )
+          .join("")
+      : emptyState("موردی با این فیلتر نیست", "فیلتر «همه» را امتحان کنید");
   };
 
-  const newCount = items.filter((p) => p.is_new).length;
-  contentEl.innerHTML = `
-    <div class="page-head">
-      <div><h3>پیام‌های وال</h3><p>گفتگوها و اطلاعیه‌های درس‌ها</p></div>
-      <button class="btn btn-soft btn-sm" onclick="markPostsRead()" ${newCount ? "" : "disabled"}>✓ همه را خواندم${newCount ? ` (${newCount})` : ""}</button>
-    </div>
-    ${searchBox("جستجو در پیام‌ها…")}
-    <div class="item-list" id="list-container"></div>`;
-
-  const records = items.map((p) => ({
-    p,
-    get searchText() { return `${p.author} ${p.text}`.toLowerCase(); },
-  }));
-  attachFilter(records, {
-    searchText: (it) => it.searchText,
-    render: (filtered) => renderList(filtered.map((it) => it.p)),
+  contentEl.querySelectorAll("[data-pf]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      filter = btn.dataset.pf;
+      contentEl.querySelectorAll("[data-pf]").forEach((b) => b.classList.toggle("active", b === btn));
+      renderList();
+    });
   });
+  document.getElementById("posts-filter-input")?.addEventListener("input", renderList);
+  renderList();
 }
 
 window.markPostsRead = async () => {
@@ -1426,6 +1572,74 @@ async function renderAdmin() {
     btn.addEventListener("click", () => adminOpenTicket(btn.dataset.openTicket));
   });
 
+
+  // --- ops: maintenance / backup / audit ---
+  let sys = { maintenance: false, maintenance_message: "" };
+  try { sys = await api("/admin/system"); } catch (_) {}
+  let audit = { items: [] };
+  try { audit = await api("/admin/audit?limit=20"); } catch (_) {}
+
+  contentEl.insertAdjacentHTML("beforeend", `
+    <div class="card" style="margin-top:1.5rem">
+      <h3 style="margin:0 0 .75rem">عملیات سیستم</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-bottom:1rem">
+        <label style="display:flex;align-items:center;gap:.4rem">
+          <input type="checkbox" id="maint-toggle" ${sys.maintenance ? "checked" : ""} />
+          حالت تعمیرات (Maintenance)
+        </label>
+        <input id="maint-msg" class="input" style="flex:1;min-width:180px" placeholder="پیام برای کاربران" value="${esc(sys.maintenance_message || "")}" />
+        <button class="btn btn-soft btn-sm" id="btn-maint-save">ذخیره</button>
+        <button class="btn btn-primary btn-sm" id="btn-backup" data-admin-backup>بکاپ دیتابیس</button>
+      </div>
+      <div id="backup-result" style="font-size:.85rem;opacity:.85;margin-bottom:1rem"></div>
+      <h4 style="margin:0 0 .5rem">آخرین اقدامات ادمین</h4>
+      <div style="overflow:auto;max-height:240px">
+        <table class="table" style="width:100%;border-collapse:collapse;font-size:.85rem">
+          <thead><tr style="text-align:right;border-bottom:1px solid var(--glass-border)">
+            <th style="padding:.35rem">زمان</th><th>عمل</th><th>بازیگر</th><th>جزئیات</th>
+          </tr></thead>
+          <tbody>
+            ${(audit.items || []).map(it => `
+              <tr>
+                <td style="direction:ltr;text-align:right;padding:.35rem">${esc(it.created_at || "")}</td>
+                <td>${esc(it.action)}</td>
+                <td>${esc(it.actor_name || it.actor_username || "")}</td>
+                <td style="opacity:.8">${esc(it.detail || it.target_user_id || "")}</td>
+              </tr>`).join("") || '<tr><td colspan="4" style="padding:.5rem;opacity:.7">هنوز لاگی نیست</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `);
+
+  $("#btn-maint-save")?.addEventListener("click", async () => {
+    try {
+      await api("/admin/system/maintenance", {
+        method: "POST",
+        body: JSON.stringify({
+          enabled: !!$("#maint-toggle")?.checked,
+          message: $("#maint-msg")?.value || "",
+        }),
+      });
+      toast("وضعیت تعمیرات ذخیره شد");
+    } catch (e) {
+      toast("❌ " + (e.message || "خطا"));
+    }
+  });
+  $("#btn-backup")?.addEventListener("click", async () => {
+    try {
+      const r = await api("/admin/backup", { method: "POST", body: "{}" });
+      const box = $("#backup-result");
+      if (box) {
+        box.innerHTML = `بکاپ آماده: <code>${esc(r.filename)}</code> (${r.size_bytes} بایت)
+          — <a href="${esc(r.download)}" target="_blank" rel="noopener">دانلود</a>`;
+      }
+      toast("✅ بکاپ ساخته شد");
+    } catch (e) {
+      toast("❌ " + (e.message || "خطا در بکاپ"));
+    }
+  });
+
   contentEl.querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.id;
@@ -1470,6 +1684,8 @@ async function renderMore() {
     { href: "https://lms4.ui.ac.ir/pages/messages", icon: "📥", title: "صندوق پیام‌ها", desc: "مشاهده پیام‌های خصوصی", isExternal: true },
     { href: "https://lms4.ui.ac.ir/pages/nodemain", icon: "🆘", title: "راهنما و پشتیبانی", desc: "دریافت راهنمایی از سامانه", isExternal: true },
     // 👇 کارت جدید درباره ما
+    { href: "/api/calendar.ics", icon: "📅", title: "خروجی تقویم ICS", desc: "دانلود برای Google Calendar و گوشی", isExternal: true },
+    { href: "#/help", icon: "📘", title: "راهنما و حریم خصوصی", desc: "این سایت چه می‌کند و چه چیزی ذخیره می‌شود", isExternal: false },
     { href: "#/about", icon: "💡", title: "درباره ما", desc: "درباره پروژه، سازنده و راه‌های ارتباطی", isExternal: false }
   ];
 
@@ -1487,6 +1703,67 @@ async function renderMore() {
           <div class="ios-card-desc">${c.desc}</div>
         </a>
       `).join("")}
+    </div>
+  `;
+}
+
+
+async function renderHelp() {
+  contentEl.innerHTML = `
+    ${pageHead("راهنما و حریم خصوصی", "شفافیت دربارهٔ کارکرد سایت")}
+    <div style="display:flex;flex-direction:column;gap:1rem;max-width:820px">
+      <div class="card">
+        <h3 style="margin:0 0 .5rem">این سایت چیست؟</h3>
+        <p style="margin:0;opacity:.9;line-height:1.7">
+          یک دستیار شخصی برای دانشجویان است تا دروس، تکالیف، پیام‌ها و رویدادهای
+          <strong>LMS دانشگاه اصفهان</strong> (و در صورت تمایل کوئرا) را یکجا ببینید.
+          هدف این است که بعد از یک‌بار ورود، داده‌های خودتان آماده باشد و هر بار همه چیز را از صفر وارد نکنید.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 .5rem">چه چیزهایی ذخیره می‌شود؟</h3>
+        <ul style="margin:.25rem 0 0;padding-inline-start:1.2rem;line-height:1.8;opacity:.9">
+          <li>فهرست دروس، تکالیف، پیام‌های وال، محتواها و رویدادهایی که از LMS همگام می‌شوند</li>
+          <li>نشست ورود شما به <em>همین سایت</em> (کوکی HttpOnly)</li>
+          <li>رمز LMS به‌صورت <strong>رمزنگاری‌شده</strong> (قابل بازیابی فقط روی سرور با کلید محرمانه) تا همگام‌سازی بعدی ممکن باشد</li>
+          <li>در صورت امکان، کوکی نشست LMS به‌صورت رمزنگاری‌شده برای کاهش نیاز به زدن مکرر رمز</li>
+          <li>تیکت‌های پشتیبانی که خودتان می‌فرستید</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 .5rem">چه چیزهایی ذخیره <u>نمی‌شود</u>؟</h3>
+        <ul style="margin:.25rem 0 0;padding-inline-start:1.2rem;line-height:1.8;opacity:.9">
+          <li>رمز شما به‌صورت متن ساده در دیتابیس یا لاگ API برنمی‌گردد</li>
+          <li>کاربران دیگر به دروس، تکالیف یا پیام‌های شما دسترسی ندارند</li>
+          <li>ادمین پنل، محتوای درسی شما را برای «فضولی» نمی‌بیند؛ تمرکزش روی حساب‌ها و پشتیبانی است</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 .5rem">چطور شروع کنم؟</h3>
+        <ol style="margin:.25rem 0 0;padding-inline-start:1.2rem;line-height:1.8;opacity:.9">
+          <li>با شماره دانشجویی و رمز <strong>LMS</strong> وارد شوید</li>
+          <li>دکمهٔ <strong>همگام‌سازی</strong> را بزنید و صبر کنید تا تمام شود</li>
+          <li>داشبورد، تکالیف و تقویم را بررسی کنید</li>
+          <li>اگر خطا دیدید، وضعیت آخرین همگام‌سازی روی داشبورد را بخوانید یا از <a href="#/support">پشتیبانی</a> تیکت بزنید</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 .5rem">نکته‌های مهم امنیتی</h3>
+        <ul style="margin:.25rem 0 0;padding-inline-start:1.2rem;line-height:1.8;opacity:.9">
+          <li>این سرویس جایگزین رسمی LMS نیست؛ اگر در دسترس نبود، مستقیم به LMS بروید</li>
+          <li>روی سیستم مشترک، بعد از کار <strong>خروج</strong> کنید</li>
+          <li>اگر شک دارید نشست‌تان لو رفته، دوباره وارد شوید (نشست قبلی باطل می‌شود) یا به پشتیبانی بگویید</li>
+        </ul>
+      </div>
+
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+        <a class="btn btn-primary" href="#/support">گزارش مشکل</a>
+        <a class="btn btn-soft" href="#/about">درباره پروژه</a>
+      </div>
     </div>
   `;
 }
@@ -2126,7 +2403,10 @@ async function renderCalendar() {
   // 👇 ساخت HTML
   contentEl.innerHTML = `
     ${pageHead("تقویم هفتگی", "مهلت تکالیف و رویدادها")}
-    
+    <div class="card" style="margin-bottom:1rem;display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
+      <div style="opacity:.85;font-size:.9rem">خروجی ICS برای Google Calendar یا تقویم گوشی</div>
+      <a class="btn btn-primary btn-sm" href="/api/calendar.ics" download="lms-assistant.ics">⬇ دانلود ICS</a>
+    </div>
     <div class="filter-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <div style="display:flex; gap:0.5rem;">
         <button class="btn-glass" onclick="changeWeek(-1)" style="padding: 0.5rem 1rem; border-radius: 999px;">‹ هفته قبل</button>
@@ -2387,6 +2667,7 @@ async function renderPage(route) {
         //events: renderEvents,
         more: renderMore,
         about: renderAbout,
+        help: renderHelp,
         calendar: renderCalendar,
         posts: renderPosts,
         contents: renderContents,
@@ -2693,3 +2974,11 @@ function setupWheel(elementId, hiddenInputId, defaultVal) {
     }, 150);
   });
 }
+
+// PWA: ثبت Service Worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+

@@ -77,6 +77,7 @@ async def set_user_role(request: Request, user_id: str, body: RoleBody) -> dict:
     if not ok:
         raise HTTPException(400, "به‌روزرسانی نقش ناموفق بود")
 
+    _audit(request, admin["id"], "set_role", target=user_id, detail=body.role)
     return {"ok": True, "user_id": user_id, "role": body.role}
 
 
@@ -106,6 +107,7 @@ async def set_user_active(request: Request, user_id: str, body: ActiveBody) -> d
         except Exception:
             pass
 
+    _audit(request, admin["id"], "set_active", target=user_id, detail=str(body.active))
     return {"ok": True, "user_id": user_id, "is_active": body.active}
 
 
@@ -123,4 +125,126 @@ async def revoke_sessions(request: Request, user_id: str) -> dict:
     except Exception:
         pass
 
+    _audit(request, admin["id"], "revoke_sessions", target=user_id)
     return {"ok": True, "user_id": user_id, "revoked_by": admin["id"]}
+
+
+from pathlib import Path
+import shutil
+from datetime import datetime
+
+from fastapi.responses import FileResponse
+
+from src.storage.repositories.audit_repo import AuditRepository
+from src.storage.repositories.setting_repo import SettingRepository
+from config.settings import settings
+
+SYSTEM_USER = "__system__"
+
+
+class MaintenanceBody(BaseModel):
+    enabled: bool
+    message: str | None = None
+
+
+def _audit(request: Request, actor_id: str, action: str, target: str | None = None, detail: str | None = None) -> None:
+    try:
+        AuditRepository(request.app.state.db).log(
+            actor_user_id=actor_id,
+            action=action,
+            target_user_id=target,
+            detail=detail,
+        )
+    except Exception:
+        pass
+
+
+@router.get("/system")
+async def system_status(request: Request) -> dict:
+    require_admin(request)
+    srepo = SettingRepository(request.app.state.db, SYSTEM_USER)
+    return {
+        "ok": True,
+        "maintenance": srepo.get("maintenance", "0") == "1",
+        "maintenance_message": srepo.get("maintenance_message", "") or "",
+        "max_admins": MAX_ADMINS,
+    }
+
+
+@router.post("/system/maintenance")
+async def set_maintenance(request: Request, body: MaintenanceBody) -> dict:
+    admin = require_admin(request)
+    srepo = SettingRepository(request.app.state.db, SYSTEM_USER)
+    srepo.set("maintenance", "1" if body.enabled else "0")
+    if body.message is not None:
+        srepo.set("maintenance_message", body.message)
+    _audit(
+        request,
+        admin["id"],
+        "maintenance_on" if body.enabled else "maintenance_off",
+        detail=body.message,
+    )
+    return {
+        "ok": True,
+        "maintenance": body.enabled,
+        "message": body.message or srepo.get("maintenance_message", ""),
+    }
+
+
+@router.get("/audit")
+async def list_audit(request: Request, limit: int = 50) -> dict:
+    require_admin(request)
+    limit = max(1, min(limit, 200))
+    rows = AuditRepository(request.app.state.db).list_recent(limit)
+    return {
+        "ok": True,
+        "items": [
+            {
+                "id": r["id"],
+                "action": r["action"],
+                "actor_username": r.get("actor_username"),
+                "actor_name": r.get("actor_name"),
+                "target_user_id": r.get("target_user_id"),
+                "detail": r.get("detail"),
+                "created_at": r.get("created_at"),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/backup")
+async def create_backup(request: Request) -> dict:
+    admin = require_admin(request)
+    db_path = Path(settings.db_path)
+    if not db_path.exists():
+        raise HTTPException(404, "فایل دیتابیس یافت نشد")
+    backup_dir = db_path.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = backup_dir / f"lms_{stamp}.db"
+    shutil.copy2(db_path, dest)
+    _audit(request, admin["id"], "backup", detail=str(dest.name))
+    return {
+        "ok": True,
+        "filename": dest.name,
+        "path": str(dest),
+        "size_bytes": dest.stat().st_size,
+        "download": f"/api/admin/backup/download/{dest.name}",
+    }
+
+
+@router.get("/backup/download/{filename}")
+async def download_backup(request: Request, filename: str):
+    require_admin(request)
+    # فقط نام فایل ساده
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "نام فایل نامعتبر")
+    db_path = Path(settings.db_path)
+    path = (db_path.parent / "backups" / filename).resolve()
+    if not str(path).startswith(str((db_path.parent / "backups").resolve())):
+        raise HTTPException(400, "مسیر نامعتبر")
+    if not path.exists():
+        raise HTTPException(404, "بکاپ یافت نشد")
+    return FileResponse(path, filename=filename, media_type="application/octet-stream")
+

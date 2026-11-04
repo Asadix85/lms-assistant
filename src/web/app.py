@@ -7,7 +7,8 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +78,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error("bootstrap ادمین محلی ناموفق: {}", e)
 
+    # در production اگر SECRET_KEY پیش‌فرض باشد هشدار شدید
+    if os.environ.get("LMS_ENV", "").lower() in ("prod", "production"):
+        from src.web.security import get_secret_key
+        if get_secret_key().startswith("dev-only"):
+            logger.error(
+                "LMS_ENV=production ولی LMS_SECRET_KEY تنظیم نشده — اسرار ناامن‌اند!"
+            )
+
     yield
     db.close()
 
@@ -113,3 +122,59 @@ if ASSETS_DIR.exists():
 @app.get("/", include_in_schema=False)
 async def index() -> FileResponse:
     return FileResponse(str(WEB_DIR / "index.html"))
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+async def web_manifest() -> FileResponse:
+    return FileResponse(
+        str(WEB_DIR / "manifest.webmanifest"),
+        media_type="application/manifest+json",
+    )
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> FileResponse:
+    return FileResponse(
+        str(WEB_DIR / "sw.js"),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.middleware("http")
+async def maintenance_middleware(request: Request, call_next):
+    """اگر maintenance روشن باشد، APIهای غیر ادمین/استاتیک را قطع می‌کند."""
+    path = request.url.path or ""
+    # اجازه به استاتیک، لاگین، status، و خود admin
+    allow_prefixes = (
+        "/static",
+        "/api/auth",
+        "/api/admin",
+        "/docs",
+        "/openapi.json",
+        "/favicon",
+    )
+    if path == "/" or path.startswith(allow_prefixes):
+        return await call_next(request)
+
+    try:
+        db = getattr(request.app.state, "db", None)
+        if db is None:
+            return await call_next(request)
+        from src.storage.repositories.setting_repo import SettingRepository
+        srepo = SettingRepository(db, "__system__")
+        if srepo.get("maintenance", "0") != "1":
+            return await call_next(request)
+        # ادمین لاگین‌شده عبور کند
+        from src.web.deps import get_optional_user
+        user = get_optional_user(request)
+        if user and (user.get("role") or "") == "admin":
+            return await call_next(request)
+        msg = srepo.get("maintenance_message", "") or "سایت موقتاً در دسترس نیست. کمی بعد دوباره امتحان کنید."
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "error": msg, "maintenance": True},
+        )
+    except Exception:
+        return await call_next(request)
+

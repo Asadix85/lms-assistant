@@ -41,8 +41,11 @@ async def start_sync(request: Request) -> dict:
 
 @router.get("/status")
 async def sync_status(request: Request) -> dict:
+    user = _require_user(request)
     session = request.app.state.session
+    session.set_active_user(user["id"])
     p = session.latest_progress
+    last = session.get_last_sync(user["id"])
     return {
         "running": session.sync_running,
         "progress": None
@@ -62,6 +65,7 @@ async def sync_status(request: Request) -> dict:
             "duration": session.last_result.duration_seconds,
             "summary": session.last_result.summary(),
         },
+        "last_sync": last,
     }
 
 

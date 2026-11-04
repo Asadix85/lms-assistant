@@ -562,3 +562,26 @@ async def get_all_locations(request: Request) -> list[dict]:
                                 unique_locations[loc_info.name]["courses"].append(c.name)
 
     return list(unique_locations.values())
+
+
+@router.get("/calendar.ics")
+async def export_calendar_ics(request: Request):
+    """دانلود تقویم ICS شامل تکالیف (با مهلت) و رویدادها."""
+    from fastapi.responses import Response
+    from src.web.ics_export import build_ics
+
+    user = _require_user(request)
+    r = _repos(request, user["id"])
+    assignments = [a for a in r["assignments"].get_all() if getattr(a, "deadline", None)]
+    events = r["events"].get_all()
+    name = f"LMS - {user.get('full_name') or user.get('lms_username') or 'me'}"
+    body = build_ics(assignments=assignments, events=events, calendar_name=name)
+    return Response(
+        content=body,
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="lms-assistant.ics"',
+            "Cache-Control": "no-store",
+        },
+    )
+

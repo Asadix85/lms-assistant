@@ -1,0 +1,27 @@
+{
+  "name": "دستیار LMS دانشگاه اصفهان",
+  "short_name": "دستیار LMS",
+  "description": "داشبورد شخصی دروس، تکالیف و رویدادهای LMS",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "lang": "fa",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/static/img/ui-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/ui-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

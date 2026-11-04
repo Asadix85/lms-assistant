@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#4f46e5" />
+  <meta name="description" content="دستیار شخصی دروس، تکالیف و رویدادهای LMS دانشگاه اصفهان" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="دستیار LMS" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/static/img/ui-logo.png" />
   <title>دستیار LMS — نسخه وب</title>
   <link rel="icon" type="image/png" href="/static/img/ui-logo.png" />
   <link rel="stylesheet" href="/static/css/style.css" />
@@ -65,6 +71,8 @@
         <span class="nav-label">سایر</span>
         <a href="#/more" data-page="more" class="nav-item">
           <span class="nav-icon">☰</span><span class="nav-text">سایر امکانات</span>
+        <a href="#/admin" data-page="admin" class="nav-item hidden" id="nav-admin">
+          <span class="nav-icon">🛡️</span><span class="nav-text">ادمین</span>
         </a>
       </div>
     </nav>
@@ -249,7 +257,7 @@
           <button type="button" class="btn btn-soft btn-block" id="btn-toggle-lms-login" style="margin-top:.5rem">بازگشت به ورود LMS</button>
         </div>
       </form>
-      <p class="modal-foot muted">ورود دانشجویان با حساب LMS است. ادمین محلی جداگانه است.</p>
+      <p class="modal-foot muted">ورود دانشجویان با حساب LMS است. ادمین محلی جداگانه است. · <a href="#/help" data-close="login-modal">راهنما و حریم خصوصی</a></p>
     </div>
   </div>
 

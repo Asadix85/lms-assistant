@@ -497,6 +497,23 @@ def _migrate_to_7(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_to_8(conn: sqlite3.Connection) -> None:
+    """لاگ عملیات ادمین."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS admin_audit_log (
+            id TEXT PRIMARY KEY,
+            actor_user_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            target_user_id TEXT,
+            detail TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at);
+        """
+    )
+
+
 MIGRATIONS: list[tuple[int, object]] = [
     (2, _migrate_to_2),
     (3, _migrate_to_3),
@@ -504,6 +521,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (5, _migrate_to_5),
     (6, _migrate_to_6),
     (7, _migrate_to_7),
+    (8, _migrate_to_8),
 ]
 
 

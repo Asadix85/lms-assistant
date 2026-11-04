@@ -203,6 +203,38 @@ class SessionManager:
             except RuntimeError:
                 pass
 
+
+    def _save_last_sync(
+        self,
+        user_id: str,
+        *,
+        ok: bool,
+        summary: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        from src.storage.repositories.setting_repo import SettingRepository
+        from src.web.security import utcnow_iso
+
+        repo = SettingRepository(self.db, user_id)
+        repo.set("last_sync_at", utcnow_iso())
+        repo.set("last_sync_ok", "1" if ok else "0")
+        repo.set("last_sync_summary", summary or "")
+        repo.set("last_sync_error", error or "")
+
+    def get_last_sync(self, user_id: str) -> dict:
+        from src.storage.repositories.setting_repo import SettingRepository
+        from src.web.sync_messages import format_last_sync
+
+        repo = SettingRepository(self.db, user_id)
+        ok_raw = repo.get("last_sync_ok")
+        ok = None if ok_raw is None else (ok_raw == "1")
+        return format_last_sync(
+            ok=ok,
+            at=repo.get("last_sync_at"),
+            summary=repo.get("last_sync_summary") or None,
+            error=repo.get("last_sync_error") or None,
+        )
+
     def start_lms_sync(self, user_id: str | None = None) -> bool:
         if self._sync_running:
             return False
@@ -245,13 +277,18 @@ class SessionManager:
                 self._last_result = result
 
                 if result.has_error:
+                    from src.web.sync_messages import humanize_sync_error
+                    err = result.error or "خطای LMS"
+                    summary = "سینک LMS ناموفق بود. سینک کوئرا انجام نشد."
+                    self._save_last_sync(uid, ok=False, summary=summary, error=err)
                     self._publish(
                         {
                             "type": "result",
                             "data": {
                                 "ok": False,
-                                "error": result.error,
-                                "summary": "سینک LMS ناموفق بود. سینک کوئرا انجام نشد.",
+                                "error": err,
+                                "error_human": humanize_sync_error(err),
+                                "summary": summary,
                             },
                         }
                     )
@@ -277,34 +314,48 @@ class SessionManager:
                 quera_result = self.run_quera_sync(uid)
 
                 if quera_result.get("error"):
+                    summary = f"LMS: موفق | کوئرا: {quera_result['error']}"
+                    self._save_last_sync(uid, ok=True, summary=summary, error=str(quera_result.get("error")))
                     self._publish(
                         {
                             "type": "result",
                             "data": {
                                 "ok": True,
                                 "error": None,
-                                "summary": f"LMS: موفق | کوئرا: {quera_result['error']}",
+                                "summary": summary,
+                                "partial": True,
                             },
                         }
                     )
                 else:
+                    summary = (
+                        f"LMS: {result.summary()} | کوئرا: "
+                        f"{quera_result.get('new', 0)} جدید، "
+                        f"{quera_result.get('updated', 0)} به‌روز"
+                    )
+                    self._save_last_sync(uid, ok=True, summary=summary)
                     self._publish(
                         {
                             "type": "result",
                             "data": {
                                 "ok": True,
                                 "error": None,
-                                "summary": (
-                                    f"LMS: {result.summary()} | کوئرا: "
-                                    f"{quera_result.get('new', 0)} جدید، "
-                                    f"{quera_result.get('updated', 0)} به‌روز"
-                                ),
+                                "summary": summary,
                             },
                         }
                     )
             except Exception as e:
                 logger.exception("خطا در sync پس‌زمینه")
-                self._publish({"type": "error", "data": {"message": str(e)}})
+                from src.web.sync_messages import humanize_sync_error
+                msg = str(e)
+                try:
+                    self._save_last_sync(uid, ok=False, error=msg, summary="خطای غیرمنتظره")
+                except Exception:
+                    pass
+                self._publish({
+                    "type": "error",
+                    "data": {"message": msg, "error_human": humanize_sync_error(msg)},
+                })
             finally:
                 self._sync_running = False
 
