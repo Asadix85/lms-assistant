@@ -205,50 +205,50 @@
       <div class="modal-head">
         <!-- 👇 مسیر لوگو اصلاح شد -->
         <img class="modal-logo" src="./img/ui-logo.png" alt="لوگوی دانشگاه اصفهان" />
-        <h3 id="login-title">ورود به حساب کاربری</h3>
-        <p class="muted">اطلاعات حساب LMS دانشگاه (و اختیاری کوئرا) را وارد کنید.</p>
+        <h3 id="login-title">ورود آزمایشی (نسخه نمایشی)</h3>
+        <p class="muted">این نسخه دمو است؛ ورود واقعی انجام نمی‌شود. هر نامی وارد کنید تا تجربه ورود شبیه‌سازی شود.</p>
       </div>
       <form id="login-form">
         <div class="field">
-          <label for="lms-username">شماره دانشجویی (LMS)</label>
+          <label for="lms-username">نام نمایشی (دلخواه)</label>
           <div class="input-wrap">
             <span class="input-icon">👤</span>
-            <input type="text" id="lms-username" required autocomplete="username" placeholder="مثلاً ۴۰۰۱۲۳۴۵" />
+            <input type="text" id="lms-username" required autocomplete="username" placeholder="مثلاً محمد" />
           </div>
         </div>
         <div class="field">
-          <label for="lms-password">رمز عبور (LMS)</label>
+          <label for="lms-password">رمز عبور (نمایشی)</label>
           <div class="input-wrap">
             <span class="input-icon">🔒</span>
-            <input type="password" id="lms-password" required autocomplete="current-password" placeholder="رمز عبور" />
+            <input type="password" id="lms-password" required autocomplete="current-password" placeholder="هر چیزی" value="demo" />
             <button type="button" class="input-eye" data-toggle="lms-password" aria-label="نمایش رمز">👁</button>
           </div>
         </div>
 
-        <div class="divider"><span>کوئرا (اختیاری)</span></div>
+        <div class="divider"><span>کوئرا (اختیاری — نمایشی)</span></div>
 
         <div class="field">
           <label for="quera-username">نام کاربری کوئرا</label>
           <div class="input-wrap">
             <span class="input-icon">👤</span>
-            <input type="text" id="quera-username" autocomplete="username" placeholder="ایمیل یا نام کاربری" />
+            <input type="text" id="quera-username" autocomplete="username" placeholder="اختیاری" />
           </div>
         </div>
         <div class="field">
           <label for="quera-password">رمز عبور کوئرا</label>
           <div class="input-wrap">
             <span class="input-icon">🔒</span>
-            <input type="password" id="quera-password" autocomplete="current-password" placeholder="رمز عبور" />
+            <input type="password" id="quera-password" autocomplete="current-password" placeholder="اختیاری" />
             <button type="button" class="input-eye" data-toggle="quera-password" aria-label="نمایش رمز">👁</button>
           </div>
         </div>
 
         <div id="login-error" class="error-banner hidden"></div>
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary btn-block" id="btn-login-submit">ورود</button>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-login-submit">ورود آزمایشی</button>
         </div>
       </form>
-      <p class="modal-foot muted">رمز عبور شما فقط برای همگام‌سازی محلی ذخیره می‌شود.</p>
+      <p class="modal-foot muted">هیچ داده‌ای به سرور ارسال نمی‌شود. این فقط شبیه‌سازی رابط کاربری است.</p>
     </div>
   </div>
 
@@ -288,6 +288,71 @@
       <span class="bn-label" data-label="سایر">سایر</span>
     </a>
   </nav>
+
+  <!-- ===== Welcome Overlay (حالت اولیه) ===== -->
+  <div id="welcome-overlay" class="welcome-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+    <div class="welcome-card">
+      <button type="button" class="welcome-close" id="btn-welcome-close" aria-label="بستن">✕</button>
+      <div class="welcome-icon" aria-hidden="true">👋</div>
+      <h2 id="welcome-title">به دستیار LMS خوش آمدید</h2>
+      <p class="welcome-text">
+        این نسخه نمایشی دستیار سامانه یادگیری دانشگاه اصفهان است.
+        برای شروع، می‌توانید راهنمای سایت را ببینید یا با حساب LMS وارد شوید.
+      </p>
+      <div class="welcome-actions">
+        <button type="button" class="btn btn-primary btn-block" id="btn-welcome-guide">
+          📖 راهنمای سایت
+        </button>
+        <button type="button" class="btn btn-soft btn-block" id="btn-welcome-login">
+          🔐 ورود با حساب LMS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Site Guide Modal ===== -->
+  <div id="guide-modal" class="modal-overlay hidden">
+    <div class="modal modal-guide" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+      <button class="modal-close" data-close="guide-modal" aria-label="بستن">✕</button>
+      <div class="modal-head">
+        <h3 id="guide-title">راهنمای سریع سایت</h3>
+        <p class="muted">آشنایی کوتاه با بخش‌های اصلی دستیار LMS</p>
+      </div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <span class="guide-step-num">۱</span>
+          <div>
+            <strong>ورود و همگام‌سازی</strong>
+            <p>با حساب LMS وارد شوید. بعد از ورود، همگام‌سازی به‌صورت خودکار شروع می‌شود و درس‌ها، تکالیف و رویدادها دریافت می‌شوند.</p>
+          </div>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step-num">۲</span>
+          <div>
+            <strong>داشبورد</strong>
+            <p>خلاصه وضعیت ترم: تکالیف نزدیک، رویدادهای امروز و آخرین پیام‌های وال.</p>
+          </div>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step-num">۳</span>
+          <div>
+            <strong>درس‌ها، تکالیف و تقویم</strong>
+            <p>لیست دروس، مهلت تکالیف و برنامه هفتگی/رویدادها را از منوی کناری یا نوار پایین ببینید.</p>
+          </div>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step-num">۴</span>
+          <div>
+            <strong>نقشه و کوئرا</strong>
+            <p>مکان کلاس‌ها روی نقشه و تمرین‌های کوئرا در کنار LMS در دسترس است.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary btn-block" id="btn-guide-done" data-close="guide-modal">متوجه شدم</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== Toast ===== -->
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>

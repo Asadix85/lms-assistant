@@ -72,19 +72,49 @@ if (!window.DEMO_DATA) {
 // ---------- API ----------
 async function api(path, options = {}) {
   if (window.DEMO_DATA) {
-    await new Promise(r => setTimeout(r, 100));
-    if (path === "/courses") return window.DEMO_DATA.courses;
-    if (path === "/assignments") return window.DEMO_DATA.assignments;
-    if (path === "/events") return window.DEMO_DATA.events;
-    if (path === "/posts") return window.DEMO_DATA.posts;
-    if (path === "/contents") return window.DEMO_DATA.contents;
-    if (path === "/dashboard") return window.DEMO_DATA.dashboard;
-    if (path === "/auth/status") return { lms_logged_in: true, full_name: "کاربر مهمان", username: "demo" };
-    if (path === "/map/locations") return window.DEMO_DATA.locations;
-    if (path === "/quera/assignments") return window.DEMO_DATA.queraAssignments;
-    if (path === "/quera/courses") return window.DEMO_DATA.queraCourses;
-    if (path === "/settings/sync") return { courses: true, contents: true, events: true, wall: true, members: true };
-    if (path.startsWith("/courses/") && path.endsWith("/detail")) return window.DEMO_DATA.courseDetail;
+    await new Promise((r) => setTimeout(r, 80));
+    const method = (options.method || "GET").toUpperCase();
+    const base = path.split("?")[0];
+
+    if (base === "/courses") return window.DEMO_DATA.courses;
+    if (base === "/assignments") return window.DEMO_DATA.assignments;
+    if (base === "/events") return window.DEMO_DATA.events;
+    if (base === "/posts" || base === "/posts/read") return window.DEMO_DATA.posts;
+    if (base === "/contents") return window.DEMO_DATA.contents;
+    if (base === "/changes") return window.DEMO_DATA.changes || [];
+    if (base === "/dashboard") return window.DEMO_DATA.dashboard;
+    if (base === "/auth/status") {
+      return {
+        lms_logged_in: !!authState.loggedIn,
+        full_name: authState.fullName || "کاربر مهمان",
+        username: authState.username || (authState.loggedIn ? "demo" : ""),
+      };
+    }
+    if (base === "/map/locations") return window.DEMO_DATA.locations;
+    if (base === "/quera/assignments") return window.DEMO_DATA.queraAssignments || [];
+    if (base === "/quera/courses") return window.DEMO_DATA.queraCourses || [];
+    if (base === "/quera/sync") return { ok: true };
+    if (base === "/settings/sync") return { courses: true, contents: true, events: true, wall: true, members: true };
+    if (base === "/settings/theme") return { theme: document.body.dataset.theme || "light" };
+    if (base === "/sync/status") return { running: false, progress: { percent: 0 } };
+    if (base === "/sync/start") return { ok: true };
+    if (base === "/auth/login" || base === "/auth/logout") return { ok: true };
+    if (base.startsWith("/courses/") && base.endsWith("/detail")) {
+      const id = decodeURIComponent(base.slice("/courses/".length, -"/detail".length));
+      const course = (window.DEMO_DATA.courses || []).find((c) => c.id === id) || window.DEMO_DATA.courses[0];
+      return {
+        course,
+        contents: (window.DEMO_DATA.contents || []).filter((c) => c.course_id === course.id),
+        events: (window.DEMO_DATA.events || []).filter((e) => e.course_id === course.id),
+        posts: (window.DEMO_DATA.posts || []).filter((p) => p.course_id === course.id),
+        assignments: (window.DEMO_DATA.assignments || []).filter((a) => a.course_id === course.id),
+        members: (window.DEMO_DATA.members || []).filter((m) => m.course_id === course.id),
+        changes: (window.DEMO_DATA.changes || []).filter((ch) => ch.course_id === course.id),
+        locations: window.DEMO_DATA.locations || [],
+      };
+    }
+    // پاسخ امن پیش‌فرض برای مسیرهای ناشناخته در دمو
+    if (method === "POST" || method === "PUT" || method === "DELETE") return { ok: true };
     return [];
   }
   const res = await fetch("/api" + path, {
@@ -100,7 +130,12 @@ function esc(s) {
   if (s === null || s === undefined) return "";
   return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
-function proxyUrl(url) { return url ? `/api/jaam-proxy?url=${encodeURIComponent(url)}` : "#"; }
+function proxyUrl(url) {
+  if (!url || url === "#") return "#";
+  // در نسخه دمو بک‌اند وجود ندارد؛ لینک مستقیم یا بی‌اثر
+  if (window.DEMO_DATA) return url.startsWith("http") ? url : "#";
+  return `/api/jaam-proxy?url=${encodeURIComponent(url)}`;
+}
 
 let toastTimer = null;
 function toast(msg) {
@@ -151,18 +186,27 @@ function refreshUserBox(status) {
   const box = $("#user-box");
   if (!box) return;
 
+  // ریست استایل باکس (در HTML اولیه برای حالت مهمان inline style دارد)
+  box.style.background = "";
+  box.style.border = "";
+  box.style.boxShadow = "";
+  box.style.padding = "";
+
   if (authState.loggedIn) {
     const initial = (authState.fullName || "ک").trim().charAt(0) || "ک";
     box.innerHTML = `
-      <div class="user-chip" style="display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.7rem;border-radius:16px;background:var(--glass-bg-soft);border:1px solid var(--glass-border);">
-        <span class="avatar" id="user-avatar" style="width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;font-weight:800;">${esc(initial)}</span>
-        <div class="user-meta" style="min-width:0;flex:1;text-align:start;">
-          <div id="user-name" style="font-weight:700;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(authState.fullName)}</div>
-          <small id="user-status" class="muted">وارد شده</small>
-        </div>
+      <span class="avatar" id="user-avatar">${esc(initial)}</span>
+      <div class="user-meta">
+        <span id="user-name">${esc(authState.fullName)}</span>
+        <small id="user-status">وارد شده · نسخه نمایشی</small>
       </div>
+      <button id="btn-logout" class="btn btn-ghost btn-icon" title="خروج" aria-label="خروج">⏻</button>
     `;
   } else {
+    box.style.background = "transparent";
+    box.style.border = "none";
+    box.style.boxShadow = "none";
+    box.style.padding = "0";
     box.innerHTML = `
       <button id="btn-demo-login" class="btn btn-block" style="
         background: linear-gradient(135deg, #10b981, #059669);
@@ -175,8 +219,6 @@ function refreshUserBox(status) {
         ورود با حساب LMS
       </button>
     `;
-    const demoBtn = $("#btn-demo-login");
-    if (demoBtn) demoBtn.addEventListener("click", () => showLogin());
   }
 
   // آینه موبایل
@@ -184,7 +226,7 @@ function refreshUserBox(status) {
   const mmStatus = $("#mm-status");
   const mmAvatar = $("#mm-avatar");
   if (mmName) mmName.textContent = authState.fullName;
-  if (mmStatus) mmStatus.textContent = authState.loggedIn ? "وارد شده" : "حالت مهمان";
+  if (mmStatus) mmStatus.textContent = authState.loggedIn ? "وارد شده · نمایشی" : "حالت نمایشی";
   if (mmAvatar) mmAvatar.textContent = (authState.fullName || "؟").trim().charAt(0) || "؟";
 }
 
@@ -298,19 +340,27 @@ $("#login-form").addEventListener("submit", async (e) => {
   }
 });
 
-const logoutBtn = $("#btn-logout");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
+// خروج و ورود دمو با event delegation (چون #user-box دینامیک بازسازی می‌شود)
+document.addEventListener("click", async (e) => {
+  if (e.target.closest("#btn-logout") || e.target.closest("#btn-logout-m")) {
+    e.preventDefault();
     if (window.DEMO_DATA) {
       refreshUserBox({ lms_logged_in: false, full_name: "کاربر مهمان", username: "" });
       toast("از حساب خارج شدید (نسخه نمایشی)");
       return;
     }
-    await api("/auth/logout", { method: "POST" });
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch (_) {}
     toast("از حساب خارج شدید");
     refreshUserBox({ lms_logged_in: false, full_name: "کاربر مهمان", username: "" });
-  });
-}
+    return;
+  }
+  if (e.target.closest("#btn-demo-login")) {
+    e.preventDefault();
+    showLogin();
+  }
+});
 
 // ---------- Welcome Overlay + Guide ----------
 const WELCOME_KEY = "lms-welcome-dismissed";
@@ -438,6 +488,7 @@ function pageHead(title, desc) {
 }
 
 function listenSyncEvents() {
+  if (window.DEMO_DATA) return; // در دمو SSE نداریم
   if (eventSource) eventSource.close();
   eventSource = new EventSource("/api/sync/stream");
 
@@ -540,7 +591,7 @@ async function renderDashboard() {
     ? d.today_events.map((e) => {
         const m = eventMeta(e.event_type);
         // استفاده از پروکسی برای لینک کلاس
-        const link = e.url ? `/api/jaam-proxy?url=${encodeURIComponent(e.url)}` : null;
+        const link = e.url ? proxyUrl(e.url) : null;
 
         return `
           <div class="list-row">
@@ -1025,7 +1076,7 @@ async function renderAssignments() {
           <span class="row-icon">${a.is_done ? "✅" : a.is_expired ? "⏰" : "📝"}</span>
           <div class="row-body">
             <div class="row-title">
-              ${a.view_url ? `<a href="/api/jaam-proxy?url=${encodeURIComponent(a.view_url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}
+              ${a.view_url ? `<a href="${proxyUrl(a.view_url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}
               ${a.is_new ? '<span class="badge badge-new">جدید</span>' : ""}
               ${a.is_expired && !a.is_done ? '<span class="badge badge-expired">گذشته</span>' : ""}
               ${a.is_done ? '<span class="badge badge-done">انجام شده</span>' : ""}
@@ -1036,7 +1087,7 @@ async function renderAssignments() {
             </div>
           </div>
           <div class="row-actions">
-            ${!a.is_done && a.submit_url ? `<a class="btn-primary-glass" href="/api/jaam-proxy?url=${encodeURIComponent(a.submit_url)}" target="_blank" rel="noopener">ارسال ↗</a>` : ""}
+            ${!a.is_done && a.submit_url ? `<a class="btn-primary-glass" href="${proxyUrl(a.submit_url)}" target="_blank" rel="noopener">ارسال ↗</a>` : ""}
             
             <button class="btn-ghost-glass"
                     onclick="toggleAssignment('${esc(a.id)}', ${!a.is_done})">
@@ -1150,7 +1201,7 @@ async function renderContents() {
           <span class="row-icon" style="background: var(--primary-soft); color: var(--primary); font-size:1.2rem;">📄</span>
           <div class="row-body">
             <div class="row-title" style="font-size: 1.05rem; margin-bottom: 0.3rem;">
-              <a href="/api/jaam-proxy?url=${encodeURIComponent(c.url)}" target="_blank" rel="noopener" style="color:var(--text); font-weight: 800;">${esc(c.title)}</a>
+              <a href="${proxyUrl(c.url)}" target="_blank" rel="noopener" style="color:var(--text); font-weight: 800;">${esc(c.title)}</a>
               <span class="badge badge-domain" style="margin-inline-start:0.5rem;">${esc(c.content_type)}</span>
             </div>
             
@@ -1169,7 +1220,7 @@ async function renderContents() {
           
           <div class="row-actions">
             <!-- 👇 استفاده از دکمه شیشه‌ای جدید -->
-            <a class="btn-glass-action" href="/api/jaam-proxy?url=${encodeURIComponent(c.url)}" target="_blank" rel="noopener">باز کردن ↗</a>
+            <a class="btn-glass-action" href="${proxyUrl(c.url)}" target="_blank" rel="noopener">باز کردن ↗</a>
           </div>
         </div>`).join("")
       : `<div class="empty"><span class="empty-icon">🔍</span>نتیجه‌ای یافت نشد</div>`;
