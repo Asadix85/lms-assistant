@@ -1595,11 +1595,16 @@ async function renderAbout() {
 }
 
 async function renderQuera() {
-  const [assignments, courses] = await Promise.all([api("/quera/assignments"), api("/quera/courses")]);
+  let [assignments, courses] = await Promise.all([api("/quera/assignments"), api("/quera/courses")]);
+  if (!Array.isArray(assignments)) assignments = [];
+  if (!Array.isArray(courses)) courses = [];
   const courseNames = Object.fromEntries(courses.map((c) => [c.id, c.name]));
 
   const ring = (a) => {
-    const pct = a.problems_count ? Math.round((a.problems.filter((p) => p.is_submitted).length / a.problems_count) * 100) : 0;
+    const problems = Array.isArray(a.problems) ? a.problems : [];
+    const total = a.problems_count || problems.length || 0;
+    const submitted = problems.filter((p) => p && p.is_submitted).length;
+    const pct = total ? Math.round((submitted / total) * 100) : 0;
     return `<div class="ring" style="--p:${pct}"><span>${pct}٪</span></div>`;
   };
 
@@ -1611,19 +1616,22 @@ async function renderQuera() {
     </div>
     <div class="item-list">
       ${assignments.length ? assignments.map((a) => {
-        const submitted = a.problems.filter((p) => p.is_submitted).length;
+        const problems = Array.isArray(a.problems) ? a.problems : [];
+        const submitted = problems.filter((p) => p && p.is_submitted).length;
+        const total = a.problems_count || problems.length || 0;
+        const title = a.name || a.title || "تمرین";
         return `
         <div class="list-row">
           <span class="row-icon">⚙️</span>
           <div class="row-body">
-            <div class="row-title">${esc(a.name)}
+            <div class="row-title">${esc(title)}
               ${a.is_done ? '<span class="badge badge-done">بسته</span>' : ""}
               ${a.is_manual ? '<span class="badge">دستی</span>' : ""}
             </div>
             <div class="row-meta">
-              <span>دوره: ${esc(a.course_name || courseNames[a.id] || "—")}</span>
-              <span class="sep">·</span><span>پایان: ${esc(a.finish_time || "—")}</span>
-              <span class="sep">·</span><span>حل‌شده: ${submitted}/${a.problems_count}</span>
+              <span>دوره: ${esc(a.course_name || courseNames[a.course_id] || courseNames[a.id] || "—")}</span>
+              <span class="sep">·</span><span>پایان: ${esc(a.finish_time || a.deadline || "—")}</span>
+              <span class="sep">·</span><span>حل‌شده: ${submitted}/${total}</span>
             </div>
           </div>
           <div class="row-actions">${ring(a)}</div>
@@ -1682,23 +1690,18 @@ async function renderMap() {
         attributionControl: false
       }).setView([32.6072163, 51.6583164], 15);
 
-      // 👇 تشخیص تم (دارک یا لایت) برای لایه‌های نقشه
+      // تم تیره: CartoDB (بدون API key). StadiaMaps دیگر بدون احراز هویت 401 می‌دهد.
       const isDark = document.body.dataset.theme === "dark";
-
-      // لایه‌ی تیره رایگان (Stadia Alidade Smooth Dark) و لایه‌ی روشن (OSM)
       const tileUrl = isDark
-        ? "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-      // اگر می‌خواهید لایه‌ی تیره حتماً کار کند و از سرویس‌های دیگر استفاده نکنید،
-      // می‌توانید از لایه‌ی زیر استفاده کنید (البته ممکن است کمی کندتر لود شود)
-      // const tileUrl = isDark
-      //   ? "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"
-      //   : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
       L.tileLayer(tileUrl, {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors, © Stadia Maps'
+        subdomains: "abcd",
+        attribution: isDark
+          ? "© OpenStreetMap © CARTO"
+          : "© OpenStreetMap contributors",
       }).addTo(map);
 
       // آیکون سفارشی برای مارکرها (به جای آیکون پیش‌فرض آبی)

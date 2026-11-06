@@ -221,17 +221,48 @@
     },
   ];
 
+  // شکل داده هم‌تراز با renderQuera: name, problems[], problems_count, finish_time
   const queraAssignments = [
     {
       id: "demo_q_1",
       course_id: "demo_quera_1",
       course_name: "برنامه‌نویسی پیشرفته",
+      name: "تمرین کوئرا: سری اول",
       title: "تمرین کوئرا: سری اول",
       deadline: tomorrow,
       deadline_jalali: "فردا",
+      finish_time: tomorrow,
       is_done: false,
       is_expired: false,
+      is_manual: false,
       source: "quera",
+      problems_count: 4,
+      problems: [
+        { id: "p1", title: "مسأله ۱", is_submitted: true },
+        { id: "p2", title: "مسأله ۲", is_submitted: true },
+        { id: "p3", title: "مسأله ۳", is_submitted: false },
+        { id: "p4", title: "مسأله ۴", is_submitted: false },
+      ],
+    },
+    {
+      id: "demo_q_2",
+      course_id: "demo_quera_1",
+      course_name: "برنامه‌نویسی پیشرفته",
+      name: "تمرین کوئرا: سری دوم",
+      title: "تمرین کوئرا: سری دوم",
+      deadline: iso(d(5)),
+      deadline_jalali: "۵ روز دیگر",
+      finish_time: iso(d(5)),
+      is_done: false,
+      is_expired: false,
+      is_manual: false,
+      source: "quera",
+      problems_count: 3,
+      problems: [
+        { id: "p5", title: "مسأله ۱", is_submitted: false },
+        { id: "p6", title: "مسأله ۲", is_submitted: false },
+        { id: "p7", title: "مسأله ۳", is_submitted: false },
+      ],
     },
   ];
 
