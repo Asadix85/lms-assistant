@@ -181,27 +181,33 @@
     { id: "m5", course_id: "demo_course_1", name: "حسین موسوی", profile_url: "#", member_type: "student" },
   ];
 
+  // شکل داده باید با renderMap هماهنگ باشد: { name, building, lat, lng, courses: string[] }
   const locations = [
     {
+      name: "ساختمان فنی قدیم - کلاس ۱۰۱",
+      building: "مجتمع کلاس‌ها · دانشکده فنی و مهندسی",
+      lat: 32.601704,
+      lng: 51.658592,
+      courses: ["مدارهای الکتریکی"],
+      // فیلدهای کمکی برای صفحات دیگر (جزئیات درس و …)
       weekday: "امروز",
       start_time: "10:00",
       end_time: "12:00",
       location_text: "ساختمان فنی قدیم - کلاس ۱۰۱",
       faculty: "دانشکده فنی و مهندسی",
-      building: "مجتمع کلاس‌ها",
-      lat: 32.601704,
-      lng: 51.658592,
       course_name: "مدارهای الکتریکی",
     },
     {
+      name: "ساختمان مهندسی - کلاس ۲۰۵",
+      building: "ساختمان مهندسی · دانشکده فنی و مهندسی",
+      lat: 32.6021,
+      lng: 51.6592,
+      courses: ["برنامه‌سازی پیشرفته"],
       weekday: "یکشنبه",
       start_time: "14:00",
       end_time: "16:00",
       location_text: "ساختمان مهندسی - کلاس ۲۰۵",
       faculty: "دانشکده فنی و مهندسی",
-      building: "ساختمان مهندسی",
-      lat: 32.6021,
-      lng: 51.6592,
       course_name: "برنامه‌سازی پیشرفته",
     },
   ];

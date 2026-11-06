@@ -1633,7 +1633,8 @@ async function renderQuera() {
 }
 
 async function renderMap() {
-  const locations = await api("/map/locations");
+  let locations = await api("/map/locations");
+  if (!Array.isArray(locations)) locations = [];
 
   if (!locations.length) {
     contentEl.innerHTML = emptyState("مکانی برای نمایش وجود ندارد", "ابتدا دروس خود را همگام‌سازی کنید.");
@@ -1648,21 +1649,27 @@ async function renderMap() {
     </div>
     
     <div class="grid-2" style="margin-top: 1rem;">
-      ${locations.map(loc => `
+      ${locations.map(loc => {
+        const title = loc.name || loc.location_text || "مکان کلاس";
+        const building = loc.building || loc.faculty || "";
+        const courseList = Array.isArray(loc.courses)
+          ? loc.courses
+          : (loc.course_name ? [loc.course_name] : []);
+        return `
         <div class="card" style="display: flex; flex-direction: column; gap: 0.5rem;">
           <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-            📍 ${esc(loc.name)}
+            📍 ${esc(title)}
           </div>
-          <div class="muted">${esc(loc.building)}</div>
+          <div class="muted">${esc(building)}</div>
           <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem;">
-            ${loc.courses.map(c => `<span class="badge badge-domain">${esc(c)}</span>`).join("")}
+            ${courseList.map(c => `<span class="badge badge-domain">${esc(c)}</span>`).join("")}
           </div>
           <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
             <a href="https://nshn.ir/?lat=${loc.lat}&lng=${loc.lng}" target="_blank" rel="noopener" class="btn-primary-glass btn-sm">🧭 نشان</a>
             <a href="https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}" target="_blank" rel="noopener" class="btn-glass btn-sm">🗺 گوگل مپ</a>
           </div>
-        </div>
-      `).join("")}
+        </div>`;
+      }).join("")}
     </div>
   `;
 
@@ -1705,10 +1712,17 @@ async function renderMap() {
       // افزودن مارکر برای هر مکان
             // افزودن مارکر برای هر مکان
       locations.forEach(loc => {
+        if (loc.lat == null || loc.lng == null) return;
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
 
+        const title = loc.name || loc.location_text || "مکان کلاس";
+        const building = loc.building || loc.faculty || "";
+        const courseList = Array.isArray(loc.courses)
+          ? loc.courses
+          : (loc.course_name ? [loc.course_name] : []);
+
         // ساخت لیست دروس با ظاهر بهتر
-        const coursesHtml = loc.courses.map(c =>
+        const coursesHtml = courseList.map(c =>
           `<div style="margin-top:6px; font-size:13px; display:flex; align-items:center; gap:6px;">
              <span style="opacity:0.7;">📚</span> <span>${esc(c)}</span>
            </div>`
@@ -1717,10 +1731,10 @@ async function renderMap() {
         marker.bindPopup(`
           <div style="direction: rtl; text-align: right; font-family: 'Vazirmatn', sans-serif;">
             <div style="font-weight: 800; font-size: 15px; margin-bottom: 4px; color: var(--primary);">
-              📍 ${esc(loc.name)}
+              📍 ${esc(title)}
             </div>
             <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">
-              ${esc(loc.building)}
+              ${esc(building)}
             </div>
             <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--glass-border);">
             ${coursesHtml}
@@ -2280,6 +2294,118 @@ function loadingSkeleton() {
   </div>`;
 }
 
+// ---------- راهنمای اولین بازدید هر صفحه (فقط دمو) ----------
+const PAGE_TIP_PREFIX = "lms-demo-page-tip:";
+
+const PAGE_TIPS = {
+  dashboard: {
+    icon: "▦",
+    title: "داشبورد",
+    body: "خلاصه وضعیت ترم اینجاست: تکالیف نزدیک، رویدادهای امروز و آخرین پیام‌های وال. از دکمه «همگام‌سازی» برای تازه‌سازی داده‌ها استفاده کنید.",
+  },
+  courses: {
+    icon: "▤",
+    title: "درس‌ها",
+    body: "لیست درس‌های ترم را می‌بینید. روی هر درس بزنید تا محتوا، اعضا، تکالیف و جزئیات همان درس باز شود.",
+  },
+  course: {
+    icon: "📘",
+    title: "جزئیات درس",
+    body: "این صفحه مخصوص یک درس است: محتواها، اعضای کلاس، تکالیف و رویدادهای همان درس در یک جا جمع شده‌اند.",
+  },
+  assignments: {
+    icon: "✎",
+    title: "تکالیف",
+    body: "همه مهلت‌ها و وضعیت ارسال اینجاست. تکالیف منقضی‌شده و نزدیک به ددلاین با برچسب مشخص می‌شوند. می‌توانید با جستجو فیلتر کنید.",
+  },
+  calendar: {
+    icon: "▣",
+    title: "تقویم",
+    body: "نمای هفتگی/ماهانه برای ددلاین‌ها و رویدادها. روی روزها بزنید تا جزئیات همان روز را ببینید. در نسخه واقعی می‌توانید رویداد دستی هم اضافه کنید.",
+  },
+  map: {
+    icon: "🗺",
+    title: "نقشه",
+    body: "مکان کلاس‌ها روی نقشه دانشگاه نشان داده می‌شود. از دکمه «نشان» یا «گوگل مپ» برای مسیریابی استفاده کنید.",
+  },
+  posts: {
+    icon: "◉",
+    title: "پیام‌های وال",
+    body: "اطلاعیه‌ها و پیام‌های استاد در وال LMS اینجاست. پیام‌های جدید با برچسب مشخص می‌شوند.",
+  },
+  contents: {
+    icon: "▧",
+    title: "محتواها",
+    body: "جزوه، اسلاید و فایل‌های درسی که از LMS همگام شده‌اند. با جستجو سریع‌تر پیدا می‌کنید.",
+  },
+  changes: {
+    icon: "↻",
+    title: "تغییرات",
+    body: "آخرین به‌روزرسانی‌ها بین دو همگام‌سازی: محتوای جدید، تکلیف تازه و تغییرات دیگر.",
+  },
+  quera: {
+    icon: "⚙",
+    title: "کوئرا",
+    body: "تمرین‌ها و کلاس‌های کوئرا در کنار LMS. در نسخه واقعی با حساب کوئرا همگام می‌شوند.",
+  },
+  settings: {
+    icon: "☰",
+    title: "تنظیمات",
+    body: "گزینه‌های همگام‌سازی و حساب. در این نسخه نمایشی تنظیمات فقط برای آشنایی با رابط است.",
+  },
+  more: {
+    icon: "☰",
+    title: "سایر امکانات",
+    body: "دسترسی سریع به بخش‌هایی مثل تنظیمات، درباره ما و میانبرهای موبایل از این صفحه.",
+  },
+  about: {
+    icon: "ℹ",
+    title: "درباره",
+    body: "معرفی پروژه، قابلیت‌ها و سازنده. اگر سوالی دارید از همین بخش مسیر ارتباط را پیدا کنید.",
+  },
+};
+
+function pageTipKey(route) {
+  return route.startsWith("course/") ? "course" : route;
+}
+
+function hasSeenPageTip(route) {
+  return localStorage.getItem(PAGE_TIP_PREFIX + pageTipKey(route)) === "1";
+}
+
+function dismissPageTip(route) {
+  localStorage.setItem(PAGE_TIP_PREFIX + pageTipKey(route), "1");
+  const el = document.getElementById("page-tip");
+  if (!el) return;
+  el.classList.add("page-tip-out");
+  setTimeout(() => el.remove(), 220);
+}
+
+function maybeShowPageTip(route) {
+  if (!window.DEMO_DATA) return;
+  const key = pageTipKey(route);
+  const tip = PAGE_TIPS[key];
+  if (!tip || hasSeenPageTip(key)) return;
+
+  document.getElementById("page-tip")?.remove();
+
+  const el = document.createElement("aside");
+  el.id = "page-tip";
+  el.className = "page-tip";
+  el.setAttribute("role", "note");
+  el.innerHTML = `
+    <div class="page-tip-icon" aria-hidden="true">${tip.icon}</div>
+    <div class="page-tip-body">
+      <strong class="page-tip-title">راهنما · ${esc(tip.title)}</strong>
+      <p class="page-tip-text">${esc(tip.body)}</p>
+    </div>
+    <button type="button" class="page-tip-close" data-dismiss-tip aria-label="بستن راهنما">✕</button>
+  `;
+
+  contentEl.prepend(el);
+  el.querySelector("[data-dismiss-tip]")?.addEventListener("click", () => dismissPageTip(route));
+}
+
 async function renderPage(route) {
   filterQuery = "";
   renderFilteredList = null;
@@ -2313,6 +2439,7 @@ async function renderPage(route) {
       }[route] || renderDashboard;
       await fn();
     }
+    maybeShowPageTip(route);
   } catch (e) {
     contentEl.innerHTML = `<div class="empty"><span class="empty-icon">❌</span>خطا در بارگذاری صفحه<small>${esc(e.message)}</small></div>`;
   }
