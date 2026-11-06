@@ -384,8 +384,9 @@ class AboutPage(QWidget):
         # ============================================
         # FOOTER
         # ============================================
+        from src.version import APP_NAME, APP_VERSION, ORG_NAME
         footer = QLabel(
-            "LMS Assistant v0.1.0  •  ساخته شده با ❤️ برای دانشگاه اصفهان\n"
+            f"{APP_NAME} v{APP_VERSION}  •  ساخته شده با ❤️ برای {ORG_NAME}\n"
             "© ۱۴۰۵ — محمد اسدی"
         )
         footer.setAlignment(Qt.AlignCenter)

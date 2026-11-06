@@ -1,8 +1,55 @@
--- LMS Assistant - Database Schema
+-- LMS Assistant - Database Schema (multi-tenant)
 
--- جدول دروس
-CREATE TABLE IF NOT EXISTS courses (
+-- ============================================================
+-- Identity
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
+    lms_username TEXT NOT NULL UNIQUE,
+    lms_user_id TEXT,
+    full_name TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    password_hash TEXT,
+    auth_provider TEXT NOT NULL DEFAULT 'lms',
+    created_at TEXT NOT NULL,
+    last_login_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_lms_username ON users(lms_username);
+
+CREATE TABLE IF NOT EXISTS web_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    user_agent TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_web_sessions_user ON web_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_web_sessions_expires ON web_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS user_secrets (
+    user_id TEXT PRIMARY KEY,
+    lms_password_enc TEXT,
+    lms_cookies_enc TEXT,
+    quera_username TEXT,
+    quera_password_enc TEXT,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ============================================================
+-- LMS data (scoped by user_id)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS courses (
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     group_id TEXT NOT NULL,
@@ -15,11 +62,16 @@ CREATE TABLE IF NOT EXISTS courses (
     status TEXT NOT NULL DEFAULT 'unknown',
     is_new INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
-    last_seen_at TEXT NOT NULL
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, id)
 );
 
--- جدول اعضای درس
+CREATE INDEX IF NOT EXISTS idx_courses_user ON courses(user_id);
+CREATE INDEX IF NOT EXISTS idx_courses_domain ON courses(domain);
+CREATE INDEX IF NOT EXISTS idx_courses_group_id ON courses(group_id);
+
 CREATE TABLE IF NOT EXISTS members (
+    user_id TEXT NOT NULL,
     id TEXT NOT NULL,
     course_id TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -27,15 +79,16 @@ CREATE TABLE IF NOT EXISTS members (
     member_type TEXT NOT NULL DEFAULT 'unknown',
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    PRIMARY KEY (id, course_id),
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    PRIMARY KEY (user_id, id, course_id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_members_user ON members(user_id);
 CREATE INDEX IF NOT EXISTS idx_members_course ON members(course_id);
 CREATE INDEX IF NOT EXISTS idx_members_type ON members(member_type);
--- جدول محتوا (PDF, ZIP, ...)
+
 CREATE TABLE IF NOT EXISTS contents (
-    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     course_id TEXT NOT NULL,
     title TEXT NOT NULL,
     url TEXT NOT NULL,
@@ -44,12 +97,16 @@ CREATE TABLE IF NOT EXISTS contents (
     is_new INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    PRIMARY KEY (user_id, id)
 );
 
--- جدول رویدادها (جلسات آنلاین، آزمون‌ها)
+CREATE INDEX IF NOT EXISTS idx_contents_user ON contents(user_id);
+CREATE INDEX IF NOT EXISTS idx_contents_course ON contents(course_id);
+CREATE INDEX IF NOT EXISTS idx_contents_is_new ON contents(is_new);
+
 CREATE TABLE IF NOT EXISTS events (
-    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     course_id TEXT,
     title TEXT NOT NULL,
     event_type TEXT NOT NULL,
@@ -60,12 +117,17 @@ CREATE TABLE IF NOT EXISTS events (
     description TEXT,
     is_new INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
-    last_seen_at TEXT NOT NULL
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, id)
 );
 
--- جدول تغییرات (لاگ)
+CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+CREATE INDEX IF NOT EXISTS idx_events_course ON events(course_id);
+CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_at);
+
 CREATE TABLE IF NOT EXISTS changes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
     type TEXT NOT NULL,
     entity_type TEXT NOT NULL,
     entity_id TEXT NOT NULL,
@@ -74,25 +136,20 @@ CREATE TABLE IF NOT EXISTS changes (
     detected_at TEXT NOT NULL
 );
 
--- جدول تنظیمات
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT,
-    updated_at TEXT NOT NULL
-);
-
--- ایندکس‌ها
-CREATE INDEX IF NOT EXISTS idx_courses_domain ON courses(domain);
-CREATE INDEX IF NOT EXISTS idx_courses_group_id ON courses(group_id);
-CREATE INDEX IF NOT EXISTS idx_contents_course ON contents(course_id);
-CREATE INDEX IF NOT EXISTS idx_contents_is_new ON contents(is_new);
-CREATE INDEX IF NOT EXISTS idx_events_course ON events(course_id);
-CREATE INDEX IF NOT EXISTS idx_events_start ON events(start_at);
+CREATE INDEX IF NOT EXISTS idx_changes_user ON changes(user_id);
 CREATE INDEX IF NOT EXISTS idx_changes_detected ON changes(detected_at);
 
--- جدول پست‌های wall
+CREATE TABLE IF NOT EXISTS settings (
+    user_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, key)
+);
+
 CREATE TABLE IF NOT EXISTS posts (
-    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     course_id TEXT NOT NULL,
     author TEXT NOT NULL,
     author_id TEXT,
@@ -103,12 +160,16 @@ CREATE TABLE IF NOT EXISTS posts (
     is_new INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    PRIMARY KEY (user_id, id)
 );
 
--- جدول تکالیف
+CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_posts_course ON posts(course_id);
+CREATE INDEX IF NOT EXISTS idx_posts_posted_at ON posts(posted_at);
+
 CREATE TABLE IF NOT EXISTS assignments (
-    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     course_id TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
@@ -121,24 +182,20 @@ CREATE TABLE IF NOT EXISTS assignments (
     view_url TEXT,
     response_count INTEGER NOT NULL DEFAULT 0,
     is_new INTEGER NOT NULL DEFAULT 0,
+    is_manual INTEGER NOT NULL DEFAULT 0,
+    is_done INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    PRIMARY KEY (user_id, id)
 );
 
--- ایندکس‌ها
-CREATE INDEX IF NOT EXISTS idx_posts_course ON posts(course_id);
-CREATE INDEX IF NOT EXISTS idx_posts_posted_at ON posts(posted_at);
+CREATE INDEX IF NOT EXISTS idx_assignments_user ON assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_course ON assignments(course_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_deadline ON assignments(deadline);
 
--- ============================================================
--- Quera Tables
--- ============================================================
-
--- جدول تمرین‌های Quera
 CREATE TABLE IF NOT EXISTS quera_assignments (
-    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     name TEXT NOT NULL,
     course_name TEXT,
     finish_time TEXT,
@@ -146,34 +203,69 @@ CREATE TABLE IF NOT EXISTS quera_assignments (
     problems_count INTEGER NOT NULL DEFAULT 0,
     submitted_count INTEGER NOT NULL DEFAULT 0,
     is_new INTEGER NOT NULL DEFAULT 0,
+    is_manual INTEGER NOT NULL DEFAULT 0,
+    is_done INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
-    last_seen_at TEXT NOT NULL
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_quera_assignments_user ON quera_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_quera_assignments_finish ON quera_assignments(finish_time);
-CREATE INDEX IF NOT EXISTS idx_quera_assignments_is_new ON quera_assignments(is_new);
 
--- جدول کلاس‌های Quera
 CREATE TABLE IF NOT EXISTS quera_courses (
-    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     teacher TEXT,
     is_active INTEGER NOT NULL DEFAULT 1,
     assignments_count INTEGER NOT NULL DEFAULT 0,
     first_seen_at TEXT NOT NULL,
-    last_seen_at TEXT NOT NULL
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, id)
 );
 
--- جدول برنامه‌ی هفتگی دروس
+CREATE INDEX IF NOT EXISTS idx_quera_courses_user ON quera_courses(user_id);
+
 CREATE TABLE IF NOT EXISTS course_schedules (
-    course_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    course_id TEXT NOT NULL,
     course_code TEXT,
     sessions_json TEXT,
     raw_text TEXT,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    PRIMARY KEY (user_id, course_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_course_schedules_course ON course_schedules(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_schedules_user ON course_schedules(user_id);
+
+
+-- ============================================================
+-- Support
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status);
+
+CREATE TABLE IF NOT EXISTS support_messages (
+    id TEXT PRIMARY KEY,
+    ticket_id TEXT NOT NULL,
+    author_user_id TEXT NOT NULL,
+    is_staff INTEGER NOT NULL DEFAULT 0,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);

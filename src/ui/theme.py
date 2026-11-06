@@ -1,6 +1,10 @@
-"""Theme: Turquoise — Liquid Glass + Minimal (Light + Dark)."""
+"""Theme: Turquoise — Liquid Glass + Minimal (Light + Dark).
+
+Design system دسکتاپ — هم‌سطح کیفیت وب، با هویت رنگی فیروزه‌ای.
+"""
 
 from pathlib import Path
+
 from PySide6.QtGui import QFontDatabase, QFont
 from PySide6.QtWidgets import QBoxLayout, QWidget
 from PySide6.QtCore import Qt
@@ -12,38 +16,74 @@ class ThemeMode:
     DARK = "dark"
 
 
+# === Spacing / Radius tokens (برای استفاده در کد، نه فقط QSS) ===
+class Radius:
+    """شعاع‌های یکدست — نزدیک به حس Liquid Glass وب."""
+
+    XS = 8
+    SM = 12
+    MD = 16
+    LG = 20
+    XL = 24
+    PILL = 22
+    CIRCLE = 999
+
+
+class Spacing:
+    XS = 4
+    SM = 8
+    MD = 12
+    LG = 16
+    XL = 24
+    XXL = 32
+
+
 # === Colors ===
 class LightColors:
-    """پالت روشن — فیروزه‌ای (Turquoise)"""
+    """پالت روشن — فیروزه‌ای (Turquoise) + Liquid Glass."""
+
     PRIMARY = "#2AA6A3"
     PRIMARY_DARK = "#1E807E"
     PRIMARY_LIGHT = "rgba(42, 166, 163, 0.12)"
+    PRIMARY_SOFT = "rgba(42, 166, 163, 0.18)"
+    PRIMARY_RING = "rgba(42, 166, 163, 0.35)"
 
     SECONDARY = "#3B8EA5"
     ACCENT = "#FF9500"
     ACCENT_DARK = "#CC7700"
+    ACCENT_SOFT = "rgba(255, 149, 0, 0.14)"
 
     SUCCESS = "#34C759"
+    SUCCESS_SOFT = "rgba(52, 199, 89, 0.14)"
     WARNING = "#FF9500"
+    WARNING_SOFT = "rgba(255, 149, 0, 0.14)"
     ERROR = "#FF3B30"
+    ERROR_SOFT = "rgba(255, 59, 48, 0.12)"
     INFO = "#2AA6A3"
+    INFO_SOFT = "rgba(42, 166, 163, 0.12)"
 
     BG_MAIN = "#F2F7F7"
     BG_GRADIENT_START = "#F2F7F7"
     BG_GRADIENT_END = "#E5EDED"
-    BG_CARD = "rgba(255, 255, 255, 0.72)"
-    BG_HOVER = "rgba(255, 255, 255, 0.88)"
+    BG_CARD = "rgba(255, 255, 255, 0.78)"
+    BG_HOVER = "rgba(255, 255, 255, 0.90)"
 
-    GLASS_BG = "rgba(255, 255, 255, 0.68)"
-    GLASS_BG_HOVER = "rgba(255, 255, 255, 0.85)"
-    GLASS_BG_ACTIVE = "rgba(255, 255, 255, 0.92)"
-    GLASS_BORDER = "rgba(0, 0, 0, 0.08)"
-    GLASS_BORDER_HOVER = "rgba(42, 166, 163, 0.35)"
+    # Liquid glass hierarchy (نزدیک به وب، روی پایه فیروزه)
+    GLASS_BG = "rgba(255, 255, 255, 0.55)"
+    GLASS_BG_SOFT = "rgba(255, 255, 255, 0.42)"
+    GLASS_BG_STRONG = "rgba(255, 255, 255, 0.78)"
+    GLASS_BG_HOVER = "rgba(255, 255, 255, 0.88)"
+    GLASS_BG_ACTIVE = "rgba(255, 255, 255, 0.94)"
+    GLASS_BORDER = "rgba(255, 255, 255, 0.72)"
+    GLASS_BORDER_OUTER = "rgba(0, 0, 0, 0.06)"
+    GLASS_BORDER_HOVER = "rgba(42, 166, 163, 0.40)"
+    GLASS_HI = "rgba(255, 255, 255, 0.95)"
+    GLASS_LO = "rgba(255, 255, 255, 0.22)"
 
-    SIDEBAR_BG = "rgba(255, 255, 255, 0.75)"
-    SIDEBAR_BG_HOVER = "rgba(242, 247, 247, 0.9)"
-    SIDEBAR_ITEM_ACTIVE = "rgba(42, 166, 163, 0.12)"
-    SEPARATOR_COLOR = "rgba(100, 116, 139, 0.25)"
+    SIDEBAR_BG = "rgba(255, 255, 255, 0.72)"
+    SIDEBAR_BG_HOVER = "rgba(242, 247, 247, 0.92)"
+    SIDEBAR_ITEM_ACTIVE = "rgba(42, 166, 163, 0.14)"
+    SEPARATOR_COLOR = "rgba(100, 116, 139, 0.22)"
 
     HEADER_BG = "rgba(255, 255, 255, 0.78)"
 
@@ -55,59 +95,81 @@ class LightColors:
     BORDER = "rgba(0, 0, 0, 0.08)"
     BORDER_LIGHT = "rgba(0, 0, 0, 0.04)"
 
+    # Shadow (ARGB برای QGraphicsDropShadowEffect)
+    SHADOW = "#1E507814"
+    SHADOW_LG = "#14326E28"
+    SHADOW_SOFT = "#1E50780C"
+
     LMS3 = "#34C759"
     LMS4 = "#2AA6A3"
     LMS5 = "#FF3B30"
 
 
 class DarkColors:
-    """پالت تیره — فیروزه‌ای درخشان"""
+    """پالت تیره — فیروزه‌ای درخشان + Liquid Glass."""
+
     PRIMARY = "#4ECDC4"
     PRIMARY_DARK = "#3BAAA2"
     PRIMARY_LIGHT = "rgba(78, 205, 196, 0.18)"
+    PRIMARY_SOFT = "rgba(78, 205, 196, 0.24)"
+    PRIMARY_RING = "rgba(78, 205, 196, 0.42)"
 
     SECONDARY = "#5E9EAD"
     ACCENT = "#FF9F0A"
     ACCENT_DARK = "#CC7F08"
-    SEPARATOR_COLOR = "rgba(78, 205, 196, 0.35)"
+    ACCENT_SOFT = "rgba(255, 159, 10, 0.16)"
+    SEPARATOR_COLOR = "rgba(78, 205, 196, 0.28)"
 
     SUCCESS = "#30D158"
+    SUCCESS_SOFT = "rgba(48, 209, 88, 0.16)"
     WARNING = "#FF9F0A"
+    WARNING_SOFT = "rgba(255, 159, 10, 0.16)"
     ERROR = "#FF453A"
+    ERROR_SOFT = "rgba(255, 69, 58, 0.16)"
     INFO = "#4ECDC4"
+    INFO_SOFT = "rgba(78, 205, 196, 0.16)"
 
     BG_MAIN = "#0A1212"
     BG_GRADIENT_START = "#0A1212"
     BG_GRADIENT_END = "#1C2626"
-    BG_CARD = "rgba(28, 38, 38, 0.72)"
-    BG_HOVER = "rgba(44, 54, 54, 0.85)"
+    BG_CARD = "rgba(28, 38, 38, 0.78)"
+    BG_HOVER = "rgba(44, 54, 54, 0.88)"
 
-    GLASS_BG = "rgba(28, 38, 38, 0.68)"
-    GLASS_BG_HOVER = "rgba(44, 54, 54, 0.82)"
-    GLASS_BG_ACTIVE = "rgba(58, 68, 68, 0.9)"
-    GLASS_BORDER = "rgba(255, 255, 255, 0.1)"
-    GLASS_BORDER_HOVER = "rgba(78, 205, 196, 0.45)"
+    GLASS_BG = "rgba(22, 30, 30, 0.58)"
+    GLASS_BG_SOFT = "rgba(18, 26, 26, 0.48)"
+    GLASS_BG_STRONG = "rgba(32, 42, 42, 0.82)"
+    GLASS_BG_HOVER = "rgba(44, 54, 54, 0.86)"
+    GLASS_BG_ACTIVE = "rgba(58, 68, 68, 0.92)"
+    GLASS_BORDER = "rgba(255, 255, 255, 0.12)"
+    GLASS_BORDER_OUTER = "rgba(255, 255, 255, 0.06)"
+    GLASS_BORDER_HOVER = "rgba(78, 205, 196, 0.48)"
+    GLASS_HI = "rgba(255, 255, 255, 0.22)"
+    GLASS_LO = "rgba(255, 255, 255, 0.06)"
 
     SIDEBAR_BG = "rgba(10, 18, 18, 0.82)"
-    SIDEBAR_BG_HOVER = "rgba(28, 38, 38, 0.7)"
-    SIDEBAR_ITEM_ACTIVE = "rgba(78, 205, 196, 0.18)"
+    SIDEBAR_BG_HOVER = "rgba(28, 38, 38, 0.72)"
+    SIDEBAR_ITEM_ACTIVE = "rgba(78, 205, 196, 0.20)"
 
-    HEADER_BG = "rgba(10, 18, 18, 0.78)"
+    HEADER_BG = "rgba(10, 18, 18, 0.80)"
 
     TEXT_PRIMARY = "#FFFFFF"
     TEXT_SECONDARY = "#EBEBF5"
     TEXT_MUTED = "#8E8E93"
     TEXT_WHITE = "#FFFFFF"
 
-    BORDER = "rgba(255, 255, 255, 0.1)"
+    BORDER = "rgba(255, 255, 255, 0.10)"
     BORDER_LIGHT = "rgba(255, 255, 255, 0.06)"
+
+    SHADOW = "#00000066"
+    SHADOW_LG = "#00000099"
+    SHADOW_SOFT = "#00000040"
 
     LMS3 = "#30D158"
     LMS4 = "#4ECDC4"
     LMS5 = "#FF453A"
 
 
-# === Aliases (برای سازگاری با کدهای قدیمی) ===
+# === Aliases (سازگاری با کدهای قدیمی) ===
 class Colors:
     PRIMARY = LightColors.PRIMARY
     PRIMARY_DARK = LightColors.PRIMARY_DARK
@@ -213,6 +275,7 @@ class Fonts:
 def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     c = LightColors if mode == ThemeMode.LIGHT else DarkColors
     f = Fonts
+    r = Radius
 
     return f"""
     /* === Base === */
@@ -228,7 +291,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QWidget#CentralWidget {{
         background: transparent;
     }}
-    
+
     QLabel#HeroTitle {{
         color: white;
         font-size: 22pt;
@@ -241,11 +304,11 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         font-size: 11pt;
         background: transparent;
     }}
-    
-    /* === Section Title (داشبورد و آمار) === */
+
+    /* === Section Title === */
     QLabel#SectionTitle {{
         color: {c.TEXT_PRIMARY};
-        font-weight: bold;
+        font-weight: 800;
         font-size: 13pt;
         background: transparent;
         padding: 12px 4px 6px 4px;
@@ -259,7 +322,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
             stop:1 {c.PRIMARY_DARK}
         );
         border: none;
-        border-radius: 16px;
+        border-radius: {r.LG}px;
     }}
 
     /* === Sidebar === */
@@ -268,21 +331,18 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         border: none;
     }}
 
-    /* === کارت اول (بالا) === */
     QFrame#SidebarTopCard {{
         background-color: {c.SIDEBAR_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 22px;
+        border-radius: {r.XL}px;
     }}
 
-    /* === کارت دوم (پایین) === */
     QFrame#SidebarBottomCard {{
         background-color: {c.SIDEBAR_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 22px;
+        border-radius: {r.XL}px;
     }}
 
-    /* === Logo === */
     QLabel#SidebarLogo {{
         font-size: 15pt;
         font-weight: 800;
@@ -298,7 +358,6 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background: transparent;
     }}
 
-    /* === Separator === */
     QFrame#SidebarSeparator {{
         background-color: {c.SEPARATOR_COLOR};
         margin: 6px 12px;
@@ -306,12 +365,11 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         border: none;
     }}
 
-    /* === Sidebar Buttons === */
     QPushButton#SidebarButton {{
         text-align: center;
         padding: 10px 14px;
         border: 1px solid transparent;
-        border-radius: 12px;
+        border-radius: {r.SM}px;
         background-color: transparent;
         color: {c.TEXT_PRIMARY};
         font-size: {f.SIZE_BASE}pt;
@@ -321,15 +379,16 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
 
     QPushButton#SidebarButton:hover {{
         background-color: {c.SIDEBAR_BG_HOVER};
+        border-color: {c.GLASS_BORDER_OUTER};
     }}
 
     QPushButton#SidebarButton:checked {{
         background-color: {c.SIDEBAR_ITEM_ACTIVE};
         color: {c.PRIMARY};
         font-weight: bold;
+        border-color: {c.PRIMARY_RING};
     }}
 
-    /* === Sidebar Toggle Button === */
     QPushButton#SidebarToggleButton {{
         background-color: {c.GLASS_BG};
         color: {c.TEXT_SECONDARY};
@@ -345,7 +404,6 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         border-color: {c.PRIMARY};
     }}
 
-    /* === Version === */
     QLabel#SidebarVersion {{
         color: {c.TEXT_MUTED};
         font-size: 8pt;
@@ -357,7 +415,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QFrame#Header {{
         background-color: {c.HEADER_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 18px;
+        border-radius: {r.LG}px;
         margin: 8px 8px 0 8px;
     }}
 
@@ -387,7 +445,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background: transparent;
     }}
 
-    /* === Cards === */
+    /* === Cards (Liquid Glass) === */
     QFrame#Card,
     QFrame#StatCard,
     QFrame#CourseCard,
@@ -400,24 +458,30 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
     QFrame#AssignmentTimeBox,
     QFrame#DetailPanel,
     QFrame#ContentRow,
-    QFrame#TimeBox {{
+    QFrame#TimeBox,
+    QFrame#QueraCard,
+    QFrame#MapCard,
+    QFrame#EmptyStateCard {{
         background-color: {c.GLASS_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 16px;
+        border-radius: {r.LG}px;
     }}
     QFrame#CourseCard:hover,
     QFrame#AssignmentCard:hover,
     QFrame#EventCard:hover,
     QFrame#ChangeCard:hover,
     QFrame#CourseInfoHeader:hover,
-    QFrame#ContentRow:hover {{
+    QFrame#ContentRow:hover,
+    QFrame#PostCard:hover,
+    QFrame#QueraCard:hover,
+    QFrame#MapCard:hover {{
         background-color: {c.GLASS_BG_HOVER};
         border: 1px solid {c.GLASS_BORDER_HOVER};
     }}
     QFrame#UpcomingCard {{
         background-color: {c.GLASS_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 12px;
+        border-radius: {r.MD}px;
     }}
     QFrame#UpcomingCard:hover {{
         background-color: {c.GLASS_BG_HOVER};
@@ -429,7 +493,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.PRIMARY};
         color: {c.TEXT_WHITE};
         border: none;
-        border-radius: 12px;
+        border-radius: {r.SM}px;
         padding: 11px 22px;
         font-size: {f.SIZE_BASE}pt;
         font-weight: 600;
@@ -441,12 +505,39 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.TEXT_MUTED};
     }}
 
+    QPushButton#SoftButton {{
+        background-color: {c.PRIMARY_LIGHT};
+        color: {c.PRIMARY};
+        border: 1px solid {c.PRIMARY_RING};
+        border-radius: {r.SM}px;
+        padding: 10px 18px;
+        font-weight: 600;
+    }}
+    QPushButton#SoftButton:hover {{
+        background-color: {c.PRIMARY_SOFT};
+        border-color: {c.PRIMARY};
+    }}
+
+    QPushButton#GhostButton {{
+        background-color: transparent;
+        color: {c.TEXT_SECONDARY};
+        border: 1px solid transparent;
+        border-radius: {r.SM}px;
+        padding: 8px 12px;
+        font-weight: 500;
+    }}
+    QPushButton#GhostButton:hover {{
+        background-color: {c.GLASS_BG_HOVER};
+        color: {c.PRIMARY};
+        border-color: {c.GLASS_BORDER};
+    }}
+
     /* === Pill Progress Button === */
     QPushButton#PillButton {{
         background-color: {c.PRIMARY};
         color: {c.TEXT_WHITE};
         border: none;
-        border-radius: 22px;
+        border-radius: {r.PILL}px;
         font-size: {f.SIZE_BASE}pt;
         font-weight: 600;
         padding: 0 20px;
@@ -465,7 +556,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.GLASS_BG};
         color: {c.TEXT_PRIMARY};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 12px;
+        border-radius: {r.SM}px;
         padding: 10px 18px;
     }}
     QPushButton#SecondaryButton:hover {{
@@ -474,22 +565,25 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.PRIMARY};
     }}
 
+    /* Filter — یک تعریف، pill مدرن */
     QPushButton#FilterButton {{
         background-color: {c.GLASS_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 10px;
-        padding: 8px 14px;
+        border-radius: {r.PILL}px;
+        padding: 8px 16px;
         color: {c.TEXT_PRIMARY};
+        font-weight: 500;
     }}
     QPushButton#FilterButton:hover {{
         background-color: {c.GLASS_BG_HOVER};
-        border-color: {c.GLASS_BORDER_HOVER};
+        border-color: {c.PRIMARY};
         color: {c.PRIMARY};
     }}
     QPushButton#FilterButton:checked {{
         background-color: {c.PRIMARY};
-        color: white;
+        color: {c.TEXT_WHITE};
         border-color: {c.PRIMARY};
+        font-weight: bold;
     }}
 
     QPushButton#CircularButton {{
@@ -508,21 +602,34 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.TEXT_MUTED};
     }}
 
+    QPushButton#DangerButton {{
+        background-color: transparent;
+        color: {c.ERROR};
+        border: 1.5px solid {c.ERROR};
+        border-radius: {r.SM}px;
+        padding: 10px 18px;
+        font-weight: 600;
+    }}
+    QPushButton#DangerButton:hover {{
+        background-color: {c.ERROR_SOFT};
+    }}
+
     /* === Input === */
-    QLineEdit {{
+    QLineEdit, QTextEdit, QPlainTextEdit {{
         background-color: {c.GLASS_BG};
         border: 1px solid {c.GLASS_BORDER};
-        border-radius: 12px;
+        border-radius: {r.SM}px;
         padding: 10px 14px;
         font-size: {f.SIZE_BASE}pt;
         color: {c.TEXT_PRIMARY};
+        selection-background-color: {c.PRIMARY_SOFT};
     }}
-    QLineEdit:focus {{
+    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
         border: 1.5px solid {c.PRIMARY};
         background-color: {c.GLASS_BG_HOVER};
     }}
 
-    /* === Text === */
+    /* === Text hierarchy === */
     QLabel#PageTitle {{
         font-size: {f.SIZE_XXL}pt;
         font-weight: 700;
@@ -551,11 +658,10 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.TEXT_PRIMARY};
         background: transparent;
     }}
-
     QLabel#StatValueAccent {{
         font-size: {f.SIZE_HERO}pt;
         font-weight: 700;
-        color: {c.PRIMARY};  /* ← فقط برای کارت accent (دروس) */
+        color: {c.PRIMARY};
         background: transparent;
     }}
     QLabel#StatLabel {{
@@ -563,40 +669,86 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         color: {c.TEXT_SECONDARY};
         background: transparent;
     }}
-    
-        /* === Dashboard Stat === */
+
+    /* === Dashboard Stat === */
     QLabel#DashboardStatIcon {{
         font-size: 20pt;
         background: transparent;
         border: none;
     }}
-
     QLabel#DashboardStatValue {{
         font-size: 24pt;
         font-weight: bold;
-        /* رنگ پیش‌فرض — برای accent سفارشی از inline استفاده می‌شه */
         color: {c.TEXT_PRIMARY};
         background: transparent;
         border: none;
     }}
-
     QLabel#DashboardStatLabel {{
         font-size: 10pt;
         color: {c.TEXT_SECONDARY};
         background: transparent;
         border: none;
     }}
-    
+
+    /* === Badges / Pills === */
+    QLabel#Badge {{
+        border-radius: 10px;
+        padding: 2px 10px;
+        font-size: {f.SIZE_XS}pt;
+        font-weight: 700;
+        background-color: {c.PRIMARY_LIGHT};
+        color: {c.PRIMARY};
+    }}
+    QLabel#Badge[kind="success"] {{
+        background-color: {c.SUCCESS_SOFT};
+        color: {c.SUCCESS};
+    }}
+    QLabel#Badge[kind="warning"] {{
+        background-color: {c.WARNING_SOFT};
+        color: {c.WARNING};
+    }}
+    QLabel#Badge[kind="danger"] {{
+        background-color: {c.ERROR_SOFT};
+        color: {c.ERROR};
+    }}
+    QLabel#Badge[kind="muted"] {{
+        background-color: {c.BG_HOVER};
+        color: {c.TEXT_MUTED};
+    }}
+
+    QLabel#StatusPill {{
+        border-radius: 13px;
+        padding: 0 14px;
+        font-size: {f.SIZE_SM}pt;
+        font-weight: 700;
+    }}
+    QLabel#StatusPill[kind="success"] {{
+        color: {c.SUCCESS};
+        background-color: {c.SUCCESS_SOFT};
+    }}
+    QLabel#StatusPill[kind="danger"] {{
+        color: {c.ERROR};
+        background-color: {c.ERROR_SOFT};
+    }}
+    QLabel#StatusPill[kind="info"] {{
+        color: {c.PRIMARY};
+        background-color: {c.PRIMARY_LIGHT};
+    }}
+    QLabel#StatusPill[kind="muted"] {{
+        color: {c.TEXT_MUTED};
+        background-color: {c.BG_HOVER};
+    }}
+
     /* === Login Dialog === */
     QDialog {{
         background-color: {c.BG_CARD};
-        border-radius: 16px;
+        border-radius: {r.LG}px;
     }}
     QDialog QLabel {{
         background: transparent;
     }}
 
-        /* === Scroll Bar (سفارشی) === */
+    /* === Scroll Bar === */
     QScrollArea {{
         border: none;
         background: transparent;
@@ -608,7 +760,6 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         margin: 4px 2px 4px 2px;
         border: none;
     }}
-
     QScrollBar::handle:vertical {{
         background: qlineargradient(
             x1:0, y1:0, x2:1, y2:0,
@@ -619,40 +770,34 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         min-height: 40px;
         margin: 0px 3px;
     }}
-
     QScrollBar::handle:vertical:hover {{
         background: qlineargradient(
             x1:0, y1:0, x2:1, y2:0,
             stop:0 {c.PRIMARY_DARK},
             stop:1 {c.PRIMARY}
         );
-        margin: 0px 1px;  /* ← پهن‌تر می‌شه */
+        margin: 0px 1px;
     }}
-
     QScrollBar::handle:vertical:pressed {{
         background: {c.PRIMARY_DARK};
         margin: 0px 0px;
     }}
-
     QScrollBar::add-line:vertical,
     QScrollBar::sub-line:vertical {{
         height: 0;
         background: transparent;
     }}
-
     QScrollBar::add-page:vertical,
     QScrollBar::sub-page:vertical {{
         background: transparent;
     }}
 
-    /* افقی */
     QScrollBar:horizontal {{
         background-color: transparent;
         height: 12px;
         margin: 2px 4px;
         border: none;
     }}
-
     QScrollBar::handle:horizontal {{
         background: qlineargradient(
             x1:0, y1:0, x2:0, y2:1,
@@ -663,12 +808,10 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         min-width: 40px;
         margin: 3px 0px;
     }}
-
     QScrollBar::handle:horizontal:hover {{
         background: {c.PRIMARY_DARK};
         margin: 1px 0px;
     }}
-
     QScrollBar::add-line:horizontal,
     QScrollBar::sub-line:horizontal {{
         width: 0;
@@ -700,7 +843,7 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         font-size: {f.SIZE_BASE}pt;
         padding: 10px 8px;
         background: transparent;
-        border-radius: 8px;
+        border-radius: {r.XS}px;
     }}
     QCheckBox:hover {{
         background-color: {c.BG_HOVER};
@@ -713,6 +856,10 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.GLASS_BG};
     }}
     QCheckBox::indicator:hover {{
+        border-color: {c.PRIMARY};
+    }}
+    QCheckBox::indicator:checked {{
+        background-color: {c.PRIMARY};
         border-color: {c.PRIMARY};
     }}
     QCheckBox::indicator:disabled {{
@@ -753,32 +900,11 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         background-color: {c.PRIMARY_DARK};
     }}
 
-    /* === Filter Buttons (Modern Pill) === */
-    QPushButton#FilterButton {{
-        background-color: {c.GLASS_BG};
-        border: 1px solid {c.GLASS_BORDER};
-        border-radius: 20px;
-        padding: 8px 16px;
-        color: {c.TEXT_PRIMARY};
-        font-weight: 500;
-    }}
-    QPushButton#FilterButton:hover {{
-        background-color: {c.GLASS_BG_HOVER};
-        border-color: {c.PRIMARY};
-        color: {c.PRIMARY};
-    }}
-    QPushButton#FilterButton:checked {{
-        background-color: {c.PRIMARY};
-        color: {c.TEXT_WHITE};
-        border-color: {c.PRIMARY};
-        font-weight: bold;
-    }}
-
     /* === Sync Tile === */
     QFrame#SyncTile {{
         background-color: {c.GLASS_BG};
         border: 1.5px solid {c.GLASS_BORDER};
-        border-radius: 16px;
+        border-radius: {r.MD}px;
     }}
     QFrame#SyncTile:hover {{
         background-color: {c.GLASS_BG_HOVER};
@@ -808,41 +934,15 @@ def get_global_qss(mode: str = ThemeMode.LIGHT) -> str:
         border-color: {c.PRIMARY};
     }}
 
-    /* === Status Pill === */
-    QLabel#StatusPill {{
-        border-radius: 13px;
-        padding: 0 14px;
-        font-size: {f.SIZE_SM}pt;
-        font-weight: 700;
-    }}
-    QLabel#StatusPill[kind="success"] {{
-        color: {c.SUCCESS};
+    /* === Empty state helper label === */
+    QLabel#EmptyIconCircle {{
         background-color: {c.PRIMARY_LIGHT};
-    }}
-    QLabel#StatusPill[kind="danger"] {{
-        color: {c.ERROR};
-        background-color: rgba(255, 59, 48, 0.12);
-    }}
-    QLabel#StatusPill[kind="info"] {{
-        color: {c.PRIMARY};
-        background-color: {c.PRIMARY_LIGHT};
-    }}
-    QLabel#StatusPill[kind="muted"] {{
-        color: {c.TEXT_MUTED};
-        background-color: {c.BG_HOVER};
-    }}
-
-    /* === Danger Button === */
-    QPushButton#DangerButton {{
-        background-color: transparent;
-        color: {c.ERROR};
-        border: 1.5px solid {c.ERROR};
-        border-radius: 12px;
-        padding: 10px 18px;
-        font-weight: 600;
-    }}
-    QPushButton#DangerButton:hover {{
-        background-color: rgba(255, 59, 48, 0.10);
+        border: 1px solid {c.PRIMARY_RING};
+        border-radius: 40px;
+        min-width: 80px;
+        min-height: 80px;
+        max-width: 80px;
+        max-height: 80px;
     }}
     """
 

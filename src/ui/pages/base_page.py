@@ -54,7 +54,12 @@ class BasePage(QWidget):
         # === Separator ===
         sep = QFrame()
         sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("background-color: rgba(148, 163, 184, 0.2); max-height: 1px;")
+        try:
+            from src.ui.theme import CurrentTheme
+            sep_color = getattr(CurrentTheme.colors(), "SEPARATOR_COLOR", "rgba(148, 163, 184, 0.22)")
+        except Exception:
+            sep_color = "rgba(148, 163, 184, 0.22)"
+        sep.setStyleSheet(f"background-color: {sep_color}; max-height: 1px; border: none;")
         layout.addWidget(sep)
 
         # === Content ===

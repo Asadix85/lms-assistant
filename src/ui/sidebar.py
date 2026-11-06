@@ -42,8 +42,11 @@ class ClickableIcon(QLabel):
         super().mousePressEvent(event)
 
     def enterEvent(self, event) -> None:
+        from src.ui.theme import CurrentTheme
+        c = CurrentTheme.colors()
+        soft = getattr(c, "PRIMARY_LIGHT", "rgba(42, 166, 163, 0.12)")
         self.setStyleSheet(
-            "background: rgba(42, 166, 163, 0.08); "
+            f"background: {soft}; "
             "border-radius: 12px; border: none;"
         )
         super().enterEvent(event)
@@ -61,9 +64,9 @@ class Sidebar(QFrame):
     EXPANDED_WIDTH = 240
     COLLAPSED_WIDTH = 72
 
-    # سایز آیکون در دو حالت
-    ICON_SIZE_EXPANDED = 80
-    ICON_SIZE_COLLAPSED = 40
+    # سایز آیکون در دو حالت (کوچک‌تر تا لوگو کامل دیده شود)
+    ICON_SIZE_EXPANDED = 64
+    ICON_SIZE_COLLAPSED = 36
 
     APP_ICON_PATH = Path("assets/icons/app.png")
 
@@ -141,14 +144,14 @@ class Sidebar(QFrame):
         top_layout.addSpacing(6)
 
         # === Menu Items ===
+        # منوی اصلی خلوت — بقیه در صفحه «بیشتر»
         menu_items = [
             ("dashboard", Icons.DASHBOARD, "داشبورد"),
             ("calendar", Icons.CALENDAR, "تقویم"),
             ("courses", Icons.COURSES, "دروس"),
             ("assignments", Icons.ASSIGNMENTS, "تکالیف"),
             ("events", Icons.EVENTS, "جلسات آنلاین"),
-            ("analytics", Icons.CHART_LINE, "آمار"),
-            ("changes", Icons.CHANGES, "تغییرات"),
+            ("more", Icons.MORE, "بیشتر"),
         ]
 
         for key, icon_name, label in menu_items:
@@ -193,7 +196,8 @@ class Sidebar(QFrame):
         self._group.addButton(about_btn)
         bottom_layout.addWidget(about_btn)
 
-        self._version = QLabel("نسخه 0.1.0")
+        from src.version import APP_VERSION_LABEL
+        self._version = QLabel(APP_VERSION_LABEL)
         self._version.setObjectName("SidebarVersion")
         self._version.setAlignment(Qt.AlignCenter)
         bottom_layout.addWidget(self._version)
@@ -262,9 +266,16 @@ class Sidebar(QFrame):
     def _on_click(self, key: str) -> None:
         self.page_changed.emit(key)
 
+    # صفحاتی که زیر «بیشتر» هستند — هنگام فعال بودن، دکمه more هایلایت شود
+    _MORE_CHILDREN = {
+        "posts", "contents", "map", "quera", "analytics", "changes",
+    }
+
     def set_active(self, key: str) -> None:
         if key in self._buttons:
             self._buttons[key].setChecked(True)
+        elif key in self._MORE_CHILDREN and "more" in self._buttons:
+            self._buttons["more"].setChecked(True)
 
     def refresh_icons(self) -> None:
         """رفرش آیکون‌ها (بعد از تغییر تم)."""
@@ -274,8 +285,7 @@ class Sidebar(QFrame):
             "courses": Icons.COURSES,
             "assignments": Icons.ASSIGNMENTS,
             "events": Icons.EVENTS,
-            "analytics": Icons.CHART_LINE,  # ← اضافه شد
-            "changes": Icons.CHANGES,
+            "more": Icons.MORE,
             "settings": Icons.SETTINGS,
             "about": Icons.ABOUT,
         }

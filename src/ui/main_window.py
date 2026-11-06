@@ -33,13 +33,18 @@ from src.ui.worker import PublishWorker, SyncWorker
 # ترتیب صفحات برای جابه‌جایی سریع با Ctrl+Tab / Ctrl+1..9
 _PAGE_ORDER = [
     "dashboard", "calendar", "courses", "assignments",
-    "events", "analytics", "changes", "settings", "about",
+    "events", "more",
+    "posts", "contents", "map", "quera",
+    "analytics", "changes", "settings", "about",
 ]
 
 _PAGE_LABELS_FA = {
     "dashboard": "داشبورد", "calendar": "تقویم", "courses": "دروس",
     "course_detail": "جزئیات درس", "assignments": "تکالیف",
-    "events": "جلسات آنلاین", "analytics": "آمار", "changes": "تغییرات",
+    "events": "جلسات آنلاین", "more": "بیشتر",
+    "posts": "پیام‌ها", "contents": "محتواها",
+    "map": "نقشه", "quera": "کوئرا",
+    "analytics": "آمار", "changes": "تغییرات",
     "settings": "تنظیمات", "about": "درباره",
 }
 
@@ -54,7 +59,8 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("LMS Assistant — دانشگاه اصفهان")
+        from src.version import APP_FULL_TITLE
+        self.setWindowTitle(APP_FULL_TITLE)
         self.resize(1300, 850)
 
         # ⚠️ باگ قبلی: اتصال theme_changed داخل __init__ و قبل از ساخت
@@ -190,7 +196,8 @@ class MainWindow(QMainWindow):
             # fallback: آیکون پنجره
             self.tray.setIcon(self.windowIcon())
 
-        self.tray.setToolTip("LMS Assistant — دانشگاه اصفهان")
+        from src.version import APP_FULL_TITLE
+        self.tray.setToolTip(APP_FULL_TITLE)
 
         # === منو ===
         menu = QMenu()
@@ -341,6 +348,11 @@ class MainWindow(QMainWindow):
         from src.ui.pages.calendar_page import CalendarPage
         from src.ui.pages.about_page import AboutPage
         from src.ui.pages.analytics_page import AnalyticsPage
+        from src.ui.pages.posts_page import PostsPage
+        from src.ui.pages.contents_page import ContentsPage
+        from src.ui.pages.map_page import MapPage
+        from src.ui.pages.quera_page import QueraPage
+        from src.ui.pages.more_page import MorePage
 
         # === Dashboard ===
         self.dashboard_page = DashboardPage(self.DB_PATH)
@@ -374,12 +386,42 @@ class MainWindow(QMainWindow):
         self._pages["assignments"] = self.assignments_page
         self.stack.addWidget(self.assignments_page)
 
+        # === Posts ===
+        self.posts_page = PostsPage(self.DB_PATH)
+        self.posts_page.sync_requested.connect(self._on_update_clicked)
+        self._pages["posts"] = self.posts_page
+        self.stack.addWidget(self.posts_page)
+
+        # === Contents ===
+        self.contents_page = ContentsPage(self.DB_PATH)
+        self.contents_page.sync_requested.connect(self._on_update_clicked)
+        self._pages["contents"] = self.contents_page
+        self.stack.addWidget(self.contents_page)
+
         # === Events ===
         self.events_page = EventsPage(self.DB_PATH)
         self._pages["events"] = self.events_page
         self.stack.addWidget(self.events_page)
 
-        # === Analytics ===  ← ⚠️ این بخش جدید
+        # === More (هاب صفحات فرعی) ===
+        self.more_page = MorePage()
+        self.more_page.navigate.connect(self._on_page_changed)
+        self._pages["more"] = self.more_page
+        self.stack.addWidget(self.more_page)
+
+        # === Map ===
+        self.map_page = MapPage(self.DB_PATH)
+        self.map_page.sync_requested.connect(self._on_update_clicked)
+        self._pages["map"] = self.map_page
+        self.stack.addWidget(self.map_page)
+
+        # === Quera ===
+        self.quera_page = QueraPage(self.DB_PATH)
+        self.quera_page.sync_requested.connect(self._on_update_clicked)
+        self._pages["quera"] = self.quera_page
+        self.stack.addWidget(self.quera_page)
+
+        # === Analytics ===
         self.analytics_page = AnalyticsPage(self.DB_PATH)
         self._pages["analytics"] = self.analytics_page
         self.stack.addWidget(self.analytics_page)
@@ -455,6 +497,7 @@ class MainWindow(QMainWindow):
         if key in self._pages:
             self.stack.setCurrentWidget(self._pages[key])
             self._current_page_key = key
+            self.sidebar.set_active(key)
             page = self._pages[key]
             if hasattr(page, "refresh"):
                 page.refresh()
@@ -576,9 +619,13 @@ class MainWindow(QMainWindow):
         self.header.set_busy(False, "آماده")
         self.status_bar.showMessage("✅ همگام‌سازی تمام شد")
 
-        current = self.stack.currentWidget()
-        if hasattr(current, "refresh"):
-            current.refresh()
+        # همه صفحات داده‌ای را تازه کن (نه فقط صفحه‌ی فعلی)
+        for page in self._pages.values():
+            if hasattr(page, "refresh"):
+                try:
+                    page.refresh()
+                except Exception as e:  # noqa: BLE001
+                    print(f"⚠️ refresh {type(page).__name__}: {e}")
 
         # اعلان tray
         if hasattr(self, "tray") and self.tray.isVisible():

@@ -894,8 +894,9 @@ class SettingsPage(BasePage):
 
         version_row = QHBoxLayout()
         version_row.addStretch()
-        version_row.addWidget(_StatusPill("v0.1.0", "info"))
-        version_row.addWidget(_StatusPill("دانشگاه اصفهان", "muted"))
+        from src.version import APP_VERSION, ORG_NAME
+        version_row.addWidget(_StatusPill(f"v{APP_VERSION}", "info"))
+        version_row.addWidget(_StatusPill(ORG_NAME, "muted"))
         version_row.addStretch()
         col.addLayout(version_row)
 
