@@ -1690,18 +1690,15 @@ async function renderMap() {
         attributionControl: false
       }).setView([32.6072163, 51.6583164], 15);
 
-      // تم تیره: CartoDB (بدون API key). StadiaMaps دیگر بدون احراز هویت 401 می‌دهد.
+      // فقط OpenStreetMap — رایگان و بدون API key.
+      // تم تیره با فیلتر CSS روی کاشی‌ها اعمال می‌شود (Stadia/Carto الان کلید می‌خواهند).
       const isDark = document.body.dataset.theme === "dark";
-      const tileUrl = isDark
-        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      if (isDark) mapEl.classList.add("map-dark-tiles");
+      else mapEl.classList.remove("map-dark-tiles");
 
-      L.tileLayer(tileUrl, {
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        subdomains: "abcd",
-        attribution: isDark
-          ? "© OpenStreetMap © CARTO"
-          : "© OpenStreetMap contributors",
+        attribution: "© OpenStreetMap contributors",
       }).addTo(map);
 
       // آیکون سفارشی برای مارکرها (به جای آیکون پیش‌فرض آبی)

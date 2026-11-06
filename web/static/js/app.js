@@ -2036,23 +2036,14 @@ async function renderMap() {
         attributionControl: false
       }).setView([32.6072163, 51.6583164], 15);
 
-      // 👇 تشخیص تم (دارک یا لایت) برای لایه‌های نقشه
+      // فقط OpenStreetMap (بدون API key). تم تیره با فیلتر CSS.
       const isDark = document.body.dataset.theme === "dark";
+      if (isDark) mapEl.classList.add("map-dark-tiles");
+      else mapEl.classList.remove("map-dark-tiles");
 
-      // لایه‌ی تیره رایگان (Stadia Alidade Smooth Dark) و لایه‌ی روشن (OSM)
-      const tileUrl = isDark
-        ? "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
-        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-      // اگر می‌خواهید لایه‌ی تیره حتماً کار کند و از سرویس‌های دیگر استفاده نکنید،
-      // می‌توانید از لایه‌ی زیر استفاده کنید (البته ممکن است کمی کندتر لود شود)
-      // const tileUrl = isDark
-      //   ? "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png"
-      //   : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-      L.tileLayer(tileUrl, {
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors, © Stadia Maps'
+        attribution: "© OpenStreetMap contributors",
       }).addTo(map);
 
       // آیکون سفارشی برای مارکرها (به جای آیکون پیش‌فرض آبی)
@@ -3020,4 +3011,3 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
 }
-

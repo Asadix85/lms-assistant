@@ -3168,3 +3168,11 @@ a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز
     font-size: 0.78rem;
   }
 }
+
+/* نقشه در تم تیره بدون API key شخص ثالث */
+.map-dark-tiles .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+.map-dark-tiles .leaflet-container {
+  background: #0e1118;
+}
