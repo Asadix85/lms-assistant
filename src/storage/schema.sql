@@ -269,3 +269,62 @@ CREATE TABLE IF NOT EXISTS support_messages (
     FOREIGN KEY (author_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_messages(ticket_id);
+
+-- ============================================================
+-- Library (public resource links, moderated)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS library_items (
+    id TEXT PRIMARY KEY,
+    course_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    submitted_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    approved_at TEXT,
+    approved_by TEXT,
+    avg_rating REAL NOT NULL DEFAULT 0,
+    rating_count INTEGER NOT NULL DEFAULT 0,
+    report_count INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_library_items_course ON library_items(course_name);
+CREATE INDEX IF NOT EXISTS idx_library_items_status ON library_items(status);
+CREATE INDEX IF NOT EXISTS idx_library_items_submitted ON library_items(submitted_by);
+
+CREATE TABLE IF NOT EXISTS library_ratings (
+    item_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    score INTEGER NOT NULL CHECK (score >= 1 AND score <= 5),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (item_id, user_id),
+    FOREIGN KEY (item_id) REFERENCES library_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS library_comments (
+    id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (item_id) REFERENCES library_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_library_comments_item ON library_comments(item_id);
+
+CREATE TABLE IF NOT EXISTS library_reports (
+    id TEXT PRIMARY KEY,
+    item_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    resolved INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (item_id) REFERENCES library_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_library_reports_item ON library_reports(item_id);
+CREATE INDEX IF NOT EXISTS idx_library_reports_resolved ON library_reports(resolved);

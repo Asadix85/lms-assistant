@@ -25,6 +25,7 @@ def _c(name: str, fallback: str) -> str:
 
 # (key_or_url, emoji, title, desc, is_external)
 _TILES: list[tuple[str, str, str, str, bool]] = [
+    ("library", "📚", "کتابخانه", "جزوه و لینک‌های مفید با تایید ادمین (نسخه وب)", False),
     ("posts", "💬", "پیام‌های وال", "آخرین پیام‌های اساتید و همکلاسی‌ها", False),
     ("contents", "📄", "محتواها", "فایل‌ها و منابع تمام دروس", False),
     ("map", "📍", "نقشه مکان‌ها", "ساختمان‌های کلاس‌های شما", False),

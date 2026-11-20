@@ -17,7 +17,7 @@ from loguru import logger
 from config.settings import settings
 from src.storage.database import Database
 from src.storage.migrations import migrate
-from src.web.routers import account, admin, auth, courses, proxy, quera, support
+from src.web.routers import account, admin, auth, courses, library, proxy, quera, support
 from src.web.routers import settings as settings_router
 from src.web.routers import sync
 from src.web.admin_bootstrap import ensure_local_admin
@@ -121,6 +121,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(account.router, prefix="/api/account", tags=["account"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(support.router, prefix="/api/support", tags=["support"])
+app.include_router(library.router, prefix="/api/library", tags=["library"])
 app.include_router(courses.router, prefix="/api", tags=["lms"])
 app.include_router(sync.router, prefix="/api/sync", tags=["sync"])
 app.include_router(quera.router, prefix="/api/quera", tags=["quera"])

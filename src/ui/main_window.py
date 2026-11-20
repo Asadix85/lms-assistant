@@ -353,6 +353,7 @@ class MainWindow(QMainWindow):
         from src.ui.pages.map_page import MapPage
         from src.ui.pages.quera_page import QueraPage
         from src.ui.pages.more_page import MorePage
+        from src.ui.pages.library_page import LibraryPage
 
         # === Dashboard ===
         self.dashboard_page = DashboardPage(self.DB_PATH)
@@ -408,6 +409,11 @@ class MainWindow(QMainWindow):
         self.more_page.navigate.connect(self._on_page_changed)
         self._pages["more"] = self.more_page
         self.stack.addWidget(self.more_page)
+
+        # === Library ===
+        self.library_page = LibraryPage()
+        self._pages["library"] = self.library_page
+        self.stack.addWidget(self.library_page)
 
         # === Map ===
         self.map_page = MapPage(self.DB_PATH)

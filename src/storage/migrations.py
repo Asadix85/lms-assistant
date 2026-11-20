@@ -514,6 +514,91 @@ def _migrate_to_8(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_to_9(conn: sqlite3.Connection) -> None:
+    """کتابخانه عمومی: لینک‌های جزوه/منبع با تایید ادمین، امتیاز، نظر و گزارش."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS library_items (
+            id TEXT PRIMARY KEY,
+            course_name TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            url TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            submitted_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            approved_at TEXT,
+            approved_by TEXT,
+            avg_rating REAL NOT NULL DEFAULT 0,
+            rating_count INTEGER NOT NULL DEFAULT 0,
+            report_count INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_library_items_course ON library_items(course_name);
+        CREATE INDEX IF NOT EXISTS idx_library_items_status ON library_items(status);
+        CREATE INDEX IF NOT EXISTS idx_library_items_submitted ON library_items(submitted_by);
+
+        CREATE TABLE IF NOT EXISTS library_ratings (
+            item_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            score INTEGER NOT NULL CHECK (score >= 1 AND score <= 5),
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (item_id, user_id),
+            FOREIGN KEY (item_id) REFERENCES library_items(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS library_comments (
+            id TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (item_id) REFERENCES library_items(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_library_comments_item ON library_comments(item_id);
+
+        CREATE TABLE IF NOT EXISTS library_reports (
+            id TEXT PRIMARY KEY,
+            item_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            reason TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            resolved INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (item_id) REFERENCES library_items(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_library_reports_item ON library_reports(item_id);
+        CREATE INDEX IF NOT EXISTS idx_library_reports_resolved ON library_reports(resolved);
+        """
+    )
+
+
+def _migrate_to_10(conn: sqlite3.Connection) -> None:
+    """کاتالوگ درس‌های کتابخانه (ادمین تعریف می‌کند) + فیلتر ترم."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS library_courses (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            code TEXT NOT NULL DEFAULT '',
+            term TEXT NOT NULL DEFAULT '',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_library_courses_name
+            ON library_courses(name COLLATE NOCASE);
+        CREATE INDEX IF NOT EXISTS idx_library_courses_term ON library_courses(term);
+        CREATE INDEX IF NOT EXISTS idx_library_courses_active ON library_courses(is_active);
+        """
+    )
+
+
 MIGRATIONS: list[tuple[int, object]] = [
     (2, _migrate_to_2),
     (3, _migrate_to_3),
@@ -522,6 +607,8 @@ MIGRATIONS: list[tuple[int, object]] = [
     (6, _migrate_to_6),
     (7, _migrate_to_7),
     (8, _migrate_to_8),
+    (9, _migrate_to_9),
+    (10, _migrate_to_10),
 ]
 
 

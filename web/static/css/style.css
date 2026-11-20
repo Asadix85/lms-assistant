@@ -858,6 +858,111 @@ body::after {
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
 .field label { font-size: 0.82rem; font-weight: 600; color: var(--text); }
 
+/* فرم‌های عمومی با تم liquid glass */
+.input,
+input.input,
+textarea.input,
+select.input {
+  width: 100%;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background-color: var(--glass-bg-soft);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo),
+    0 4px 14px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  box-sizing: border-box;
+}
+.input:focus,
+input.input:focus,
+textarea.input:focus,
+select.input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--glass-border));
+  background-color: var(--glass-bg-strong);
+  box-shadow:
+    0 0 0 3px var(--ring),
+    inset 0 1px 0 var(--glass-hi),
+    0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.input::placeholder,
+input.input::placeholder,
+textarea.input::placeholder {
+  color: var(--faint);
+  opacity: 0.85;
+}
+textarea.input {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.55;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+  opacity: 0.92;
+}
+
+.glass-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.glass-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 640px) {
+  .glass-form-row { grid-template-columns: 1fr; }
+}
+
+.glass-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.glass-modal {
+  width: min(480px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 20px;
+  background-color: var(--glass-bg-strong);
+  background-image: var(--glass-sheen);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -1px 0 var(--glass-lo);
+  padding: 1.25rem 1.35rem 1.35rem;
+  color: var(--text);
+}
+.glass-modal h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
 .input-wrap {
   position: relative;
   display: flex;

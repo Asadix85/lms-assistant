@@ -31,7 +31,14 @@ async function api(path, options = {}) {
     ...options,
     headers,
   });
-  if (!res.ok) throw new Error(`خطای سرور (${res.status})`);
+  if (!res.ok) {
+    let detail = `خطای سرور (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body && body.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+    } catch (_) {}
+    throw new Error(detail);
+  }
   return res.json();
 }
 
@@ -433,6 +440,7 @@ const TITLES = {
   more: "سایر امکانات",
   about: "درباره ما",
   help: "راهنما و حریم خصوصی",
+  library: "کتابخانه",
 };
 async function renderDashboard() {
   const d = await api("/dashboard");
@@ -871,6 +879,26 @@ async function renderCourseDetail(courseId) {
           </div>
         </details>
 
+        <!-- کتابخانه این درس -->
+        <details class="accordion-panel" id="course-library-panel" open>
+          <summary class="accordion-header">
+            <div class="accordion-header-content">
+              <span>📚 کتابخانه</span>
+              <span class="accordion-badge hidden" id="course-lib-badge">۰</span>
+            </div>
+            <span class="accordion-icon">▼</span>
+          </summary>
+          <div class="accordion-body">
+            <div id="course-lib-body" class="item-list">
+              <div class="muted" style="padding:.5rem 0">در حال بارگذاری…</div>
+            </div>
+            <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" id="course-lib-submit">+ ارسال منبع برای این درس</button>
+              <a class="btn btn-soft btn-sm" href="#/library/${encodeURIComponent(c.name)}">مشاهده در کتابخانه</a>
+            </div>
+          </div>
+        </details>
+
         <!-- اعضا (بسته) -->
         <details class="accordion-panel">
           <summary class="accordion-header">
@@ -885,6 +913,40 @@ async function renderCourseDetail(courseId) {
       </div>
     </div>
   `;
+
+  // کتابخانه مرتبط با نام درس
+  (async () => {
+    const box = $("#course-lib-body");
+    const badge = $("#course-lib-badge");
+    try {
+      const lib = await api(`/library/courses/${encodeURIComponent(c.name)}`);
+      const items = lib.items || [];
+      if (badge) {
+        if (items.length) {
+          badge.textContent = faDigits(String(items.length));
+          badge.classList.remove("hidden");
+        }
+      }
+      if (!box) return;
+      if (!items.length) {
+        box.innerHTML = `<div class="empty muted"><span class="empty-icon">📚</span>هنوز منبع تاییدشده‌ای برای این درس نیست</div>`;
+      } else {
+        box.innerHTML = items.map((it) => `
+          <div class="list-row" style="align-items:flex-start">
+            <span class="row-icon">🔗</span>
+            <div class="row-body" style="flex:1">
+              <div class="row-title"><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a></div>
+              <div class="row-meta">${esc(it.description || "")}${it.avg_rating ? ` · ★ ${faDigits(String(it.avg_rating))}` : ""}</div>
+            </div>
+          </div>
+        `).join("");
+      }
+      bindLibraryItemActions();
+    } catch (e) {
+      if (box) box.innerHTML = `<div class="muted">کتابخانه در دسترس نیست</div>`;
+    }
+    $("#course-lib-submit")?.addEventListener("click", () => openLibrarySubmitModal(c.name));
+  })();
 
   // 4. رندر نقشه‌ها
   if (d.locations && d.locations.length > 0) {
@@ -1572,6 +1634,225 @@ async function renderAdmin() {
     btn.addEventListener("click", () => adminOpenTicket(btn.dataset.openTicket));
   });
 
+  // --- کتابخانه: کاتالوگ درس‌ها (ادمین) ---
+  let libCatalog = { courses: [] };
+  try { libCatalog = await api("/library/admin/catalog"); } catch (_) {}
+  const catRows = (libCatalog.courses || []).map((c) => `
+    <tr data-cat-id="${esc(c.id)}">
+      <td>
+        <div style="font-weight:600">${esc(c.name)}</div>
+        <div style="font-size:.8rem;opacity:.7">${c.code ? esc(c.code) + " · " : ""}${c.term ? "ترم " + esc(c.term) : "بدون ترم"} · ${faDigits(String(c.item_count || 0))} منبع ${c.is_active ? "" : "· <span class='badge badge-expired'>غیرفعال</span>"}</div>
+      </td>
+      <td style="display:flex;flex-wrap:wrap;gap:.35rem">
+        <button class="btn btn-soft btn-sm" data-cat-toggle="${esc(c.id)}" data-active="${c.is_active ? "0" : "1"}">${c.is_active ? "غیرفعال" : "فعال"}</button>
+        <button class="btn btn-soft btn-sm" data-cat-del="${esc(c.id)}">حذف</button>
+      </td>
+    </tr>
+  `).join("");
+
+  contentEl.insertAdjacentHTML("beforeend", `
+    <div class="card" style="margin-top:1.5rem">
+      <h3 style="margin:0 0 .5rem">کتابخانه — کاتالوگ درس‌ها</h3>
+      <p style="margin:0 0 1rem;font-size:.85rem;opacity:.8">اول همه درس‌ها را اینجا ثبت کن. کاربران فقط از همین لیست می‌توانند منبع بفرستند. برای فیلتر «این ترم» فیلد ترم را پر کن (مثلاً ۰۴).</p>
+      <div class="glass-form" style="margin-bottom:1.25rem">
+        <div class="glass-form-row">
+          <div>
+            <label class="field-label" for="cat-name">نام درس *</label>
+            <input id="cat-name" class="input" placeholder="مثلاً ریاضی مهندسی" />
+          </div>
+          <div>
+            <label class="field-label" for="cat-code">کد درس</label>
+            <input id="cat-code" class="input" placeholder="اختیاری" dir="ltr" />
+          </div>
+        </div>
+        <div class="glass-form-row">
+          <div>
+            <label class="field-label" for="cat-term">ترم</label>
+            <input id="cat-term" class="input" placeholder="مثلاً 04" dir="ltr" />
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn btn-primary" id="cat-add" style="width:100%">افزودن درس</button>
+          </div>
+        </div>
+        <div>
+          <label class="field-label" for="cat-bulk">افزودن دسته‌ای (هر خط: نام درس | کد | ترم)</label>
+          <textarea id="cat-bulk" class="input" rows="4" placeholder="ریاضی مهندسی | 36-20-001 | 04&#10;فیزیک ۲ |  | 04"></textarea>
+        </div>
+        <div>
+          <button class="btn btn-soft" id="cat-bulk-btn">وارد کردن دسته‌ای</button>
+        </div>
+      </div>
+      <div style="overflow:auto;max-height:320px">
+        <table class="table" style="width:100%;border-collapse:collapse">
+          <thead><tr style="text-align:right;border-bottom:1px solid var(--glass-border)">
+            <th style="padding:.5rem">درس</th><th>عملیات</th>
+          </tr></thead>
+          <tbody>${catRows || '<tr><td colspan="2" style="padding:1rem;opacity:.7">کاتالوگ خالی است</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `);
+
+  $("#cat-add")?.addEventListener("click", async () => {
+    const name = $("#cat-name")?.value.trim();
+    if (!name) { toast("نام درس الزامی است"); return; }
+    try {
+      await api("/library/admin/catalog", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          code: $("#cat-code")?.value.trim() || "",
+          term: $("#cat-term")?.value.trim() || "",
+        }),
+      });
+      toast("درس اضافه شد");
+      await renderAdmin();
+    } catch (e) { toast("❌ " + (e.message || "خطا")); }
+  });
+  $("#cat-bulk-btn")?.addEventListener("click", async () => {
+    const raw = ($("#cat-bulk")?.value || "").trim();
+    if (!raw) return;
+    const courses = raw.split("\n").map((line) => {
+      const parts = line.split("|").map((s) => s.trim());
+      return { name: parts[0] || "", code: parts[1] || "", term: parts[2] || "" };
+    }).filter((c) => c.name.length >= 2);
+    if (!courses.length) { toast("خط معتبری پیدا نشد"); return; }
+    try {
+      const r = await api("/library/admin/catalog/bulk", {
+        method: "POST",
+        body: JSON.stringify({ courses }),
+      });
+      toast(`اضافه شد: ${r.created} · ردشده (تکراری): ${r.skipped}`);
+      await renderAdmin();
+    } catch (e) { toast("❌ " + (e.message || "خطا")); }
+  });
+  contentEl.querySelectorAll("[data-cat-toggle]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/library/admin/catalog/${btn.dataset.catToggle}`, {
+          method: "PATCH",
+          body: JSON.stringify({ is_active: btn.dataset.active === "1" }),
+        });
+        await renderAdmin();
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
+  contentEl.querySelectorAll("[data-cat-del]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("درس از کاتالوگ حذف شود؟ (منابع قبلی حذف نمی‌شوند)")) return;
+      try {
+        await api(`/library/admin/catalog/${btn.dataset.catDel}`, { method: "DELETE" });
+        toast("حذف شد");
+        await renderAdmin();
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
+
+  // --- کتابخانه: موارد در انتظار تایید + گزارش‌ها ---
+  let pendingLib = { items: [] };
+  let libReports = { reports: [] };
+  try { pendingLib = await api("/library/admin/pending"); } catch (_) {}
+  try { libReports = await api("/library/admin/reports"); } catch (_) {}
+
+  const pendRows = (pendingLib.items || []).map((it) => `
+    <tr data-lib-id="${esc(it.id)}">
+      <td>
+        <div style="font-weight:600">${esc(it.title)}</div>
+        <div style="font-size:.8rem;opacity:.75">${esc(it.course_name)} · ${esc(it.submitter_name || it.submitter_username || "")}</div>
+        <div style="font-size:.8rem;opacity:.7;margin-top:.2rem">${esc(it.description || "")}</div>
+        <a href="${esc(it.url)}" target="_blank" rel="noopener" style="font-size:.8rem;direction:ltr;display:inline-block;margin-top:.2rem">${esc(it.url)}</a>
+      </td>
+      <td style="font-size:.8rem;direction:ltr;text-align:right">${esc(it.created_at || "")}</td>
+      <td style="display:flex;flex-wrap:wrap;gap:.35rem">
+        <button class="btn btn-primary btn-sm" data-lib-approve="${esc(it.id)}">تایید</button>
+        <button class="btn btn-soft btn-sm" data-lib-reject="${esc(it.id)}">رد</button>
+        <button class="btn btn-soft btn-sm" data-lib-delete="${esc(it.id)}">حذف</button>
+      </td>
+    </tr>
+  `).join("");
+
+  const reportRows = (libReports.reports || []).map((r) => `
+    <tr>
+      <td>
+        <div style="font-weight:600">${esc(r.item_title)}</div>
+        <div style="font-size:.8rem;opacity:.75">${esc(r.course_name)} · گزارش‌دهنده: ${esc(r.reporter_name || r.reporter_username || "")}</div>
+        <div style="font-size:.85rem;margin-top:.2rem">${esc(r.reason || "—")}</div>
+        <a href="${esc(r.item_url)}" target="_blank" rel="noopener" style="font-size:.8rem;direction:ltr">${esc(r.item_url)}</a>
+      </td>
+      <td style="font-size:.8rem;direction:ltr;text-align:right">${esc(r.created_at || "")}</td>
+      <td style="display:flex;flex-wrap:wrap;gap:.35rem">
+        <button class="btn btn-soft btn-sm" data-lib-resolve="${esc(r.id)}">رسیدگی شد</button>
+        <button class="btn btn-soft btn-sm" data-lib-delete="${esc(r.item_id)}">حذف آیتم</button>
+      </td>
+    </tr>
+  `).join("");
+
+  contentEl.insertAdjacentHTML("beforeend", `
+    <div class="card" style="margin-top:1.5rem">
+      <h3 style="margin:0 0 .75rem">کتابخانه — در انتظار تایید</h3>
+      <div style="overflow:auto">
+        <table class="table" style="width:100%;border-collapse:collapse">
+          <thead><tr style="text-align:right;border-bottom:1px solid var(--glass-border)">
+            <th style="padding:.5rem">مورد</th><th>زمان</th><th>عملیات</th>
+          </tr></thead>
+          <tbody>${pendRows || '<tr><td colspan="3" style="padding:1rem;opacity:.7">موردی در صف نیست</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1.5rem">
+      <h3 style="margin:0 0 .75rem">کتابخانه — گزارش‌های باز</h3>
+      <div style="overflow:auto">
+        <table class="table" style="width:100%;border-collapse:collapse">
+          <thead><tr style="text-align:right;border-bottom:1px solid var(--glass-border)">
+            <th style="padding:.5rem">گزارش</th><th>زمان</th><th>عملیات</th>
+          </tr></thead>
+          <tbody>${reportRows || '<tr><td colspan="3" style="padding:1rem;opacity:.7">گزارش بازی نیست</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `);
+
+  contentEl.querySelectorAll("[data-lib-approve]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/library/admin/items/${btn.dataset.libApprove}/status`, {
+          method: "POST", body: JSON.stringify({ status: "approved" }),
+        });
+        toast("تایید شد");
+        await renderAdmin();
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
+  contentEl.querySelectorAll("[data-lib-reject]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/library/admin/items/${btn.dataset.libReject}/status`, {
+          method: "POST", body: JSON.stringify({ status: "rejected" }),
+        });
+        toast("رد شد");
+        await renderAdmin();
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
+  contentEl.querySelectorAll("[data-lib-delete]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("آیتم حذف شود؟")) return;
+      try {
+        await api(`/library/admin/items/${btn.dataset.libDelete}`, { method: "DELETE" });
+        toast("حذف شد");
+        await renderAdmin();
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
+  contentEl.querySelectorAll("[data-lib-resolve]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`/library/admin/reports/${btn.dataset.libResolve}/resolve`, { method: "POST" });
+        toast("رسیدگی شد");
+        await renderAdmin();
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
 
   // --- ops: maintenance / backup / audit ---
   let sys = { maintenance: false, maintenance_message: "" };
@@ -1676,6 +1957,7 @@ async function renderAdmin() {
 
 async function renderMore() {
   const cards = [
+    { href: "#/library", icon: "📚", title: "کتابخانه", desc: "جزوه، آزمایش و لینک‌های مفید با تایید ادمین", isExternal: false },
     { href: "#/quera", icon: "⚙️", title: "کوئرا", desc: "مدیریت تمرین‌ها و کلاس‌های کوئرا", isExternal: false },
     { href: "#/settings", icon: "🔧", title: "تنظیمات", desc: "پیکربندی همگام‌سازی و حساب", isExternal: false },
     { href: "#/support", icon: "💬", title: "پشتیبانی", desc: "گزارش باگ و پیگیری پاسخ", isExternal: false },
@@ -2649,6 +2931,279 @@ window.openCalEvent = (id) => {
   if (e && e.url) window.open(e.url, "_blank", "noopener");
 };
 
+// ---------- Library (کتابخانه) ----------
+
+let _libScope = "current_term"; // all | current_term
+
+async function renderLibraryCourses() {
+  let data;
+  try {
+    data = await api(`/library/courses?scope=${encodeURIComponent(_libScope)}`);
+  } catch (e) {
+    contentEl.innerHTML = `<div class="empty"><span class="empty-icon">❌</span>خطا در بارگذاری<small>${esc(e.message)}</small></div>`;
+    return;
+  }
+  const courses = data.courses || [];
+  const termLabel = data.term ? `ترم ${esc(data.term)}` : "ترم جاری";
+  contentEl.innerHTML = `
+    ${pageHead("کتابخانه", "جزوه، آزمایش و لینک‌های مفید — بعد از تایید ادمین نمایش داده می‌شوند")}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn ${_libScope === "all" ? "btn-primary" : "btn-soft"} btn-sm" data-lib-scope="all">همه درس‌ها</button>
+        <button class="btn ${_libScope === "current_term" ? "btn-primary" : "btn-soft"} btn-sm" data-lib-scope="current_term">درس‌های این ترم${data.term ? ` (${faDigits(String(data.term))})` : ""}</button>
+      </div>
+      <button class="btn btn-primary" id="lib-btn-submit-root">+ ارسال منبع جدید</button>
+    </div>
+    ${courses.length === 0
+      ? `<div class="empty"><span class="empty-icon">📚</span>درسی در این فیلتر نیست<small>${
+          _libScope === "current_term"
+            ? "یا کاتالوگ خالی است یا برای " + termLabel + " درسی ثبت نشده — ادمین باید درس‌ها را اضافه کند"
+            : "ادمین هنوز درسی به کاتالوگ کتابخانه اضافه نکرده"
+        }</small></div>`
+      : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+          ${courses.map(c => `
+            <a href="#/library/${encodeURIComponent(c.course_name)}" class="ios-card" style="text-decoration:none">
+              <div class="ios-card-icon">📖</div>
+              <div class="ios-card-title">${esc(c.course_name)}</div>
+              <div class="ios-card-desc">
+                ${faDigits(String(c.item_count))} منبع
+                ${c.term ? ` · ترم ${faDigits(String(c.term))}` : ""}
+                ${c.code ? ` · ${esc(c.code)}` : ""}
+              </div>
+            </a>
+          `).join("")}
+        </div>`
+    }
+  `;
+  document.querySelectorAll("[data-lib-scope]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      _libScope = btn.dataset.libScope;
+      renderLibraryCourses();
+    });
+  });
+  $("#lib-btn-submit-root")?.addEventListener("click", () => openLibrarySubmitModal());
+}
+
+async function renderLibraryCourse(courseName) {
+  let data;
+  try {
+    data = await api(`/library/courses/${encodeURIComponent(courseName)}`);
+  } catch (e) {
+    contentEl.innerHTML = `<div class="empty"><span class="empty-icon">❌</span>خطا<small>${esc(e.message)}</small></div>`;
+    return;
+  }
+  const items = data.items || [];
+  contentEl.innerHTML = `
+    ${pageHead(esc(courseName), "منابع تاییدشده این درس")}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+      <a href="#/library" class="btn btn-ghost">← بازگشت به لیست درس‌ها</a>
+      <button class="btn btn-primary" id="lib-btn-submit">+ ارسال منبع برای این درس</button>
+    </div>
+    ${items.length === 0
+      ? `<div class="empty"><span class="empty-icon">📭</span>هنوز منبعی برای این درس تایید نشده</div>`
+      : `<div style="display:flex;flex-direction:column;gap:.85rem">
+          ${items.map(it => libraryItemCard(it)).join("")}
+        </div>`
+    }
+  `;
+  $("#lib-btn-submit")?.addEventListener("click", () => openLibrarySubmitModal(courseName));
+  bindLibraryItemActions();
+}
+
+function libraryItemCard(it) {
+  const stars = "★".repeat(Math.round(it.avg_rating || 0)) + "☆".repeat(5 - Math.round(it.avg_rating || 0));
+  const my = it.my_rating ? ` · امتیاز شما: ${faDigits(String(it.my_rating))}` : "";
+  return `
+    <div class="card" data-lib-item="${esc(it.id)}" style="display:flex;flex-direction:column;gap:.55rem">
+      <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;font-size:1.05rem">${esc(it.title)}</div>
+          <div style="font-size:.85rem;opacity:.8;margin-top:.2rem">${esc(it.description || "")}</div>
+          <div style="font-size:.8rem;opacity:.7;margin-top:.35rem">
+            ${stars} ${faDigits(String(it.avg_rating || 0))} (${faDigits(String(it.rating_count || 0))} رای)${my}
+            ${it.submitter_name ? " · " + esc(it.submitter_name) : ""}
+          </div>
+        </div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          <a class="btn btn-primary" href="${esc(it.url)}" target="_blank" rel="noopener">باز کردن لینک</a>
+          <button class="btn btn-ghost lib-rate-btn" data-id="${esc(it.id)}">امتیاز</button>
+          <button class="btn btn-ghost lib-comment-btn" data-id="${esc(it.id)}">نظر</button>
+          <button class="btn btn-ghost lib-report-btn" data-id="${esc(it.id)}">گزارش</button>
+        </div>
+      </div>
+      <div class="lib-comments" id="lib-comments-${esc(it.id)}" style="display:none"></div>
+    </div>
+  `;
+}
+
+function bindLibraryItemActions() {
+  document.querySelectorAll(".lib-rate-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const score = prompt("امتیاز از ۱ تا ۵:");
+      if (!score) return;
+      const n = parseInt(score, 10);
+      if (!(n >= 1 && n <= 5)) {
+        toast("امتیاز باید بین ۱ تا ۵ باشد");
+        return;
+      }
+      try {
+        await api(`/library/items/${id}/rating`, { method: "POST", body: JSON.stringify({ score: n }) });
+        toast("امتیاز ثبت شد");
+        renderPage(currentRoute());
+      } catch (e) {
+        toast("❌ " + (e.message || "خطا"));
+      }
+    });
+  });
+  document.querySelectorAll(".lib-comment-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const body = prompt("نظر شما:");
+      if (!body || !body.trim()) return;
+      try {
+        await api(`/library/items/${id}/comments`, { method: "POST", body: JSON.stringify({ body: body.trim() }) });
+        toast("نظر ثبت شد");
+        // بارگذاری نظرات
+        const box = $(`#lib-comments-${id}`);
+        if (box) {
+          const detail = await api(`/library/items/${id}`);
+          box.style.display = "block";
+          box.innerHTML = (detail.comments || []).map(c => `
+            <div style="padding:.4rem 0;border-bottom:1px solid var(--glass-border);font-size:.9rem">
+              <strong>${esc(c.author_name || "کاربر")}</strong>: ${esc(c.body)}
+            </div>
+          `).join("") || "<div style='opacity:.7'>نظری نیست</div>";
+        }
+      } catch (e) {
+        toast("❌ " + (e.message || "خطا"));
+      }
+    });
+  });
+  document.querySelectorAll(".lib-report-btn").forEach(btn => {
+    btn.addEventListener("click", () => openLibraryReportModal(btn.dataset.id));
+  });
+}
+
+function openGlassModal({ id, title, bodyHtml, onMount }) {
+  const existing = document.getElementById(id);
+  if (existing) existing.remove();
+  const modal = document.createElement("div");
+  modal.id = id;
+  modal.className = "glass-modal-backdrop";
+  modal.innerHTML = `
+    <div class="glass-modal" role="dialog" aria-modal="true">
+      <h3>${esc(title)}</h3>
+      ${bodyHtml}
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  if (typeof onMount === "function") onMount(modal);
+  return modal;
+}
+
+async function openLibrarySubmitModal(prefillCourse = "") {
+  let names = [];
+  try {
+    const r = await api("/library/course-names");
+    names = r.names || [];
+  } catch (_) {}
+  const options = names.map((n) => `<option value="${esc(n)}"></option>`).join("");
+  openGlassModal({
+    id: "lib-submit-modal",
+    title: "ارسال منبع جدید",
+    bodyHtml: `
+      <div class="glass-form">
+        <div>
+          <label class="field-label" for="lib-course">نام درس</label>
+          <input id="lib-course" class="input" list="lib-course-list" value="${esc(prefillCourse)}" placeholder="از لیست کاتالوگ انتخاب کنید" />
+          <datalist id="lib-course-list">${options}</datalist>
+          ${names.length === 0 ? `<p style="font-size:.85rem;opacity:.8;margin:.4rem 0 0">کاتالوگ خالی است — اول ادمین باید درس‌ها را اضافه کند.</p>` : ""}
+        </div>
+        <div>
+          <label class="field-label" for="lib-title">عنوان</label>
+          <input id="lib-title" class="input" placeholder="مثلاً جزوه فصل ۳" />
+        </div>
+        <div>
+          <label class="field-label" for="lib-desc">توضیح (اختیاری)</label>
+          <textarea id="lib-desc" class="input" rows="3" placeholder="توضیح کوتاه درباره منبع"></textarea>
+        </div>
+        <div>
+          <label class="field-label" for="lib-url">لینک</label>
+          <input id="lib-url" class="input" placeholder="https://..." dir="ltr" />
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.25rem">
+          <button class="btn btn-ghost" id="lib-cancel">انصراف</button>
+          <button class="btn btn-primary" id="lib-submit">ارسال برای تایید</button>
+        </div>
+      </div>
+    `,
+    onMount: (modal) => {
+      $("#lib-cancel").onclick = () => modal.remove();
+      $("#lib-submit").onclick = async () => {
+        const course_name = $("#lib-course").value.trim();
+        const title = $("#lib-title").value.trim();
+        const description = $("#lib-desc").value.trim();
+        const url = $("#lib-url").value.trim();
+        if (!course_name || !title || !url) {
+          toast("درس، عنوان و لینک الزامی است");
+          return;
+        }
+        try {
+          await api("/library/items", {
+            method: "POST",
+            body: JSON.stringify({ course_name, title, description, url }),
+          });
+          toast("ارسال شد — بعد از تایید ادمین نمایش داده می‌شود");
+          modal.remove();
+          if (currentRoute().startsWith("library") || currentRoute().startsWith("course/")) {
+            renderPage(currentRoute());
+          }
+        } catch (e) {
+          toast("❌ " + (e.message || "خطا"));
+        }
+      };
+    },
+  });
+}
+
+function openLibraryReportModal(itemId) {
+  openGlassModal({
+    id: "lib-report-modal",
+    title: "گزارش منبع",
+    bodyHtml: `
+      <div class="glass-form">
+        <p style="margin:0;font-size:.9rem;opacity:.85">اگر لینک مرده، نامرتبط یا نامناسب است گزارش بدهید.</p>
+        <div>
+          <label class="field-label" for="lib-report-reason">دلیل گزارش</label>
+          <textarea id="lib-report-reason" class="input" rows="4" placeholder="مثلاً لینک باز نمی‌شود / محتوای اشتباه"></textarea>
+        </div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end">
+          <button class="btn btn-ghost" id="lib-report-cancel">انصراف</button>
+          <button class="btn btn-primary" id="lib-report-submit">ثبت گزارش</button>
+        </div>
+      </div>
+    `,
+    onMount: (modal) => {
+      $("#lib-report-cancel").onclick = () => modal.remove();
+      $("#lib-report-submit").onclick = async () => {
+        const reason = ($("#lib-report-reason")?.value || "").trim();
+        try {
+          await api(`/library/items/${itemId}/report`, {
+            method: "POST",
+            body: JSON.stringify({ reason }),
+          });
+          toast("گزارش ثبت شد. ممنون");
+          modal.remove();
+        } catch (e) {
+          toast("❌ " + (e.message || "خطا"));
+        }
+      };
+    },
+  });
+}
+
 // ---------- Router ----------
 
 function currentRoute() {
@@ -2657,9 +3212,16 @@ function currentRoute() {
 }
 
 function setPageTitle(route) {
-  const page = route.startsWith("course/") ? "course" : route;
+  let page = route;
+  if (route.startsWith("course/")) page = "course";
+  else if (route.startsWith("library")) page = "library";
   $("#page-title").textContent =
-    TITLES[route] || (route.startsWith("course/") ? "جزئیات درس" : "داشبورد");
+    TITLES[route] ||
+    (route.startsWith("course/")
+      ? "جزئیات درس"
+      : route.startsWith("library/")
+        ? "کتابخانه"
+        : "داشبورد");
   document.querySelectorAll(".nav-item").forEach((el) => {
     el.classList.toggle("active", el.dataset.page === page);
   });
@@ -2689,6 +3251,10 @@ async function renderPage(route) {
 
     if (route.startsWith("course/")) {
       await renderCourseDetail(decodeURIComponent(route.slice("course/".length)));
+    } else if (route === "library") {
+      await renderLibraryCourses();
+    } else if (route.startsWith("library/")) {
+      await renderLibraryCourse(decodeURIComponent(route.slice("library/".length)));
     } else {
       const fn = {
         dashboard: renderDashboard,
@@ -2707,6 +3273,7 @@ async function renderPage(route) {
         admin: renderAdmin,
         support: renderSupport,
         map: renderMap,
+        library: renderLibraryCourses,
       }[route] || renderDashboard;
       await fn();
     }

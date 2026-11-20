@@ -268,7 +268,7 @@ class Sidebar(QFrame):
 
     # صفحاتی که زیر «بیشتر» هستند — هنگام فعال بودن، دکمه more هایلایت شود
     _MORE_CHILDREN = {
-        "posts", "contents", "map", "quera", "analytics", "changes",
+        "posts", "contents", "map", "quera", "analytics", "changes", "library",
     }
 
     def set_active(self, key: str) -> None:
