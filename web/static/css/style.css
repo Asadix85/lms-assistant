@@ -72,17 +72,23 @@
   --sidebar-w: 268px;
   --switch-travel: 22px;
 
-  /* --- Liquid glass --- */
-  --glass-bg: rgba(255, 255, 255, 0.38);
-  --glass-bg-soft: rgba(255, 255, 255, 0.34);
-  --glass-bg-strong: rgba(255, 255, 255, 0.62);
-  --glass-border: rgba(255, 255, 255, 0.75);
-  --glass-hi: rgba(255, 255, 255, 0.95);
-  --glass-lo: rgba(255, 255, 255, 0.2);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, 0.18) 100%);
-  --glass-shadow: 0 6px 26px rgba(30, 80, 150, 0.08);
-  --glass-blur: blur(24px) saturate(190%);
-  --glass-blur-sm: blur(14px) saturate(170%);
+  /* --- Liquid glass (rim + soft fill, no milky wash) --- */
+  --glass-bg: rgba(255, 255, 255, 0.28);
+  --glass-bg-soft: rgba(255, 255, 255, 0.18);
+  --glass-bg-strong: rgba(255, 255, 255, 0.48);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-hi: rgba(255, 255, 255, 0.85);
+  --glass-lo: rgba(0, 0, 0, 0.06);
+  --glass-edge: rgba(0, 0, 0, 0.06);
+  --glass-sheen: none;
+  --glass-shadow: 0 8px 28px rgba(15, 40, 80, 0.08);
+  --glass-blur: blur(18px) saturate(160%);
+  --glass-blur-sm: blur(12px) saturate(140%);
+  /* rim style inspired by liquid-glass demos */
+  --glass-inset:
+    inset 2px 2px 0 -2px rgba(255, 255, 255, 0.75),
+    inset 0 0 3px 1px rgba(255, 255, 255, 0.55),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 
   /* --- Animated wallpaper (light: white / blue / green) --- */
   --wall-1: #ffffff;
@@ -124,14 +130,22 @@
   --shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 22px 56px rgba(0, 0, 0, 0.65);
 
-  --glass-bg: rgba(14, 17, 23, 0.52);
-  --glass-bg-soft: rgba(18, 22, 29, 0.46);
-  --glass-bg-strong: rgba(22, 27, 36, 0.74);
-  --glass-border: rgba(255, 255, 255, 0.13);
-  --glass-hi: rgba(255, 255, 255, 0.24);
-  --glass-lo: rgba(255, 255, 255, 0.03);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 72%, rgba(255, 255, 255, 0.04) 100%);
-  --glass-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  /* dark: transparent charcoal, bright rim only — no milky white fill */
+  --glass-bg: rgba(12, 14, 18, 0.42);
+  --glass-bg-soft: rgba(8, 10, 14, 0.32);
+  --glass-bg-strong: rgba(18, 20, 26, 0.58);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-hi: rgba(255, 255, 255, 0.28);
+  --glass-lo: rgba(0, 0, 0, 0.45);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --glass-sheen: none;
+  --glass-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+  --glass-blur: blur(20px) saturate(150%);
+  --glass-blur-sm: blur(12px) saturate(135%);
+  --glass-inset:
+    inset 2px 2px 0 -2px rgba(255, 255, 255, 0.22),
+    inset 0 0 3px 1px rgba(255, 255, 255, 0.12),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.5);
 
   /* --- Animated wallpaper (dark: black / blue / deep green) --- */
   --wall-1: #000000;
@@ -291,7 +305,7 @@ body::after {
 .spacer { flex: 1; }
 
 /* =========================================================================
-   Glass surfaces (shared)
+   Glass surfaces (shared) — iOS liquid glass
    ========================================================================= */
 .sidebar,
 .topbar,
@@ -300,16 +314,48 @@ body::after {
 .search-box,
 .user-box,
 .modal,
-.toast {
+.toast,
+.ios-card,
+.glass-modal {
+  position: relative;
   background-color: var(--glass-bg);
-  background-image: var(--glass-sheen);
+  background-image: none;
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo);
+    var(--glass-inset),
+    var(--glass-shadow);
+}
+/* rim highlight only — no full-surface white wash */
+.sidebar::before,
+.card::before,
+.course-card::before,
+.ios-card::before,
+.modal::before,
+.toast::before,
+.glass-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 2px 2px 0 -2px rgba(255, 255, 255, 0.55),
+    inset 0 0 2px 1px rgba(255, 255, 255, 0.25);
+  opacity: 0.9;
+}
+[data-theme="dark"] .sidebar::before,
+[data-theme="dark"] .card::before,
+[data-theme="dark"] .course-card::before,
+[data-theme="dark"] .ios-card::before,
+[data-theme="dark"] .modal::before,
+[data-theme="dark"] .toast::before,
+[data-theme="dark"] .glass-modal::before {
+  box-shadow:
+    inset 2px 2px 0 -2px rgba(255, 255, 255, 0.18),
+    inset 0 0 2px 1px rgba(255, 255, 255, 0.08);
+  opacity: 1;
 }
 
 /* =========================================================================
@@ -475,50 +521,67 @@ body::after {
    Buttons
    ========================================================================= */
 .btn {
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 1rem;
+  border: 1px double transparent;
+  border-radius: 999px;
+  padding: 0.58rem 1.05rem;
   font-family: inherit;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, filter 0.2s, transform 0.06s, box-shadow 0.2s, border-color 0.2s;
+  transition:
+    background 0.22s ease,
+    filter 0.22s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   white-space: nowrap;
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
 }
-.btn:active { transform: translateY(1px); }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: scale(0.96); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-primary {
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--primary) 92%, #fff),
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--primary) 88%, #fff),
     var(--primary-strong));
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(255, 255, 255, 0.35);
   color: #fff;
-  box-shadow: 0 8px 22px var(--ring), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 1px -1px 1px rgba(255, 255, 255, 0.45),
+    inset -1px 1px 1px rgba(255, 255, 255, 0.15),
+    0 6px 18px var(--ring);
 }
-.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
-.btn-ghost { background: transparent; color: var(--text); }
-.btn-ghost:hover { background: var(--glass-bg-strong); border-color: var(--glass-border); }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+.btn-ghost {
+  background: var(--glass-bg-soft);
+  color: var(--text);
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-inset);
+}
+.btn-ghost:hover { background: var(--glass-bg-strong); }
 .btn-soft {
-  background: var(--primary-soft);
+  background: color-mix(in srgb, var(--primary-soft) 80%, var(--glass-bg-soft));
   color: var(--primary);
-  border-color: var(--glass-border);
-  -webkit-backdrop-filter: var(--glass-blur-sm);
-  backdrop-filter: var(--glass-blur-sm);
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-inset);
 }
-.btn-soft:hover { filter: brightness(1.05); }
-.btn-danger { background: var(--danger); color: #fff; box-shadow: 0 6px 18px rgba(225, 29, 72, 0.35); }
+.btn-soft:hover { filter: brightness(1.04); }
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
 .btn-outline {
   background: var(--glass-bg-soft);
-  border-color: var(--glass-border);
+  border-color: var(--glass-edge);
   color: var(--text);
-  -webkit-backdrop-filter: var(--glass-blur-sm);
-  backdrop-filter: var(--glass-blur-sm);
-  box-shadow: inset 0 1px 0 var(--glass-hi);
+  box-shadow: var(--glass-inset);
 }
 .btn-outline:hover { background: var(--glass-bg-strong); }
 
@@ -882,8 +945,8 @@ textarea.input,
 select.input {
   width: 100%;
   padding: 0.7rem 0.95rem;
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
+  border: 1px double var(--glass-edge);
+  border-radius: 16px;
   background-color: var(--glass-bg-soft);
   background-image: var(--glass-sheen);
   background-size: 180% 180%;
@@ -893,9 +956,8 @@ select.input {
   font-family: inherit;
   font-size: 0.9rem;
   box-shadow:
-    inset 0 1px 0 var(--glass-hi),
-    inset 0 -1px 0 var(--glass-lo),
-    0 4px 14px rgba(0, 0, 0, 0.08);
+    var(--glass-inset),
+    0 3px 12px rgba(0, 0, 0, 0.06);
   transition:
     border-color 0.22s ease,
     box-shadow 0.28s ease,
@@ -908,25 +970,21 @@ select.input {
 input.input:hover,
 textarea.input:hover,
 select.input:hover {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--glass-border));
-  box-shadow:
-    inset 0 1px 0 var(--glass-hi),
-    0 6px 18px rgba(0, 0, 0, 0.12);
-  filter: brightness(1.04);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
+  filter: brightness(1.03);
 }
 .input:focus,
 input.input:focus,
 textarea.input:focus,
 select.input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--primary) 60%, var(--glass-border));
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--glass-edge));
   background-color: var(--glass-bg-strong);
-  transform: translateY(-1px) scale(1.01);
+  transform: translateY(-1px);
   box-shadow:
+    var(--glass-inset),
     0 0 0 3px var(--ring),
-    inset 0 1px 0 var(--glass-hi),
-    0 10px 28px rgba(0, 0, 0, 0.16);
-  animation: glass-sheen-shift 2.4s ease-in-out infinite alternate;
+    0 8px 22px rgba(0, 0, 0, 0.1);
 }
 .input:active,
 input.input:active,
@@ -1854,51 +1912,68 @@ html[dir="rtl"] { --drawer-x: 100%; --switch-travel: -22px; }
    Filter Bar & Glass Buttons (Liquid Glass Style)
    ========================================================================= */
 
-/* دکمه‌های فیلتر در حالت عادی */
-.filter-btn {
-  background-color: var(--glass-bg);
-  background-image: var(--glass-sheen);
-  -webkit-backdrop-filter: var(--glass-blur-sm);
-  backdrop-filter: var(--glass-blur-sm);
-  border: 1px solid var(--glass-border);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 0.5rem 1.2rem;
+/* فیلترها مثل حباب ناوبری موبایل */
+.filter-bar {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-btn,
+.btn.filter-btn,
+.btn-soft.filter-btn {
+  appearance: none;
+  background: transparent !important;
+  background-image: none !important;
+  border: 1px solid transparent !important;
+  color: var(--muted) !important;
+  border-radius: 999px !important;
+  padding: 0.48rem 1rem !important;
+  font-family: inherit;
   font-weight: 600;
-  font-size: 0.85rem;
-  box-shadow: inset 0 1px 0 var(--glass-hi), 0 2px 6px rgba(0,0,0,0.05);
-  transition: all 0.25s ease;
+  font-size: 0.82rem;
+  box-shadow: none !important;
+  filter: none !important;
+  transition:
+    color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    transform 0.18s ease;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
-.filter-btn:hover {
-  background-color: var(--glass-bg-hover);
-  border-color: var(--glass-border-hover);
+.filter-btn:hover,
+.btn.filter-btn:hover {
+  color: var(--text) !important;
+  background: color-mix(in srgb, var(--glass-bg-strong) 70%, transparent) !important;
   transform: translateY(-1px);
 }
 
-/* 👇 دکمه‌های فیلتر در حالت فعال (انتخاب‌شده) - نسخه لیکوئید گلسی */
-.filter-btn.active {
-  /* استفاده از رنگ اصلی تم با شفافیت به جای رنگ تخت */
-  background-color: color-mix(in srgb, var(--primary) 25%, var(--glass-bg-strong));
-  background-image: var(--glass-sheen);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  color: #FFFFFF !important;
-
-  border: 1px solid var(--glass-border-hover);
+/* فعال = همان زبان bn-indicator / nav active */
+.filter-btn.active,
+.btn.filter-btn.active,
+.btn-soft.filter-btn.active {
+  background: color-mix(in srgb, var(--primary) 14%, var(--glass-bg)) !important;
+  color: var(--primary) !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--glass-border)) !important;
   box-shadow:
-    inset 0 1px 0 var(--glass-hi),
-    0 4px 15px var(--ring);
-  font-weight: 700;
+    var(--glass-inset),
+    0 4px 14px color-mix(in srgb, var(--primary) 16%, transparent) !important;
+  font-weight: 800;
+  -webkit-backdrop-filter: var(--glass-blur-sm);
+  backdrop-filter: var(--glass-blur-sm);
 }
 
-/* در حالت دارک‌مود، متن دکمه فعال باید روشن‌تر باشد */
-[data-theme="dark"] .filter-btn.active {
-  color: var(--primary-soft); /* یا #ffffff */
+[data-theme="dark"] .filter-btn.active,
+[data-theme="dark"] .btn.filter-btn.active {
+  background: color-mix(in srgb, var(--primary) 18%, rgba(255, 255, 255, 0.04)) !important;
+  color: var(--primary) !important;
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent) !important;
 }
 
 /* =========================================================================
@@ -2779,13 +2854,12 @@ a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز
     border-radius: 34px;
     background-color: var(--glass-bg-strong);
     background-image: var(--glass-sheen);
-    -webkit-backdrop-filter: blur(28px) saturate(200%);
-    backdrop-filter: blur(28px) saturate(200%);
-    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    border: 1px double var(--glass-edge);
     box-shadow:
-      0 16px 40px rgba(10, 30, 80, 0.18),
-      inset 0 1px 0 var(--glass-hi),
-      inset 0 -1px 0 var(--glass-lo);
+      var(--glass-inset),
+      0 12px 36px rgba(0, 0, 0, 0.14);
   }
   /* حلقه‌ی داخلی ظریف مثل لیکویید گلس اپل */
   .bottom-nav::after {
@@ -2793,8 +2867,17 @@ a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز
     position: absolute;
     inset: 3px;
     border-radius: 31px;
-    border: 1px solid var(--glass-lo);
+    border: 1px solid color-mix(in srgb, var(--glass-hi) 40%, transparent);
     pointer-events: none;
+    background: linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      transparent 30%,
+      transparent 70%,
+      rgba(255, 255, 255, 0.2) 100%
+    );
+    opacity: 0.5;
+    mix-blend-mode: soft-light;
   }
 
   .bottom-nav .bn-item {
@@ -2958,13 +3041,22 @@ a:hover .icon-email path { fill: #ffffff; } /* روی پس‌زمینه قرمز
     inset-inline-start: 0.4rem;
     width: calc((100% - 0.8rem - 0.45rem) / 4);
     border-radius: 28px;
-    background: color-mix(in srgb, var(--primary) 14%, var(--glass-bg-strong));
-    border: 1px solid var(--glass-hi);
-    box-shadow: inset 0 1px 0 var(--glass-hi), 0 6px 16px var(--ring);
+    background: color-mix(in srgb, var(--primary) 14%, var(--glass-bg));
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--glass-border));
+    box-shadow:
+      var(--glass-inset),
+      0 4px 14px color-mix(in srgb, var(--primary) 16%, transparent);
     /* RTL: آیتم اول سمت راست است، پس حرکت به چپ منفی است */
     transform: translateX(calc(var(--i) * -1 * (100% + 0.15rem)));
-    transition: transform 0.5s cubic-bezier(0.34, 1.35, 0.5, 1);
+    transition:
+      transform 0.48s cubic-bezier(0.34, 1.4, 0.5, 1),
+      width 0.28s ease,
+      box-shadow 0.28s ease;
     pointer-events: none;
+  }
+  .bottom-nav:has(.bn-item:active) .bn-indicator {
+    /* کمی کشیده می‌شود هنگام لمس — حس liquid */
+    filter: brightness(1.04);
   }
 
   /* آیتم فعال دیگر پس‌زمینه‌ی خودش را ندارد؛ حباب این کار را می‌کند */
