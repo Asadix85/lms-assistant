@@ -858,7 +858,24 @@ body::after {
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
 .field label { font-size: 0.82rem; font-weight: 600; color: var(--text); }
 
-/* فرم‌های عمومی با تم liquid glass */
+/* فرم‌های عمومی با تم liquid glass + انیمیشن تعاملی */
+@keyframes glass-field-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes glass-modal-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes glass-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes glass-sheen-shift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
 .input,
 input.input,
 textarea.input,
@@ -869,6 +886,7 @@ select.input {
   border-radius: 14px;
   background-color: var(--glass-bg-soft);
   background-image: var(--glass-sheen);
+  background-size: 180% 180%;
   -webkit-backdrop-filter: var(--glass-blur-sm);
   backdrop-filter: var(--glass-blur-sm);
   color: var(--text);
@@ -878,26 +896,54 @@ select.input {
     inset 0 1px 0 var(--glass-hi),
     inset 0 -1px 0 var(--glass-lo),
     0 4px 14px rgba(0, 0, 0, 0.08);
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.28s ease,
+    background-color 0.22s ease,
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.22s ease;
   box-sizing: border-box;
+}
+.input:hover,
+input.input:hover,
+textarea.input:hover,
+select.input:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--glass-border));
+  box-shadow:
+    inset 0 1px 0 var(--glass-hi),
+    0 6px 18px rgba(0, 0, 0, 0.12);
+  filter: brightness(1.04);
 }
 .input:focus,
 input.input:focus,
 textarea.input:focus,
 select.input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--primary) 55%, var(--glass-border));
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--glass-border));
   background-color: var(--glass-bg-strong);
+  transform: translateY(-1px) scale(1.01);
   box-shadow:
     0 0 0 3px var(--ring),
     inset 0 1px 0 var(--glass-hi),
-    0 6px 18px rgba(0, 0, 0, 0.12);
+    0 10px 28px rgba(0, 0, 0, 0.16);
+  animation: glass-sheen-shift 2.4s ease-in-out infinite alternate;
+}
+.input:active,
+input.input:active,
+textarea.input:active {
+  transform: translateY(0) scale(0.995);
 }
 .input::placeholder,
 input.input::placeholder,
 textarea.input::placeholder {
   color: var(--faint);
   opacity: 0.85;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.input:focus::placeholder,
+input.input:focus::placeholder,
+textarea.input:focus::placeholder {
+  opacity: 0.45;
 }
 textarea.input {
   resize: vertical;
@@ -912,6 +958,13 @@ textarea.input {
   color: var(--text);
   margin-bottom: 0.35rem;
   opacity: 0.92;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+.glass-form > div:focus-within > .field-label,
+.glass-form-row > div:focus-within > .field-label {
+  color: var(--primary);
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .glass-form {
@@ -919,6 +972,16 @@ textarea.input {
   flex-direction: column;
   gap: 0.85rem;
 }
+.glass-form > div {
+  animation: glass-field-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.glass-form > div:nth-child(1) { animation-delay: 0.04s; }
+.glass-form > div:nth-child(2) { animation-delay: 0.08s; }
+.glass-form > div:nth-child(3) { animation-delay: 0.12s; }
+.glass-form > div:nth-child(4) { animation-delay: 0.16s; }
+.glass-form > div:nth-child(5) { animation-delay: 0.2s; }
+.glass-form > div:nth-child(6) { animation-delay: 0.24s; }
+
 .glass-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -939,6 +1002,11 @@ textarea.input {
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  animation: glass-backdrop-in 0.22s ease both;
+  transition: opacity 0.2s ease;
+}
+.glass-modal-backdrop.is-leaving {
+  opacity: 0;
 }
 .glass-modal {
   width: min(480px, 100%);
@@ -956,11 +1024,51 @@ textarea.input {
     inset 0 -1px 0 var(--glass-lo);
   padding: 1.25rem 1.35rem 1.35rem;
   color: var(--text);
+  animation: glass-modal-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.glass-modal-backdrop.is-leaving .glass-modal {
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
 }
 .glass-modal h3 {
   margin: 0 0 1rem;
   font-size: 1.1rem;
   font-weight: 800;
+}
+
+/* دکمه داخل فرم‌های شیشه‌ای */
+.glass-form .btn,
+.glass-modal .btn {
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease,
+    filter 0.18s ease;
+}
+.glass-form .btn:hover,
+.glass-modal .btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+.glass-form .btn:active,
+.glass-modal .btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input,
+  input.input,
+  textarea.input,
+  select.input,
+  .field-label,
+  .glass-form > div,
+  .glass-modal-backdrop,
+  .glass-modal,
+  .glass-form .btn,
+  .glass-modal .btn {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 .input-wrap {

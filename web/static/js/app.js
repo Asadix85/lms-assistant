@@ -3085,6 +3085,17 @@ function bindLibraryItemActions() {
   });
 }
 
+function closeGlassModal(modal) {
+  if (!modal || !modal.parentNode) return;
+  modal.classList.add("is-leaving");
+  const done = () => {
+    modal.removeEventListener("transitionend", done);
+    if (modal.parentNode) modal.remove();
+  };
+  modal.addEventListener("transitionend", done);
+  setTimeout(() => { if (modal.parentNode) modal.remove(); }, 280);
+}
+
 function openGlassModal({ id, title, bodyHtml, onMount }) {
   const existing = document.getElementById(id);
   if (existing) existing.remove();
@@ -3098,7 +3109,8 @@ function openGlassModal({ id, title, bodyHtml, onMount }) {
     </div>
   `;
   document.body.appendChild(modal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeGlassModal(modal); });
+  modal.closeModal = () => closeGlassModal(modal);
   if (typeof onMount === "function") onMount(modal);
   return modal;
 }
@@ -3140,7 +3152,7 @@ async function openLibrarySubmitModal(prefillCourse = "") {
       </div>
     `,
     onMount: (modal) => {
-      $("#lib-cancel").onclick = () => modal.remove();
+      $("#lib-cancel").onclick = () => closeGlassModal(modal);
       $("#lib-submit").onclick = async () => {
         const course_name = $("#lib-course").value.trim();
         const title = $("#lib-title").value.trim();
@@ -3156,7 +3168,7 @@ async function openLibrarySubmitModal(prefillCourse = "") {
             body: JSON.stringify({ course_name, title, description, url }),
           });
           toast("ارسال شد — بعد از تایید ادمین نمایش داده می‌شود");
-          modal.remove();
+          closeGlassModal(modal);
           if (currentRoute().startsWith("library") || currentRoute().startsWith("course/")) {
             renderPage(currentRoute());
           }
@@ -3186,7 +3198,7 @@ function openLibraryReportModal(itemId) {
       </div>
     `,
     onMount: (modal) => {
-      $("#lib-report-cancel").onclick = () => modal.remove();
+      $("#lib-report-cancel").onclick = () => closeGlassModal(modal);
       $("#lib-report-submit").onclick = async () => {
         const reason = ($("#lib-report-reason")?.value || "").trim();
         try {
@@ -3195,7 +3207,7 @@ function openLibraryReportModal(itemId) {
             body: JSON.stringify({ reason }),
           });
           toast("گزارش ثبت شد. ممنون");
-          modal.remove();
+          closeGlassModal(modal);
         } catch (e) {
           toast("❌ " + (e.message || "خطا"));
         }
