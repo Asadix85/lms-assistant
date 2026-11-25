@@ -289,11 +289,13 @@ CREATE TABLE IF NOT EXISTS library_items (
     avg_rating REAL NOT NULL DEFAULT 0,
     rating_count INTEGER NOT NULL DEFAULT 0,
     report_count INTEGER NOT NULL DEFAULT 0,
+    topic_id TEXT,
     FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_library_items_course ON library_items(course_name);
 CREATE INDEX IF NOT EXISTS idx_library_items_status ON library_items(status);
 CREATE INDEX IF NOT EXISTS idx_library_items_submitted ON library_items(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_library_items_topic ON library_items(topic_id);
 
 CREATE TABLE IF NOT EXISTS library_ratings (
     item_id TEXT NOT NULL,
@@ -328,3 +330,41 @@ CREATE TABLE IF NOT EXISTS library_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_library_reports_item ON library_reports(item_id);
 CREATE INDEX IF NOT EXISTS idx_library_reports_resolved ON library_reports(resolved);
+
+-- ============================================================
+-- Library course catalog (admin-managed)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS library_courses (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    code TEXT NOT NULL DEFAULT '',
+    term TEXT NOT NULL DEFAULT '',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_library_courses_name
+    ON library_courses(name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_library_courses_term ON library_courses(term);
+CREATE INDEX IF NOT EXISTS idx_library_courses_active ON library_courses(is_active);
+
+-- ============================================================
+-- Library topics (per-course organization)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS library_topics (
+    id TEXT PRIMARY KEY,
+    course_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_library_topics_course
+    ON library_topics(course_name COLLATE NOCASE);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_library_topics_course_title
+    ON library_topics(course_name COLLATE NOCASE, title COLLATE NOCASE);

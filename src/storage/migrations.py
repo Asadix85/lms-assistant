@@ -599,6 +599,35 @@ def _migrate_to_10(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_to_11(conn: sqlite3.Connection) -> None:
+    """تاپیک‌های هر درس در کتابخانه + ارجاع topic_id روی منابع."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS library_topics (
+            id TEXT PRIMARY KEY,
+            course_name TEXT NOT NULL,
+            title TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_by TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_library_topics_course
+            ON library_topics(course_name COLLATE NOCASE);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_library_topics_course_title
+            ON library_topics(course_name COLLATE NOCASE, title COLLATE NOCASE);
+        """
+    )
+    cols = _table_columns(conn, "library_items")
+    if "topic_id" not in cols:
+        conn.execute(
+            "ALTER TABLE library_items ADD COLUMN topic_id TEXT"
+        )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_library_items_topic ON library_items(topic_id)"
+    )
+
+
 MIGRATIONS: list[tuple[int, object]] = [
     (2, _migrate_to_2),
     (3, _migrate_to_3),
@@ -609,6 +638,7 @@ MIGRATIONS: list[tuple[int, object]] = [
     (8, _migrate_to_8),
     (9, _migrate_to_9),
     (10, _migrate_to_10),
+    (11, _migrate_to_11),
 ]
 
 

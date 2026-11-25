@@ -393,9 +393,6 @@
     syncActive();
     routeFlag();
 
-    // لرزش خیلی سبک هنگام لمس (فقط اندروید)
-    items.forEach((a) => a.addEventListener('click', () => navigator.vibrate?.(8)));
-
     /* ---------- کپی اطلاعات کاربر در صفحه‌ی «سایر» ---------- */
     const pairs = [['user-name', 'mm-name'], ['user-status', 'mm-status'], ['user-avatar', 'mm-avatar']];
     const mirror = () => pairs.forEach(([a, b]) => { const s = $(a), d = $(b); if (s && d) d.textContent = s.textContent; });

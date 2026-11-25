@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 
 from src.storage.database import Database
 from src.web.security import utcnow_iso
-TERMS_VERSION = "1"   # با عوض کردن متن قوانین، این را بالا ببرید تا همه دوباره بپذیرند
 
 
 def _normalize_course_name(name: str) -> str:
@@ -222,6 +221,39 @@ class LibraryRepository:
         """کاتالوگ فعال؛ اختیاری فیلتر ترم. همیشه همه درس‌های کاتالوگ (حتی بدون منبع)."""
         return self.list_catalog(term=term, only_with_items=False)
 
+    def list_courses_with_items(self) -> list[dict[str, Any]]:
+        """فقط درس‌هایی که حداقل یک منبع تاییدشده دارند."""
+        return self.list_catalog(only_with_items=True)
+
+    def filter_catalog_by_user_courses(
+        self,
+        user_course_names: list[str],
+        user_course_codes: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """اشتراک کاتالوگ با دروس ثبت‌نام‌شده کاربر (نام یا کد)."""
+        catalog = self.list_catalog(only_with_items=False)
+        if not catalog:
+            return []
+
+        def _norm(s: str) -> str:
+            return " ".join((s or "").strip().lower().split())
+
+        def _norm_code(s: str) -> str:
+            return "".join(ch for ch in (s or "").strip().lower() if ch.isalnum())
+
+        names = {_norm(n) for n in user_course_names if n}
+        codes = {_norm_code(c) for c in (user_course_codes or []) if c}
+        if not names and not codes:
+            return []
+
+        matched: list[dict[str, Any]] = []
+        for c in catalog:
+            c_name = _norm(str(c.get("course_name") or c.get("name") or ""))
+            c_code = _norm_code(str(c.get("code") or ""))
+            if (c_name and c_name in names) or (c_code and c_code in codes):
+                matched.append(c)
+        return matched
+
     def list_course_names_for_autocomplete(self) -> list[str]:
         rows = self.db.fetch_all(
             """
@@ -243,6 +275,121 @@ class LibraryRepository:
         )
         return [r["name"] for r in rows]
 
+    # ------------------------------------------------------------------ topics
+    def list_topics(self, course_name: str) -> list[dict[str, Any]]:
+        course_name = _normalize_course_name(course_name)
+        return self.db.fetch_all(
+            """
+            SELECT t.*,
+                   COALESCE(COUNT(i.id), 0) AS item_count
+              FROM library_topics t
+              LEFT JOIN library_items i
+                     ON i.topic_id = t.id
+                    AND i.status = 'approved'
+             WHERE t.course_name = ? COLLATE NOCASE
+             GROUP BY t.id
+             ORDER BY t.sort_order ASC, t.title COLLATE NOCASE
+            """,
+            (course_name,),
+        )
+
+    def get_topic(self, topic_id: str) -> dict[str, Any] | None:
+        return self.db.fetch_one(
+            "SELECT * FROM library_topics WHERE id = ?",
+            (topic_id,),
+        )
+
+    def create_topic(
+        self,
+        *,
+        course_name: str,
+        title: str,
+        sort_order: int = 0,
+        created_by: str | None = None,
+    ) -> dict[str, Any]:
+        course_name = _normalize_course_name(course_name)
+        title = " ".join(title.strip().split())
+        if len(course_name) < 2:
+            raise ValueError("نام درس معتبر نیست")
+        if len(title) < 1:
+            raise ValueError("عنوان تاپیک معتبر نیست")
+        catalog = self.find_catalog_by_name(course_name)
+        if catalog:
+            course_name = catalog["name"]
+        else:
+            raise ValueError("این درس در کاتالوگ کتابخانه نیست")
+
+        existing = self.db.fetch_one(
+            """
+            SELECT id FROM library_topics
+             WHERE course_name = ? COLLATE NOCASE AND title = ? COLLATE NOCASE
+            """,
+            (course_name, title),
+        )
+        if existing:
+            raise ValueError(f"تاپیک «{title}» از قبل وجود دارد")
+
+        now = utcnow_iso()
+        tid = str(uuid.uuid4())
+        self.db.execute(
+            """
+            INSERT INTO library_topics (
+                id, course_name, title, sort_order, created_by, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (tid, course_name, title, sort_order, created_by, now, now),
+        )
+        self.db.connection.commit()
+        return self.get_topic(tid)  # type: ignore[return-value]
+
+    def update_topic(
+        self,
+        topic_id: str,
+        *,
+        title: str | None = None,
+        sort_order: int | None = None,
+    ) -> dict[str, Any] | None:
+        row = self.get_topic(topic_id)
+        if not row:
+            return None
+        new_title = " ".join(title.strip().split()) if title is not None else row["title"]
+        if len(new_title) < 1:
+            raise ValueError("عنوان تاپیک معتبر نیست")
+        if title is not None:
+            other = self.db.fetch_one(
+                """
+                SELECT id FROM library_topics
+                 WHERE course_name = ? COLLATE NOCASE
+                   AND title = ? COLLATE NOCASE
+                   AND id != ?
+                """,
+                (row["course_name"], new_title, topic_id),
+            )
+            if other:
+                raise ValueError(f"تاپیک «{new_title}» از قبل وجود دارد")
+        new_sort = int(sort_order) if sort_order is not None else int(row["sort_order"] or 0)
+        now = utcnow_iso()
+        self.db.execute(
+            """
+            UPDATE library_topics
+               SET title = ?, sort_order = ?, updated_at = ?
+             WHERE id = ?
+            """,
+            (new_title, new_sort, now, topic_id),
+        )
+        self.db.connection.commit()
+        return self.get_topic(topic_id)
+
+    def delete_topic(self, topic_id: str) -> bool:
+        # detach items first
+        self.db.execute(
+            "UPDATE library_items SET topic_id = NULL WHERE topic_id = ?",
+            (topic_id,),
+        )
+        cur = self.db.execute("DELETE FROM library_topics WHERE id = ?", (topic_id,))
+        self.db.connection.commit()
+        return cur.rowcount > 0
+
     # ------------------------------------------------------------------ items
     def create_item(
         self,
@@ -252,6 +399,7 @@ class LibraryRepository:
         description: str,
         url: str,
         user_id: str,
+        topic_id: str | None = None,
     ) -> dict[str, Any]:
         course_name = _normalize_course_name(course_name)
         title = title.strip()
@@ -274,16 +422,25 @@ class LibraryRepository:
             if has_catalog:
                 raise ValueError("این درس در کاتالوگ کتابخانه نیست؛ از لیست درس‌ها انتخاب کنید")
 
+        resolved_topic: str | None = None
+        if topic_id:
+            topic = self.get_topic(topic_id)
+            if not topic:
+                raise ValueError("تاپیک یافت نشد")
+            if (topic["course_name"] or "").lower() != course_name.lower():
+                raise ValueError("تاپیک متعلق به این درس نیست")
+            resolved_topic = topic["id"]
+
         now = utcnow_iso()
         item_id = str(uuid.uuid4())
         self.db.execute(
             """
             INSERT INTO library_items (
                 id, course_name, title, description, url, status,
-                submitted_by, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                submitted_by, created_at, updated_at, topic_id
+            ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
             """,
-            (item_id, course_name, title, description, url, user_id, now, now),
+            (item_id, course_name, title, description, url, user_id, now, now, resolved_topic),
         )
         self.db.connection.commit()
         return self.get_item(item_id)  # type: ignore[return-value]
@@ -301,18 +458,33 @@ class LibraryRepository:
             (item_id,),
         )
 
-    def list_approved_for_course(self, course_name: str) -> list[dict[str, Any]]:
+    def list_approved_for_course(
+        self,
+        course_name: str,
+        *,
+        topic_id: str | None = None,
+        uncategorized_only: bool = False,
+    ) -> list[dict[str, Any]]:
         course_name = _normalize_course_name(course_name)
+        where = ["i.course_name = ?", "i.status = 'approved'"]
+        params: list[Any] = [course_name]
+        if topic_id:
+            where.append("i.topic_id = ?")
+            params.append(topic_id)
+        elif uncategorized_only:
+            where.append("(i.topic_id IS NULL OR i.topic_id = '')")
         return self.db.fetch_all(
-            """
+            f"""
             SELECT i.*,
-                   u.full_name AS submitter_name
+                   u.full_name AS submitter_name,
+                   t.title AS topic_title
               FROM library_items i
               LEFT JOIN users u ON u.id = i.submitted_by
-             WHERE i.course_name = ? AND i.status = 'approved'
+              LEFT JOIN library_topics t ON t.id = i.topic_id
+             WHERE {" AND ".join(where)}
              ORDER BY i.avg_rating DESC, i.created_at DESC
             """,
-            (course_name,),
+            tuple(params),
         )
 
     def list_pending(self) -> list[dict[str, Any]]:
@@ -370,11 +542,64 @@ class LibraryRepository:
         return self.get_item(item_id)
 
     def delete_item(self, item_id: str) -> bool:
-        self._ensure_fav_table()
-        self.db.execute("DELETE FROM library_favorites WHERE item_id = ?", (item_id,))
         cur = self.db.execute("DELETE FROM library_items WHERE id = ?", (item_id,))
         self.db.connection.commit()
         return cur.rowcount > 0
+
+    def update_item(
+        self,
+        item_id: str,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        url: str | None = None,
+        topic_id: str | None = None,
+        clear_topic: bool = False,
+    ) -> dict[str, Any] | None:
+        item = self.get_item(item_id)
+        if not item:
+            return None
+
+        new_title = title.strip() if title is not None else item["title"]
+        new_desc = (
+            description.strip()
+            if description is not None
+            else (item.get("description") or "")
+        )
+        new_url = url.strip() if url is not None else item["url"]
+
+        if len(new_title) < 2:
+            raise ValueError("عنوان معتبر نیست")
+        if not _is_valid_url(new_url):
+            raise ValueError("لینک باید با http یا https شروع شود")
+
+        new_topic: str | None
+        if clear_topic:
+            new_topic = None
+        elif topic_id is not None:
+            if topic_id == "":
+                new_topic = None
+            else:
+                topic = self.get_topic(topic_id)
+                if not topic:
+                    raise ValueError("تاپیک یافت نشد")
+                if (topic["course_name"] or "").lower() != (item["course_name"] or "").lower():
+                    raise ValueError("تاپیک متعلق به این درس نیست")
+                new_topic = topic["id"]
+        else:
+            new_topic = item.get("topic_id")
+
+        now = utcnow_iso()
+        self.db.execute(
+            """
+            UPDATE library_items
+               SET title = ?, description = ?, url = ?, topic_id = ?, updated_at = ?
+             WHERE id = ?
+            """,
+            (new_title, new_desc, new_url, new_topic, now, item_id),
+        )
+        self.db.connection.commit()
+        return self.get_item(item_id)
 
     # ------------------------------------------------------------------ ratings
     def set_rating(self, item_id: str, user_id: str, score: int) -> dict[str, Any]:
@@ -460,100 +685,6 @@ class LibraryRepository:
             """,
             (item_id,),
         )
-
-    # ------------------------------------------------------------------ favorites
-    def _ensure_fav_table(self) -> None:
-        self.db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS library_favorites (
-                user_id    TEXT NOT NULL,
-                item_id    TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY (user_id, item_id)
-            )
-            """
-        )
-        self.db.connection.commit()
-
-    def toggle_favorite(self, item_id: str, user_id: str) -> bool:
-        """True اگر بعد از عملیات ذخیره شده باشد."""
-        self._ensure_fav_table()
-        item = self.get_item(item_id)
-        if not item or item["status"] != "approved":
-            raise ValueError("آیتم یافت نشد یا هنوز تایید نشده")
-        existing = self.db.fetch_one(
-            "SELECT 1 AS ok FROM library_favorites WHERE user_id = ? AND item_id = ?",
-            (user_id, item_id),
-        )
-        if existing:
-            self.db.execute(
-                "DELETE FROM library_favorites WHERE user_id = ? AND item_id = ?",
-                (user_id, item_id),
-            )
-            fav = False
-        else:
-            self.db.execute(
-                "INSERT INTO library_favorites (user_id, item_id, created_at) VALUES (?, ?, ?)",
-                (user_id, item_id, utcnow_iso()),
-            )
-            fav = True
-        self.db.connection.commit()
-        return fav
-
-    def favorite_ids(self, user_id: str) -> set[str]:
-        self._ensure_fav_table()
-        rows = self.db.fetch_all(
-            "SELECT item_id FROM library_favorites WHERE user_id = ?", (user_id,)
-        )
-        return {r["item_id"] for r in rows}
-
-    def list_favorites(self, user_id: str) -> list[dict[str, Any]]:
-        self._ensure_fav_table()
-        return self.db.fetch_all(
-            """
-            SELECT i.*, u.full_name AS submitter_name
-              FROM library_favorites f
-              JOIN library_items i ON i.id = f.item_id
-              LEFT JOIN users u ON u.id = i.submitted_by
-             WHERE f.user_id = ? AND i.status = 'approved'
-             ORDER BY f.created_at DESC
-            """,
-            (user_id,),
-        )
-
-    # ------------------------------------------------------------------ terms
-    def _ensure_terms_table(self) -> None:
-        self.db.execute(
-            """
-            CREATE TABLE IF NOT EXISTS library_terms_acceptance (
-                user_id     TEXT NOT NULL,
-                version     TEXT NOT NULL,
-                accepted_at TEXT NOT NULL,
-                PRIMARY KEY (user_id, version)
-            )
-            """
-        )
-        self.db.connection.commit()
-
-    def has_accepted_terms(self, user_id: str, version: str = TERMS_VERSION) -> bool:
-        self._ensure_terms_table()
-        row = self.db.fetch_one(
-            "SELECT 1 AS ok FROM library_terms_acceptance WHERE user_id = ? AND version = ?",
-            (user_id, version),
-        )
-        return bool(row)
-
-    def accept_terms(self, user_id: str, version: str = TERMS_VERSION) -> None:
-        self._ensure_terms_table()
-        self.db.execute(
-            """
-            INSERT INTO library_terms_acceptance (user_id, version, accepted_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id, version) DO NOTHING
-            """,
-            (user_id, version, utcnow_iso()),
-        )
-        self.db.connection.commit()
 
     # ------------------------------------------------------------------ reports
     def report_item(self, item_id: str, user_id: str, reason: str = "") -> dict[str, Any]:

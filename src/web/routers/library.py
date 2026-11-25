@@ -4,31 +4,36 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-from src.storage.repositories.library_repo import LibraryRepository, TERMS_VERSION
 
 from src.storage.repositories.library_repo import LibraryRepository
+from src.storage.repositories.setting_repo import SettingRepository
 from src.web.deps import get_current_user, require_admin
-from pydantic import BaseModel, Field, field_validator
-
-class SubmitItemBody(BaseModel):
-    course_name: str = Field(..., min_length=2, max_length=120)
-    title: str = Field(..., min_length=2, max_length=200)
-    description: str = Field("", max_length=2000)
-    url: str = Field(..., min_length=8, max_length=2000)
-
-    @field_validator("url")
-    @classmethod
-    def _only_http(cls, v: str) -> str:
-        v = v.strip()
-        if not v.lower().startswith(("http://", "https://")):
-            raise ValueError("لینک باید با http:// یا https:// شروع شود")
-        return v
 
 router = APIRouter()
+
+LIBRARY_TERMS_VERSION = "1"
+LIBRARY_TERMS_TEXT = (
+    "با ارسال منبع در کتابخانه موافقت می‌کنید که:\n"
+    "۱) لینک متعلق به خودتان است یا اجازهٔ اشتراک آن را دارید.\n"
+    "۲) محتوا توهین‌آمیز، غیراخلاقی یا ناقض حقوق دیگران نیست.\n"
+    "۳) لینک‌های شکسته، اسپم یا تبلیغاتی ارسال نمی‌کنید.\n"
+    "۴) ادمین می‌تواند منبع را رد، حذف یا ویرایش کند.\n"
+    "۵) مسئولیت صحت محتوا با ارسال‌کننده است."
+)
+TERMS_SETTING_KEY = "library_terms_accepted_v1"
 
 
 def _repo(request: Request) -> LibraryRepository:
     return LibraryRepository(request.app.state.db)
+
+
+def _user_accepted_terms(request: Request, user_id: str) -> bool:
+    val = SettingRepository(request.app.state.db, user_id).get(TERMS_SETTING_KEY)
+    return val == LIBRARY_TERMS_VERSION
+
+
+def _is_admin_user(user: dict) -> bool:
+    return (user.get("role") or "user") == "admin"
 
 
 # ---- bodies ----
@@ -38,6 +43,25 @@ class SubmitItemBody(BaseModel):
     title: str = Field(..., min_length=2, max_length=200)
     description: str = Field("", max_length=2000)
     url: str = Field(..., min_length=8, max_length=2000)
+    topic_id: str | None = Field(None, max_length=64)
+
+
+class TopicBody(BaseModel):
+    title: str = Field(..., min_length=1, max_length=120)
+    sort_order: int = Field(0, ge=0, le=100000)
+
+
+class TopicUpdateBody(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=120)
+    sort_order: int | None = Field(None, ge=0, le=100000)
+
+
+class ItemUpdateBody(BaseModel):
+    title: str | None = Field(None, min_length=2, max_length=200)
+    description: str | None = Field(None, max_length=2000)
+    url: str | None = Field(None, min_length=8, max_length=2000)
+    topic_id: str | None = Field(None, max_length=64)
+    clear_topic: bool = False
 
 
 class RatingBody(BaseModel):
@@ -74,40 +98,35 @@ class CatalogUpdateBody(BaseModel):
     is_active: bool | None = None
     sort_order: int | None = Field(None, ge=0, le=100000)
 
-def _item_out(repo: LibraryRepository, it: dict, user_id: str, fav_ids: set[str]) -> dict:
-    return {
-        "id": it["id"],
-        "course_name": it["course_name"],
-        "title": it["title"],
-        "description": it["description"],
-        "url": it["url"],
-        "avg_rating": it["avg_rating"],
-        "rating_count": it["rating_count"],
-        "report_count": it["report_count"],
-        "submitter_name": it.get("submitter_name"),
-        "created_at": it["created_at"],
-        "my_rating": repo.get_user_rating(it["id"], user_id),
-        "is_favorite": it["id"] in fav_ids,
-    }
 
 # ---- public / user endpoints ----
 
 @router.get("/courses")
 async def list_courses(request: Request, term: str | None = None, scope: str = "all") -> dict:
-    """لیست کاتالوگ درس‌های کتابخانه.
+    """لیست درس‌های کتابخانه.
 
-    scope=all → همه درس‌های فعال
-    scope=current_term → فقط ترم جاری (پارامتر term یا آخرین ترم کاتالوگ)
+    scope=all → فقط درس‌هایی که حداقل یک منبع تاییدشده دارند
+    scope=current_term / my_courses → فقط دروس فعال ثبت‌نام‌شده کاربر
+      که در کاتالوگ هم هستند (match با نام یا کد)
     """
-    get_current_user(request)
+    user = get_current_user(request)
     repo = _repo(request)
-    filter_term: str | None = None
-    if scope == "current_term":
-        filter_term = (term or "").strip() or repo.latest_term()
-    elif term:
-        filter_term = term.strip()
 
-    courses = repo.list_courses(term=filter_term)
+    if scope in ("current_term", "my_courses"):
+        from src.storage.repositories.course_repo import CourseRepository
+
+        user_courses = CourseRepository(request.app.state.db, user["id"]).get_active()
+        names = [c.name for c in user_courses if c.name]
+        codes = [c.code for c in user_courses if c.code]
+        courses = repo.filter_catalog_by_user_courses(names, codes)
+        filter_term = None
+    else:
+        # all → فقط با منبع
+        courses = repo.list_courses_with_items()
+        filter_term = (term or "").strip() or None
+        if filter_term:
+            courses = [c for c in courses if (c.get("term") or "") == filter_term]
+
     return {
         "ok": True,
         "scope": scope,
@@ -132,68 +151,223 @@ async def course_names_autocomplete(request: Request) -> dict:
     get_current_user(request)
     return {"ok": True, "names": _repo(request).list_course_names_for_autocomplete()}
 
-@router.get("/terms")
-async def terms_status(request: Request) -> dict:
+
+@router.get("/courses/{course_name}")
+async def list_items_for_course(
+    request: Request,
+    course_name: str,
+    topic_id: str | None = None,
+    uncategorized: bool = False,
+) -> dict:
     user = get_current_user(request)
+    repo = _repo(request)
+    topics = repo.list_topics(course_name)
+    items = repo.list_approved_for_course(
+        course_name,
+        topic_id=topic_id,
+        uncategorized_only=uncategorized and not topic_id,
+    )
+    is_admin = _is_admin_user(user)
+    result = []
+    for it in items:
+        my_rating = repo.get_user_rating(it["id"], user["id"])
+        is_owner = it.get("submitted_by") == user["id"]
+        result.append(
+            {
+                "id": it["id"],
+                "course_name": it["course_name"],
+                "title": it["title"],
+                "description": it["description"],
+                "url": it["url"],
+                "avg_rating": it["avg_rating"],
+                "rating_count": it["rating_count"],
+                "report_count": it["report_count"],
+                "submitter_name": it.get("submitter_name"),
+                "submitted_by": it.get("submitted_by"),
+                "created_at": it["created_at"],
+                "my_rating": my_rating,
+                "topic_id": it.get("topic_id"),
+                "topic_title": it.get("topic_title"),
+                "can_edit": is_admin or is_owner,
+                "can_assign_topic": is_admin,
+            }
+        )
     return {
         "ok": True,
-        "version": TERMS_VERSION,
-        "accepted": _repo(request).has_accepted_terms(user["id"]),
+        "course_name": course_name,
+        "topics": [
+            {
+                "id": t["id"],
+                "title": t["title"],
+                "sort_order": t.get("sort_order") or 0,
+                "item_count": t.get("item_count") or 0,
+            }
+            for t in topics
+        ],
+        "items": result,
+        "active_topic_id": topic_id,
+    }
+
+
+@router.get("/courses/{course_name}/topics")
+async def list_course_topics(request: Request, course_name: str) -> dict:
+    get_current_user(request)
+    topics = _repo(request).list_topics(course_name)
+    return {
+        "ok": True,
+        "course_name": course_name,
+        "topics": [
+            {
+                "id": t["id"],
+                "title": t["title"],
+                "sort_order": t.get("sort_order") or 0,
+                "item_count": t.get("item_count") or 0,
+            }
+            for t in topics
+        ],
+    }
+
+
+@router.post("/admin/courses/{course_name}/topics")
+async def admin_create_topic(request: Request, course_name: str, body: TopicBody) -> dict:
+    admin = require_admin(request)
+    try:
+        row = _repo(request).create_topic(
+            course_name=course_name,
+            title=body.title,
+            sort_order=body.sort_order,
+            created_by=admin["id"],
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {
+        "ok": True,
+        "topic": {
+            "id": row["id"],
+            "course_name": row["course_name"],
+            "title": row["title"],
+            "sort_order": row.get("sort_order") or 0,
+        },
+    }
+
+
+@router.patch("/admin/topics/{topic_id}")
+async def admin_update_topic(request: Request, topic_id: str, body: TopicUpdateBody) -> dict:
+    require_admin(request)
+    try:
+        row = _repo(request).update_topic(
+            topic_id,
+            title=body.title,
+            sort_order=body.sort_order,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    if not row:
+        raise HTTPException(404, "تاپیک یافت نشد")
+    return {
+        "ok": True,
+        "topic": {
+            "id": row["id"],
+            "course_name": row["course_name"],
+            "title": row["title"],
+            "sort_order": row.get("sort_order") or 0,
+        },
+    }
+
+
+@router.delete("/admin/topics/{topic_id}")
+async def admin_delete_topic(request: Request, topic_id: str) -> dict:
+    require_admin(request)
+    ok = _repo(request).delete_topic(topic_id)
+    if not ok:
+        raise HTTPException(404, "تاپیک یافت نشد")
+    return {"ok": True}
+
+
+@router.get("/terms")
+async def get_library_terms(request: Request) -> dict:
+    """متن قوانین + وضعیت قبول کاربر. ادمین همیشه accepted=true."""
+    user = get_current_user(request)
+    is_admin = _is_admin_user(user)
+    accepted = True if is_admin else _user_accepted_terms(request, user["id"])
+    return {
+        "ok": True,
+        "version": LIBRARY_TERMS_VERSION,
+        "text": LIBRARY_TERMS_TEXT,
+        "accepted": accepted,
+        "required": not is_admin,
+        "is_admin": is_admin,
     }
 
 
 @router.post("/terms/accept")
-async def terms_accept(request: Request) -> dict:
+async def accept_library_terms(request: Request) -> dict:
+    """ثبت قبول قوانین. برای ادمین no-op موفق."""
     user = get_current_user(request)
-    _repo(request).accept_terms(user["id"])
-    return {"ok": True, "version": TERMS_VERSION}
+    if _is_admin_user(user):
+        return {"ok": True, "accepted": True, "skipped": True, "reason": "admin"}
+    SettingRepository(request.app.state.db, user["id"]).set(
+        TERMS_SETTING_KEY, LIBRARY_TERMS_VERSION
+    )
+    return {"ok": True, "accepted": True, "version": LIBRARY_TERMS_VERSION}
 
-@router.get("/courses/{course_name}")
-async def list_items_for_course(request: Request, course_name: str) -> dict:
-    user = get_current_user(request)
-    repo = _repo(request)
-    fav_ids = repo.favorite_ids(user["id"])
-    items = repo.list_approved_for_course(course_name)
-    return {
-        "ok": True,
-        "course_name": course_name,
-        "items": [_item_out(repo, it, user["id"], fav_ids) for it in items],
-    }
 
-@router.get("/favorites")
-async def my_favorites(request: Request) -> dict:
+@router.patch("/items/{item_id}")
+async def update_item(request: Request, item_id: str, body: ItemUpdateBody) -> dict:
+    """ویرایش منبع: ادمین یا ارسال‌کننده."""
     user = get_current_user(request)
     repo = _repo(request)
-    fav_ids = repo.favorite_ids(user["id"])
-    return {
-        "ok": True,
-        "items": [_item_out(repo, it, user["id"], fav_ids) for it in repo.list_favorites(user["id"])],
-    }
-
-
-@router.post("/items/{item_id}/favorite")
-async def toggle_favorite(request: Request, item_id: str) -> dict:
-    user = get_current_user(request)
+    item = repo.get_item(item_id)
+    if not item:
+        raise HTTPException(404, "منبع یافت نشد")
+    is_admin = _is_admin_user(user)
+    is_owner = item.get("submitted_by") == user["id"]
+    if not (is_admin or is_owner):
+        raise HTTPException(403, "فقط ادمین یا ارسال‌کننده می‌تواند ویرایش کند")
+    # تغییر تاپیک فقط برای ادمین
+    if (body.topic_id is not None or body.clear_topic) and not is_admin:
+        raise HTTPException(403, "فقط ادمین می‌تواند تاپیک را تغییر دهد")
     try:
-        fav = _repo(request).toggle_favorite(item_id, user["id"])
+        updated = repo.update_item(
+            item_id,
+            title=body.title,
+            description=body.description,
+            url=body.url,
+            topic_id=body.topic_id,
+            clear_topic=body.clear_topic,
+        )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    return {"ok": True, "favorited": fav}
+    return {
+        "ok": True,
+        "item": {
+            "id": updated["id"],
+            "title": updated["title"],
+            "description": updated.get("description") or "",
+            "url": updated["url"],
+            "topic_id": updated.get("topic_id"),
+            "course_name": updated["course_name"],
+        },
+    }
 
 
 @router.post("/items")
 async def submit_item(request: Request, body: SubmitItemBody) -> dict:
     user = get_current_user(request)
-    repo = _repo(request)
-    if not repo.has_accepted_terms(user["id"]):
-        raise HTTPException(403, "ابتدا قوانین و شرایط کتابخانه را بپذیرید")
+    # ادمین نیازی به قبول قوانین ندارد؛ بقیه باید قبول کرده باشند
+    if not _is_admin_user(user) and not _user_accepted_terms(request, user["id"]):
+        raise HTTPException(
+            403,
+            "قبل از ارسال منبع باید قوانین کتابخانه را بپذیرید",
+        )
     try:
-        item = repo.create_item(
+        item = _repo(request).create_item(
             course_name=body.course_name,
             title=body.title,
             description=body.description,
             url=body.url,
             user_id=user["id"],
+            topic_id=body.topic_id,
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
@@ -204,6 +378,7 @@ async def submit_item(request: Request, body: SubmitItemBody) -> dict:
             "course_name": item["course_name"],
             "title": item["title"],
             "status": item["status"],
+            "topic_id": item.get("topic_id"),
             "created_at": item["created_at"],
         },
         "message": "ارسال شد و پس از تایید ادمین نمایش داده می‌شود",
@@ -223,6 +398,7 @@ async def get_item_detail(request: Request, item_id: str) -> dict:
 
     comments = repo.list_comments(item_id) if item["status"] == "approved" else []
     my_rating = repo.get_user_rating(item_id, user["id"]) if item["status"] == "approved" else None
+    is_owner = item.get("submitted_by") == user["id"]
     return {
         "ok": True,
         "item": {
@@ -230,15 +406,18 @@ async def get_item_detail(request: Request, item_id: str) -> dict:
             "course_name": item["course_name"],
             "title": item["title"],
             "description": item["description"],
-            "is_favorite": item_id in repo.favorite_ids(user["id"]),
             "url": item["url"],
             "status": item["status"],
             "avg_rating": item["avg_rating"],
             "rating_count": item["rating_count"],
             "report_count": item["report_count"],
             "submitter_name": item.get("submitter_name"),
+            "submitted_by": item.get("submitted_by"),
+            "topic_id": item.get("topic_id"),
             "created_at": item["created_at"],
             "my_rating": my_rating,
+            "can_edit": is_admin or is_owner,
+            "can_assign_topic": is_admin,
         },
         "comments": [
             {
