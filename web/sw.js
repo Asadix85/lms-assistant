@@ -1,5 +1,5 @@
 /* Service Worker — کش استاتیک؛ API همیشه از شبکه */
-const CACHE = "lms-static-v3";
+const CACHE = "lms-static-v4";
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",

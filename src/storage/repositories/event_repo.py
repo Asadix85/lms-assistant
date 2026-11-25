@@ -58,6 +58,65 @@ class EventRepository(BaseRepository):
         )
         return self._from_dict(row) if row else None
 
+    def update_manual(self, event: Event) -> None:
+        """آپدیت کامل رویداد دستی، بدون دست‌زدن به first_seen_at."""
+        if not str(event.id).startswith("manual_"):
+            raise ValueError("فقط رویدادهای دستی قابل ویرایش هستند")
+
+        data = self._to_dict(event)
+
+        self.db.execute(
+            """
+            UPDATE events
+            SET course_id    = ?,
+                title        = ?,
+                event_type   = ?,
+                url          = ?,
+                room_token   = ?,
+                start_at     = ?,
+                end_at       = ?,
+                description  = ?,
+                is_new       = ?,
+                last_seen_at = ?
+            WHERE user_id = ?
+              AND id = ?
+            """,
+            (
+                data["course_id"],
+                data["title"],
+                data["event_type"],
+                data["url"],
+                data["room_token"],
+                data["start_at"],
+                data["end_at"],
+                data["description"],
+                data["is_new"],
+                data["last_seen_at"],
+                self.user_id,
+                data["id"],
+            ),
+        )
+        self.db.connection.commit()
+
+    def delete(self, event_id: str) -> bool:
+        """حذف scoped رویداد دستیِ همین کاربر."""
+        if not str(event_id).startswith("manual_"):
+            return False
+
+        existing = self.db.fetch_one(
+            "SELECT id FROM events WHERE user_id = ? AND id = ?",
+            (self.user_id, event_id),
+        )
+        if not existing:
+            return False
+
+        self.db.execute(
+            "DELETE FROM events WHERE user_id = ? AND id = ?",
+            (self.user_id, event_id),
+        )
+        self.db.connection.commit()
+        return True
+
     def get_all(self) -> list[Event]:
         rows = self.db.fetch_all(
             "SELECT * FROM events WHERE user_id = ? ORDER BY start_at",

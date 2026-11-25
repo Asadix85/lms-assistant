@@ -21,38 +21,29 @@ class AssignmentRepository(BaseRepository):
         if existing:
             self.db.execute(
                 """
-                UPDATE assignments SET
-                    title = ?, description = ?, deadline = ?,
-                    response_count = ?, last_seen_at = ?,
-                    is_manual = ?, is_done = ?
-                WHERE user_id = ? AND id = ?
+                UPDATE assignments
+                SET course_id       = ?,
+                    title           = ?,
+                    description     = ?,
+                    post_id         = ?,
+                    start_at        = ?,
+                    deadline        = ?,
+                    start_at_jalali = ?,
+                    deadline_jalali = ?,
+                    submit_url      = ?,
+                    view_url        = ?,
+                    response_count  = ?,
+                    last_seen_at    = ?
+                WHERE user_id = ?
+                  AND id = ?
                 """,
                 (
-                    data["title"], data["description"], data["deadline"],
+                    data["course_id"], data["title"], data["description"],
+                    data["post_id"], data["start_at"], data["deadline"],
+                    data["start_at_jalali"], data["deadline_jalali"],
+                    data["submit_url"], data["view_url"],
                     data["response_count"], data["last_seen_at"],
-                    data["is_manual"], data["is_done"],
                     self.user_id, data["id"],
-                ),
-            )
-        else:
-            self.db.execute(
-                """
-                INSERT INTO assignments (
-                    user_id, id, course_id, title, description, post_id,
-                    start_at, deadline, start_at_jalali, deadline_jalali,
-                    submit_url, view_url, response_count,
-                    is_new, is_manual, is_done, first_seen_at, last_seen_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    self.user_id,
-                    data["id"], data["course_id"], data["title"],
-                    data["description"], data["post_id"], data["start_at"],
-                    data["deadline"], data["start_at_jalali"],
-                    data["deadline_jalali"], data["submit_url"],
-                    data["view_url"], data["response_count"],
-                    data["is_new"], data["is_manual"], data["is_done"],
-                    data["first_seen_at"], data["last_seen_at"],
                 ),
             )
             logger.debug(f"درج تکلیف جدید: {a.title[:40]}")

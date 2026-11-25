@@ -128,6 +128,59 @@ async def revoke_sessions(request: Request, user_id: str) -> dict:
     _audit(request, admin["id"], "revoke_sessions", target=user_id)
     return {"ok": True, "user_id": user_id, "revoked_by": admin["id"]}
 
+class BulkUsersBody(BaseModel):
+    ids: list[str] = []
+    action: str = Field(..., pattern="^(activate|deactivate|revoke)$")
+
+
+@router.post("/users/bulk")
+async def bulk_user_action(request: Request, body: BulkUsersBody) -> dict:
+    """عملیات گروهی با رعایت همان محافظ‌های تک‌کاربره."""
+    admin = require_admin(request)
+    repo = _repo(request)
+    updated: list[str] = []
+    skipped: list[dict] = []
+
+    for uid in (body.ids or [])[:200]:
+        target = repo.get_by_id(uid)
+        if not target:
+            skipped.append({"id": uid, "reason": "not_found"})
+            continue
+
+        if body.action == "deactivate":
+            if uid == admin["id"]:
+                skipped.append({"id": uid, "reason": "self"})
+                continue
+            if target.get("role") == "admin" and repo.count_admins() <= 1:
+                skipped.append({"id": uid, "reason": "last_admin"})
+                continue
+            if not repo.set_active(uid, False):
+                skipped.append({"id": uid, "reason": "failed"})
+                continue
+            repo.delete_user_sessions(uid)
+            try:
+                request.app.state.session.logout_user(uid)
+            except Exception:
+                pass
+            _audit(request, admin["id"], "set_active", target=uid, detail="False")
+
+        elif body.action == "activate":
+            if not repo.set_active(uid, True):
+                skipped.append({"id": uid, "reason": "failed"})
+                continue
+            _audit(request, admin["id"], "set_active", target=uid, detail="True")
+
+        else:  # revoke
+            repo.delete_user_sessions(uid)
+            try:
+                request.app.state.session.logout_user(uid)
+            except Exception:
+                pass
+            _audit(request, admin["id"], "revoke_sessions", target=uid)
+
+        updated.append(uid)
+
+    return {"ok": True, "updated": updated, "skipped": skipped}
 
 from pathlib import Path
 import shutil
