@@ -1,0 +1,83 @@
+[
+  {
+    "name": "انقلاب اسلامی ایران",
+    "code": "28-22-074",
+    "term": "01",
+    "id": "133751",
+    "domain": "lms3",
+    "teacher": "عبدالرسول مشکات",
+    "url": "https://lms3.ui.ac.ir/nodeg/f36ahcuf8agb5d3pa5v24kg9p5/133751/2"
+  },
+  {
+    "name": "آمار و احتمال مهندسی",
+    "code": "40-12-355",
+    "term": "02",
+    "id": "134690",
+    "domain": "lms3",
+    "teacher": "وحید نکوخو",
+    "url": "https://lms3.ui.ac.ir/nodeg/f36ahcuf8agb5d3pa5v24kg9p5/134690/2"
+  },
+  {
+    "name": "زبان تخصصی",
+    "code": "36-20-011",
+    "term": "02",
+    "id": "134241",
+    "domain": "lms4",
+    "teacher": "حمید ملا",
+    "url": "https://lms4.ui.ac.ir/group/134241"
+  },
+  {
+    "name": "مدارهای منطقی",
+    "code": "36-20-009",
+    "term": "02",
+    "id": "134238",
+    "domain": "lms4",
+    "teacher": "زهره بیکی",
+    "url": "https://lms4.ui.ac.ir/group/134238"
+  },
+  {
+    "name": "آزمایشگاه فیزیک پایه 2",
+    "code": "42-12-559",
+    "term": "03",
+    "id": "134830",
+    "domain": "lms3",
+    "teacher": "غلامرضا راشدی",
+    "url": "https://lms3.ui.ac.ir/nodeg/f36ahcuf8agb5d3pa5v24kg9p5/134830/2"
+  },
+  {
+    "name": "ساختمان داده",
+    "code": "36-20-319",
+    "term": "03",
+    "id": "134345",
+    "domain": "lms4",
+    "teacher": "هادی تابع الحجه",
+    "url": "https://lms4.ui.ac.ir/group/134345"
+  },
+  {
+    "name": "مدارهای الکتریکی و الکترونیکی",
+    "code": "36-20-313",
+    "term": "04",
+    "id": "139710",
+    "domain": "lms4",
+    "teacher": "کمال جمشیدی",
+    "url": "https://lms4.ui.ac.ir/group/139710"
+  },
+  {
+    "name": "تربیت بدنی برادران",
+    "code": "13-12-845",
+    "term": "10",
+    "id": "131559",
+    "domain": "lms4",
+    "teacher": "محمدعلی شمس",
+    "url": "https://lms4.ui.ac.ir/group/131559"
+  },
+  {
+    "name": "دانش خانواده و جمعیت",
+    "code": "28-22-088",
+    "term": "25",
+    "id": "140060",
+    "domain": "lms3",
+    "teacher": "محمد عابدینی",
+    "url": "https://lms3.ui.ac.ir/nodeg/f36ahcuf8agb5d3pa5v24kg9p5/140060/2"
+  }
+]

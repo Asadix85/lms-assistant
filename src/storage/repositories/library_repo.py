@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from src.storage.database import Database
 from src.web.security import utcnow_iso
+TERMS_VERSION = "1"   # با عوض کردن متن قوانین، این را بالا ببرید تا همه دوباره بپذیرند
 
 
 def _normalize_course_name(name: str) -> str:
@@ -369,6 +370,8 @@ class LibraryRepository:
         return self.get_item(item_id)
 
     def delete_item(self, item_id: str) -> bool:
+        self._ensure_fav_table()
+        self.db.execute("DELETE FROM library_favorites WHERE item_id = ?", (item_id,))
         cur = self.db.execute("DELETE FROM library_items WHERE id = ?", (item_id,))
         self.db.connection.commit()
         return cur.rowcount > 0
@@ -457,6 +460,100 @@ class LibraryRepository:
             """,
             (item_id,),
         )
+
+    # ------------------------------------------------------------------ favorites
+    def _ensure_fav_table(self) -> None:
+        self.db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS library_favorites (
+                user_id    TEXT NOT NULL,
+                item_id    TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, item_id)
+            )
+            """
+        )
+        self.db.connection.commit()
+
+    def toggle_favorite(self, item_id: str, user_id: str) -> bool:
+        """True اگر بعد از عملیات ذخیره شده باشد."""
+        self._ensure_fav_table()
+        item = self.get_item(item_id)
+        if not item or item["status"] != "approved":
+            raise ValueError("آیتم یافت نشد یا هنوز تایید نشده")
+        existing = self.db.fetch_one(
+            "SELECT 1 AS ok FROM library_favorites WHERE user_id = ? AND item_id = ?",
+            (user_id, item_id),
+        )
+        if existing:
+            self.db.execute(
+                "DELETE FROM library_favorites WHERE user_id = ? AND item_id = ?",
+                (user_id, item_id),
+            )
+            fav = False
+        else:
+            self.db.execute(
+                "INSERT INTO library_favorites (user_id, item_id, created_at) VALUES (?, ?, ?)",
+                (user_id, item_id, utcnow_iso()),
+            )
+            fav = True
+        self.db.connection.commit()
+        return fav
+
+    def favorite_ids(self, user_id: str) -> set[str]:
+        self._ensure_fav_table()
+        rows = self.db.fetch_all(
+            "SELECT item_id FROM library_favorites WHERE user_id = ?", (user_id,)
+        )
+        return {r["item_id"] for r in rows}
+
+    def list_favorites(self, user_id: str) -> list[dict[str, Any]]:
+        self._ensure_fav_table()
+        return self.db.fetch_all(
+            """
+            SELECT i.*, u.full_name AS submitter_name
+              FROM library_favorites f
+              JOIN library_items i ON i.id = f.item_id
+              LEFT JOIN users u ON u.id = i.submitted_by
+             WHERE f.user_id = ? AND i.status = 'approved'
+             ORDER BY f.created_at DESC
+            """,
+            (user_id,),
+        )
+
+    # ------------------------------------------------------------------ terms
+    def _ensure_terms_table(self) -> None:
+        self.db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS library_terms_acceptance (
+                user_id     TEXT NOT NULL,
+                version     TEXT NOT NULL,
+                accepted_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, version)
+            )
+            """
+        )
+        self.db.connection.commit()
+
+    def has_accepted_terms(self, user_id: str, version: str = TERMS_VERSION) -> bool:
+        self._ensure_terms_table()
+        row = self.db.fetch_one(
+            "SELECT 1 AS ok FROM library_terms_acceptance WHERE user_id = ? AND version = ?",
+            (user_id, version),
+        )
+        return bool(row)
+
+    def accept_terms(self, user_id: str, version: str = TERMS_VERSION) -> None:
+        self._ensure_terms_table()
+        self.db.execute(
+            """
+            INSERT INTO library_terms_acceptance (user_id, version, accepted_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, version) DO NOTHING
+            """,
+            (user_id, version, utcnow_iso()),
+        )
+        self.db.connection.commit()
 
     # ------------------------------------------------------------------ reports
     def report_item(self, item_id: str, user_id: str, reason: str = "") -> dict[str, Any]:

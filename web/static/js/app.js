@@ -84,9 +84,18 @@ function eventMeta(type) {
 
 // ---------- Theme ----------
 
+const ICON_SUN = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`;
+const ICON_MOON = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5z"/></svg>`;
+const ICON_SEARCH = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16.5 20 20.5"/></svg>`;
+const ICON_CHECK = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.2 2.3 2.3 4.7-5"/></svg>`;
+const ICON_CLOCK = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.5"/></svg>`;
+const ICON_FILE = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V8h4.5"/></svg>`;
+const ICON_BOOK = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/></svg>`;
+
 function setTheme(theme) {
   document.body.dataset.theme = theme;
-  $("#btn-theme").textContent = theme === "dark" ? "☀️" : "🌙";
+  const btn = $("#btn-theme");
+  if (btn) btn.innerHTML = theme === "dark" ? ICON_SUN : ICON_MOON;
   document.querySelector('meta[name="theme-color"]').content =
     theme === "dark" ? "#0e1118" : "#4f46e5";
   localStorage.setItem("lms-theme", theme);
@@ -300,7 +309,7 @@ function setSyncButton(running) {
   const btn = $("#btn-sync");
   btn.disabled = running;
   btn.querySelector(".sync-spinner").classList.toggle("hidden", !running);
-  btn.querySelector(".btn-sync-label").textContent = running ? "در حال همگام‌سازی…" : "🔄 همگام‌سازی";
+  btn.querySelector(".btn-sync-label").textContent = running ? "در حال همگام‌سازی…" : "همگام‌سازی";
 }
 
 $("#btn-sync").addEventListener("click", async () => {
@@ -1078,7 +1087,7 @@ async function renderAssignments() {
               urgency = "کمتر از ۴۸ ساعت";
             return `
         <div class="list-row">
-          <span class="row-icon">${a.is_done ? "✅" : a.is_expired ? "⏰" : "📝"}</span>
+          <span class="row-icon">${a.is_done ? ICON_CHECK : a.is_expired ? ICON_CLOCK : ICON_FILE}</span>
           <div class="row-body">
             <div class="row-title">
               ${
@@ -2945,36 +2954,90 @@ async function renderLibraryCourses() {
   }
   const courses = data.courses || [];
   const termLabel = data.term ? `ترم ${esc(data.term)}` : "ترم جاری";
+  const paintCourses = (list) => list.length === 0
+    ? `<div class="empty"><span class="empty-icon">${ICON_BOOK}</span>درسی در این فیلتر نیست<small>${
+        _libScope === "current_term"
+          ? "یا کاتالوگ خالی است یا برای " + termLabel + " درسی ثبت نشده — ادمین باید درس‌ها را اضافه کند"
+          : "ادمین هنوز درسی به کاتالوگ کتابخانه اضافه نکرده"
+      }</small></div>`
+    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
+        ${list.map(c => `
+          <a href="#/library/${encodeURIComponent(c.course_name)}" class="ios-card" style="text-decoration:none">
+            <div class="ios-card-icon">${ICON_BOOK}</div>
+            <div class="ios-card-title">${esc(c.course_name)}</div>
+            <div class="ios-card-desc">
+              ${faDigits(String(c.item_count))} منبع
+              ${c.term ? ` · ترم ${faDigits(String(c.term))}` : ""}
+              ${c.code ? ` · ${esc(c.code)}` : ""}
+            </div>
+          </a>
+        `).join("")}
+      </div>`;
+
   contentEl.innerHTML = `
     ${pageHead("کتابخانه", "جزوه، آزمایش و لینک‌های مفید — بعد از تایید ادمین نمایش داده می‌شوند")}
+    <div class="search-box" style="margin-bottom:1rem">
+      <span class="search-ico">${ICON_SEARCH}</span>
+      <input id="lib-search" type="search" placeholder="جستجو در نام درس، کد، جزوه یا توضیح…" autocomplete="off" />
+    </div>
+    <div id="lib-search-hits" class="hidden" style="display:flex;flex-direction:column;gap:.65rem;margin-bottom:1rem"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <button class="btn ${_libScope === "all" ? "btn-primary" : "btn-soft"} btn-sm" data-lib-scope="all">همه درس‌ها</button>
         <button class="btn ${_libScope === "current_term" ? "btn-primary" : "btn-soft"} btn-sm" data-lib-scope="current_term">درس‌های این ترم${data.term ? ` (${faDigits(String(data.term))})` : ""}</button>
       </div>
       <button class="btn btn-primary" id="lib-btn-submit-root">+ ارسال منبع جدید</button>
+      <button class="btn btn-ghost btn-sm" onclick="showLibraryTerms()">⚖️ قوانین</button>
     </div>
-    ${courses.length === 0
-      ? `<div class="empty"><span class="empty-icon">📚</span>درسی در این فیلتر نیست<small>${
-          _libScope === "current_term"
-            ? "یا کاتالوگ خالی است یا برای " + termLabel + " درسی ثبت نشده — ادمین باید درس‌ها را اضافه کند"
-            : "ادمین هنوز درسی به کاتالوگ کتابخانه اضافه نکرده"
-        }</small></div>`
-      : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">
-          ${courses.map(c => `
-            <a href="#/library/${encodeURIComponent(c.course_name)}" class="ios-card" style="text-decoration:none">
-              <div class="ios-card-icon">📖</div>
-              <div class="ios-card-title">${esc(c.course_name)}</div>
-              <div class="ios-card-desc">
-                ${faDigits(String(c.item_count))} منبع
-                ${c.term ? ` · ترم ${faDigits(String(c.term))}` : ""}
-                ${c.code ? ` · ${esc(c.code)}` : ""}
-              </div>
-            </a>
-          `).join("")}
-        </div>`
-    }
+    <div id="lib-course-grid">${paintCourses(courses)}</div>
   `;
+
+  const itemCache = new Map();
+  let searchTimer = null;
+  const applySearch = () => {
+    const q = ($("#lib-search")?.value || "").trim().toLowerCase();
+    const filtered = !q ? courses : courses.filter((c) =>
+      `${c.course_name || ""} ${c.code || ""} ${c.term || ""}`.toLowerCase().includes(q)
+    );
+    const grid = $("#lib-course-grid");
+    if (grid) grid.innerHTML = paintCourses(filtered);
+    const hits = $("#lib-search-hits");
+    if (!hits) return;
+    if (!q) {
+      hits.classList.add("hidden");
+      hits.innerHTML = "";
+      return;
+    }
+    hits.classList.remove("hidden");
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      hits.innerHTML = `<div class="muted">در حال جستجوی منابع…</div>`;
+      const found = [];
+      await Promise.all(courses.map(async (c) => {
+        const key = c.course_name;
+        try {
+          if (!itemCache.has(key)) {
+            const detail = await api(`/library/courses/${encodeURIComponent(key)}`);
+            itemCache.set(key, detail.items || []);
+          }
+          for (const it of itemCache.get(key)) {
+            const blob = `${it.title || ""} ${it.description || ""} ${key}`.toLowerCase();
+            if (blob.includes(q)) found.push({ ...it, course_name: key });
+          }
+        } catch (_) {}
+      }));
+      if (($("#lib-search")?.value || "").trim().toLowerCase() !== q) return;
+      hits.innerHTML = found.length
+        ? `<div class="muted" style="margin-bottom:.35rem">منابع</div>` + found.map((it) => `
+            <a class="card" href="#/library/${encodeURIComponent(it.course_name)}" style="text-decoration:none;display:block">
+              <div style="font-weight:700">${esc(it.title)}</div>
+              <div class="muted" style="margin-top:.2rem">${esc(it.course_name)}${it.description ? " · " + esc(it.description) : ""}</div>
+            </a>`).join("")
+        : `<div class="muted">منبعی با این عبارت پیدا نشد</div>`;
+    }, 280);
+  };
+  $("#lib-search")?.addEventListener("input", applySearch);
+
   document.querySelectorAll("[data-lib-scope]").forEach((btn) => {
     btn.addEventListener("click", () => {
       _libScope = btn.dataset.libScope;
@@ -2993,19 +3056,32 @@ async function renderLibraryCourse(courseName) {
     return;
   }
   const items = data.items || [];
+  const paintItems = (list) => list.length === 0
+    ? `<div class="empty"><span class="empty-icon">${ICON_BOOK}</span>هنوز منبعی برای این درس تایید نشده</div>`
+    : `<div style="display:flex;flex-direction:column;gap:.85rem">
+        ${list.map(it => libraryItemCard(it)).join("")}
+      </div>`;
   contentEl.innerHTML = `
     ${pageHead(esc(courseName), "منابع تاییدشده این درس")}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
       <a href="#/library" class="btn btn-ghost">← بازگشت به لیست درس‌ها</a>
       <button class="btn btn-primary" id="lib-btn-submit">+ ارسال منبع برای این درس</button>
     </div>
-    ${items.length === 0
-      ? `<div class="empty"><span class="empty-icon">📭</span>هنوز منبعی برای این درس تایید نشده</div>`
-      : `<div style="display:flex;flex-direction:column;gap:.85rem">
-          ${items.map(it => libraryItemCard(it)).join("")}
-        </div>`
-    }
+    <div class="search-box" style="margin-bottom:1rem">
+      <span class="search-ico">${ICON_SEARCH}</span>
+      <input id="lib-item-search" type="search" placeholder="جستجو در عنوان یا توضیح این درس…" />
+    </div>
+    <div id="lib-item-list">${paintItems(items)}</div>
   `;
+  $("#lib-item-search")?.addEventListener("input", () => {
+    const q = ($("#lib-item-search").value || "").trim().toLowerCase();
+    const filtered = !q ? items : items.filter((it) =>
+      `${it.title || ""} ${it.description || ""}`.toLowerCase().includes(q)
+    );
+    const box = $("#lib-item-list");
+    if (box) box.innerHTML = paintItems(filtered);
+    bindLibraryItemActions();
+  });
   $("#lib-btn-submit")?.addEventListener("click", () => openLibrarySubmitModal(courseName));
   bindLibraryItemActions();
 }
@@ -3014,7 +3090,8 @@ function libraryItemCard(it) {
   const stars = "★".repeat(Math.round(it.avg_rating || 0)) + "☆".repeat(5 - Math.round(it.avg_rating || 0));
   const my = it.my_rating ? ` · امتیاز شما: ${faDigits(String(it.my_rating))}` : "";
   return `
-    <div class="card" data-lib-item="${esc(it.id)}" style="display:flex;flex-direction:column;gap:.55rem">
+    <div class="card lib-item-card" data-lib-item="${esc(it.id)}" data-href="#/libitem/${encodeURIComponent(it.id)}" style="display:flex;flex-direction:column;gap:.55rem;cursor:pointer">
+    <a href="#/libitem/${encodeURIComponent(it.id)}" style="font-weight:700;font-size:1.05rem;color:var(--text);text-decoration:none">${esc(it.title)}</a>
       <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
         <div>
           <div style="font-weight:700;font-size:1.05rem">${esc(it.title)}</div>
@@ -3028,6 +3105,7 @@ function libraryItemCard(it) {
           <a class="btn btn-primary" href="${esc(it.url)}" target="_blank" rel="noopener">باز کردن لینک</a>
           <button class="btn btn-ghost lib-rate-btn" data-id="${esc(it.id)}">امتیاز</button>
           <button class="btn btn-ghost lib-comment-btn" data-id="${esc(it.id)}">نظر</button>
+          <button class="btn btn-ghost lib-fav-btn ${it.is_favorite ? "on" : ""}" data-id="${esc(it.id)}">${it.is_favorite ? "♥ ذخیره شد" : "♡ ذخیره"}</button>
           <button class="btn btn-ghost lib-report-btn" data-id="${esc(it.id)}">گزارش</button>
         </div>
       </div>
@@ -3037,6 +3115,19 @@ function libraryItemCard(it) {
 }
 
 function bindLibraryItemActions() {
+  document.querySelectorAll(".lib-fav-btn").forEach((btn) => {
+  btn.onclick = async (e) => {
+    e.stopPropagation();
+    try {
+      const r = await api(`/library/items/${encodeURIComponent(btn.dataset.id)}/favorite`, { method: "POST", body: "{}" });
+      btn.classList.toggle("on", r.favorited);
+      btn.textContent = r.favorited ? "♥ ذخیره شد" : "♡ ذخیره";
+      if (!r.favorited && currentRoute() === "libfav") renderPage("libfav");
+    } catch (err) {
+      toast("❌ " + (err.message || "خطا"));
+    }
+  };
+});
   document.querySelectorAll(".lib-rate-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.id;
@@ -3084,6 +3175,135 @@ function bindLibraryItemActions() {
     btn.addEventListener("click", () => openLibraryReportModal(btn.dataset.id));
   });
 }
+function safeHref(u) {
+  return /^https?:\/\//i.test(String(u || "").trim()) ? esc(String(u).trim()) : "#";
+}
+
+function jalaliDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(String(iso).replace(" ", "T") + (String(iso).includes("Z") ? "" : "Z"));
+  if (Number.isNaN(d.getTime())) return esc(iso);
+  const j = d2j(g2d(d.getFullYear(), d.getMonth() + 1, d.getDate()));
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${faDigits(j.jd)} ${J_MONTHS[j.jm - 1]} ${faDigits(j.jy)} · ${faDigits(hm)}`;
+}
+
+async function renderLibraryItem(id) {
+  let data;
+  try {
+    data = await api(`/library/items/${encodeURIComponent(id)}`);
+  } catch (e) {
+    contentEl.innerHTML = `<div class="empty"><span class="empty-icon">❌</span>منبع پیدا نشد<small>${esc(e.message)}</small></div>`;
+    return;
+  }
+  const it = data.item;
+  const comments = data.comments || [];
+  const approved = it.status === "approved";
+  let host = "";
+  try { host = new URL(it.url).hostname.replace(/^www\./, ""); } catch (_) {}
+
+  const stars = [1, 2, 3, 4, 5].map((n) =>
+    `<button type="button" class="lib-star ${n <= (it.my_rating || 0) ? "on" : ""}" data-score="${n}" aria-label="امتیاز ${n}" ${approved ? "" : "disabled"}>★</button>`
+  ).join("");
+
+  const commentsHtml = comments.length
+    ? comments.map((c) => `
+        <div class="lib-comment">
+          <div class="lib-comment-head">
+            <strong>${esc(c.author_name || "کاربر")}</strong>
+            <span class="muted">${jalaliDateTime(c.created_at)}</span>
+          </div>
+          <div style="white-space:pre-wrap">${esc(c.body)}</div>
+        </div>`).join("")
+    : `<div class="empty muted" style="padding:1.4rem"><span class="empty-icon">💬</span>هنوز نظری ثبت نشده</div>`;
+
+  contentEl.innerHTML = `
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <a href="#/library/${encodeURIComponent(it.course_name)}" class="btn btn-ghost btn-sm">← ${esc(it.course_name)}</a>
+      <a href="#/library" class="btn btn-ghost btn-sm">همه‌ی درس‌ها</a>
+    </div>
+
+    ${approved ? "" : `<div class="terms-warn"><span>⏳</span><p>این منبع هنوز تایید نشده و فقط برای شما و ادمین نمایش داده می‌شود (وضعیت: ${esc(it.status)}).</p></div>`}
+
+    <div class="card lib-hero">
+      <div class="lib-hero-top">
+        <span class="lib-hero-ico">${ICON_BOOK}</span>
+        <div style="min-width:0;flex:1">
+          <h3 class="lib-hero-title">${esc(it.title)}</h3>
+          <div class="lib-hero-meta">
+            <span class="badge badge-domain">${esc(it.course_name)}</span>
+            ${it.submitter_name ? `<span>👤 ${esc(it.submitter_name)}</span>` : ""}
+            <span>🗓 ${jalaliDateTime(it.created_at)}</span>
+          </div>
+        </div>
+      </div>
+
+      ${it.description ? `<p class="lib-hero-desc">${esc(it.description)}</p>` : ""}
+
+      <div class="lib-link-box">
+        <div style="min-width:0">
+          <div class="muted">لینک منبع</div>
+          <div class="lib-host" dir="ltr">${esc(host || it.url)}</div>
+        </div>
+        <a class="btn btn-primary" href="${safeHref(it.url)}" target="_blank" rel="noopener noreferrer nofollow">باز کردن ↗</a>
+      </div>
+      <p class="muted" style="font-size:.74rem">این لینک را کاربران ارسال کرده‌اند و محتوای سایت مقصد زیر نظر این سایت نیست. اگر مشکل حقوقی یا امنیتی دارد گزارش دهید.</p>
+    </div>
+
+    <div class="grid-2" style="align-items:start">
+      <div class="card">
+        <div class="card-head"><h3 class="section-title">⭐ امتیاز</h3></div>
+        <div class="lib-rating-row">
+          <div class="lib-stars" id="lib-stars">${stars}</div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:800">${faDigits(String(it.avg_rating || 0))}</div>
+            <div class="muted">${faDigits(String(it.rating_count || 0))} رای${it.my_rating ? ` · امتیاز شما ${faDigits(String(it.my_rating))}` : ""}</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <button class="btn btn-ghost btn-sm" id="lib-detail-report">🚩 گزارش مشکل / نقض حقوق</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3 class="section-title">💬 نظرات (${faDigits(String(comments.length))})</h3></div>
+        <div id="lib-comment-list" class="item-list">${commentsHtml}</div>
+        ${approved ? `
+        <form id="lib-comment-form" class="lib-comment-form">
+          <textarea id="lib-comment-body" class="input" rows="3" maxlength="2000" placeholder="نظر یا تجربه‌ی خود را بنویسید…" required></textarea>
+          <button class="btn btn-primary btn-sm" type="submit" style="align-self:flex-start">ثبت نظر</button>
+        </form>` : ""}
+      </div>
+    </div>
+  `;
+
+  contentEl.querySelectorAll(".lib-star").forEach((b) => {
+    b.addEventListener("click", async () => {
+      try {
+        await api(`/library/items/${encodeURIComponent(it.id)}/rating`, {
+          method: "POST", body: JSON.stringify({ score: Number(b.dataset.score) }),
+        });
+        toast("امتیاز ثبت شد");
+        renderLibraryItem(id);
+      } catch (e) { toast("❌ " + (e.message || "خطا")); }
+    });
+  });
+
+  $("#lib-comment-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = $("#lib-comment-body").value.trim();
+    if (!body) return;
+    try {
+      await api(`/library/items/${encodeURIComponent(it.id)}/comments`, {
+        method: "POST", body: JSON.stringify({ body }),
+      });
+      toast("نظر ثبت شد");
+      renderLibraryItem(id);
+    } catch (e2) { toast("❌ " + (e2.message || "خطا")); }
+  });
+
+  $("#lib-detail-report")?.addEventListener("click", () => openLibraryReportModal(it.id));
+}
 
 function closeGlassModal(modal) {
   if (!modal || !modal.parentNode) return;
@@ -3115,7 +3335,83 @@ function openGlassModal({ id, title, bodyHtml, onMount }) {
   return modal;
 }
 
+// ---------- قوانین کتابخانه (یک‌بار برای هر کاربر/مرورگر) ----------
+const LIB_TERMS_KEY = "lib-terms-accepted-v1";
+
+let _libTermsOk = false;
+
+async function libraryTermsAccepted() {
+  if (_libTermsOk) return true;
+  try {
+    const r = await api("/library/terms");
+    _libTermsOk = !!r.accepted;
+  } catch (_) {
+    _libTermsOk = false;
+  }
+  return _libTermsOk;
+}
+
+function showLibraryTerms() {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (v) => { if (!settled) { settled = true; resolve(v); } };
+
+    openGlassModal({
+      id: "lib-terms-modal",
+      title: "قبل از ارسال منبع بخوانید",
+      bodyHtml: `
+        <div class="terms-box">
+          <div class="terms-warn">
+            <span>⚖️</span>
+            <p>این کتابخانه فقط <strong>لینک</strong> منابع را نگه می‌دارد و فایلی روی سرور ذخیره نمی‌کند.
+            مسئولیت قانونی هر منبع با <strong>ارسال‌کننده</strong> است.</p>
+          </div>
+          <ul class="terms-list">
+            <li><b>✅ مجاز:</b> جزوه‌ی دست‌نوشته یا تایپ‌شده‌ی خودتان، منابع رایگان و عمومی، لینک سایت‌های رسمی، و منابعی که مالک اجازه‌ی اشتراک داده است.</li>
+            <li><b>⛔ ممنوع:</b> کتاب، جزوه یا ویدیوی دزدی و کپی‌شده (PDF اسکن‌شده‌ی کتاب‌های چاپی، دوره‌های پولی، نرم‌افزار کرک‌شده).</li>
+            <li><b>⛔ ممنوع:</b> سؤالات امتحانی لو رفته، محتوای شخصی دیگران، و هر لینک مخرب یا تبلیغاتی.</li>
+            <li><b>🛡 بررسی:</b> ادمین هر منبع را قبل از انتشار بررسی می‌کند و می‌تواند هر مورد را بدون اطلاع قبلی رد یا حذف کند.</li>
+            <li><b>🚩 گزارش:</b> اگر مالک اثر یا کاربری منبعی را ناقض حقوق خود می‌داند، با دکمه‌ی «گزارش» یا از بخش پشتیبانی اعلام کند؛ منبع سریعاً بررسی و حذف می‌شود.</li>
+            <li><b>⚠️ تخلف مکرر:</b> ارسال محتوای ناقض حقوق دیگران باعث محدود شدن حساب می‌شود.</li>
+          </ul>
+          <label class="terms-check">
+            <input type="checkbox" id="lib-terms-ok" />
+            <span>می‌پذیرم که منبع ارسالی از آنِ خودم است یا اجازه‌ی اشتراک آن را دارم و مسئولیت آن را می‌پذیرم.</span>
+          </label>
+          <div style="display:flex;gap:.5rem;justify-content:flex-end">
+            <button class="btn btn-ghost" id="lib-terms-cancel">انصراف</button>
+            <button class="btn btn-primary" id="lib-terms-accept" disabled>قبول می‌کنم و ادامه می‌دهم</button>
+          </div>
+        </div>
+      `,
+      onMount: (modal) => {
+        const ok = $("#lib-terms-ok");
+        const accept = $("#lib-terms-accept");
+        ok.addEventListener("change", () => { accept.disabled = !ok.checked; });
+        $("#lib-terms-cancel").onclick = () => { settle(false); closeGlassModal(modal); };
+        modal.addEventListener("click", (e) => { if (e.target === modal) settle(false); });
+        accept.onclick = async () => {
+        accept.disabled = true;
+        try {
+          await api("/library/terms/accept", { method: "POST", body: "{}" });
+          _libTermsOk = true;
+          settle(true);
+          closeGlassModal(modal);
+        } catch (e) {
+          accept.disabled = false;
+          toast("❌ " + (e.message || "ثبت پذیرش ناموفق بود"));
+        }
+      };
+      },
+    });
+  });
+}
+
 async function openLibrarySubmitModal(prefillCourse = "") {
+  if (!(await libraryTermsAccepted())) {
+    const ok = await showLibraryTerms();
+    if (!ok) return;
+  }
   let names = [];
   try {
     const r = await api("/library/course-names");
@@ -3148,6 +3444,7 @@ async function openLibrarySubmitModal(prefillCourse = "") {
         <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.25rem">
           <button class="btn btn-ghost" id="lib-cancel">انصراف</button>
           <button class="btn btn-primary" id="lib-submit">ارسال برای تایید</button>
+          <p class="muted" style="margin:0">با ارسال، تایید می‌کنید که منبع ناقض حقوق دیگران نیست.</p>
         </div>
       </div>
     `,
@@ -3216,6 +3513,23 @@ function openLibraryReportModal(itemId) {
   });
 }
 
+window.toggleAssignment = async (id, done) => {
+  const want = !!done;
+  const raw = String(id);
+  const isQuera = raw.startsWith("quera_");
+  const path = isQuera
+    ? `/quera/assignments/${encodeURIComponent(raw.slice("quera_".length))}/done?done=${want}`
+    : `/assignments/${encodeURIComponent(raw)}/done?done=${want}`;
+  try {
+    const res = await api(path, { method: "POST", body: "{}" });
+    if (res && res.ok === false) throw new Error(res.error || "تکلیف پیدا نشد");
+    toast(want ? "تکلیف انجام‌شده علامت خورد" : "علامت انجام برداشته شد");
+    renderPage(currentRoute());
+  } catch (e) {
+    toast(e && e.message ? e.message : "ثبت انجام تکلیف ناموفق بود");
+  }
+};
+
 // ---------- Router ----------
 
 function currentRoute() {
@@ -3229,11 +3543,9 @@ function setPageTitle(route) {
   else if (route.startsWith("library")) page = "library";
   $("#page-title").textContent =
     TITLES[route] ||
-    (route.startsWith("course/")
-      ? "جزئیات درس"
-      : route.startsWith("library/")
-        ? "کتابخانه"
-        : "داشبورد");
+    (route.startsWith("course/") ? "جزئیات درس"
+   : route.startsWith("libitem/") ? "جزئیات منبع"
+   : route.startsWith("library/") ? "کتابخانه" : "داشبورد");
   document.querySelectorAll(".nav-item").forEach((el) => {
     el.classList.toggle("active", el.dataset.page === page);
   });
@@ -3263,6 +3575,8 @@ async function renderPage(route) {
 
     if (route.startsWith("course/")) {
       await renderCourseDetail(decodeURIComponent(route.slice("course/".length)));
+      } else if (route.startsWith("libitem/")) {
+      await renderLibraryItem(decodeURIComponent(route.slice("libitem/".length)));
     } else if (route === "library") {
       await renderLibraryCourses();
     } else if (route.startsWith("library/")) {
@@ -3318,13 +3632,13 @@ document.querySelectorAll(".nav-item").forEach((el) => {
   const saved = localStorage.getItem("lms-theme");
   if (saved) {
     document.body.dataset.theme = saved;
-    $("#btn-theme").textContent = saved === "dark" ? "☀️" : "🌙";
+    $("#btn-theme").innerHTML = saved === "dark" ? ICON_SUN : ICON_MOON;
   } else {
     try {
       const t = await api("/settings/theme");
       if (t.theme) {
         document.body.dataset.theme = t.theme;
-        $("#btn-theme").textContent = t.theme === "dark" ? "☀️" : "🌙";
+        $("#btn-theme").innerHTML = t.theme === "dark" ? ICON_SUN : ICON_MOON;
       }
     } catch (_) {}
   }

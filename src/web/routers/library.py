@@ -4,9 +4,25 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from src.storage.repositories.library_repo import LibraryRepository, TERMS_VERSION
 
 from src.storage.repositories.library_repo import LibraryRepository
 from src.web.deps import get_current_user, require_admin
+from pydantic import BaseModel, Field, field_validator
+
+class SubmitItemBody(BaseModel):
+    course_name: str = Field(..., min_length=2, max_length=120)
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field("", max_length=2000)
+    url: str = Field(..., min_length=8, max_length=2000)
+
+    @field_validator("url")
+    @classmethod
+    def _only_http(cls, v: str) -> str:
+        v = v.strip()
+        if not v.lower().startswith(("http://", "https://")):
+            raise ValueError("لینک باید با http:// یا https:// شروع شود")
+        return v
 
 router = APIRouter()
 
@@ -58,6 +74,21 @@ class CatalogUpdateBody(BaseModel):
     is_active: bool | None = None
     sort_order: int | None = Field(None, ge=0, le=100000)
 
+def _item_out(repo: LibraryRepository, it: dict, user_id: str, fav_ids: set[str]) -> dict:
+    return {
+        "id": it["id"],
+        "course_name": it["course_name"],
+        "title": it["title"],
+        "description": it["description"],
+        "url": it["url"],
+        "avg_rating": it["avg_rating"],
+        "rating_count": it["rating_count"],
+        "report_count": it["report_count"],
+        "submitter_name": it.get("submitter_name"),
+        "created_at": it["created_at"],
+        "my_rating": repo.get_user_rating(it["id"], user_id),
+        "is_favorite": it["id"] in fav_ids,
+    }
 
 # ---- public / user endpoints ----
 
@@ -101,38 +132,63 @@ async def course_names_autocomplete(request: Request) -> dict:
     get_current_user(request)
     return {"ok": True, "names": _repo(request).list_course_names_for_autocomplete()}
 
+@router.get("/terms")
+async def terms_status(request: Request) -> dict:
+    user = get_current_user(request)
+    return {
+        "ok": True,
+        "version": TERMS_VERSION,
+        "accepted": _repo(request).has_accepted_terms(user["id"]),
+    }
+
+
+@router.post("/terms/accept")
+async def terms_accept(request: Request) -> dict:
+    user = get_current_user(request)
+    _repo(request).accept_terms(user["id"])
+    return {"ok": True, "version": TERMS_VERSION}
 
 @router.get("/courses/{course_name}")
 async def list_items_for_course(request: Request, course_name: str) -> dict:
     user = get_current_user(request)
     repo = _repo(request)
+    fav_ids = repo.favorite_ids(user["id"])
     items = repo.list_approved_for_course(course_name)
-    result = []
-    for it in items:
-        my_rating = repo.get_user_rating(it["id"], user["id"])
-        result.append(
-            {
-                "id": it["id"],
-                "course_name": it["course_name"],
-                "title": it["title"],
-                "description": it["description"],
-                "url": it["url"],
-                "avg_rating": it["avg_rating"],
-                "rating_count": it["rating_count"],
-                "report_count": it["report_count"],
-                "submitter_name": it.get("submitter_name"),
-                "created_at": it["created_at"],
-                "my_rating": my_rating,
-            }
-        )
-    return {"ok": True, "course_name": course_name, "items": result}
+    return {
+        "ok": True,
+        "course_name": course_name,
+        "items": [_item_out(repo, it, user["id"], fav_ids) for it in items],
+    }
+
+@router.get("/favorites")
+async def my_favorites(request: Request) -> dict:
+    user = get_current_user(request)
+    repo = _repo(request)
+    fav_ids = repo.favorite_ids(user["id"])
+    return {
+        "ok": True,
+        "items": [_item_out(repo, it, user["id"], fav_ids) for it in repo.list_favorites(user["id"])],
+    }
+
+
+@router.post("/items/{item_id}/favorite")
+async def toggle_favorite(request: Request, item_id: str) -> dict:
+    user = get_current_user(request)
+    try:
+        fav = _repo(request).toggle_favorite(item_id, user["id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True, "favorited": fav}
 
 
 @router.post("/items")
 async def submit_item(request: Request, body: SubmitItemBody) -> dict:
     user = get_current_user(request)
+    repo = _repo(request)
+    if not repo.has_accepted_terms(user["id"]):
+        raise HTTPException(403, "ابتدا قوانین و شرایط کتابخانه را بپذیرید")
     try:
-        item = _repo(request).create_item(
+        item = repo.create_item(
             course_name=body.course_name,
             title=body.title,
             description=body.description,
@@ -174,6 +230,7 @@ async def get_item_detail(request: Request, item_id: str) -> dict:
             "course_name": item["course_name"],
             "title": item["title"],
             "description": item["description"],
+            "is_favorite": item_id in repo.favorite_ids(user["id"]),
             "url": item["url"],
             "status": item["status"],
             "avg_rating": item["avg_rating"],
