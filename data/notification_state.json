@@ -31,5 +31,71 @@
     "jaam_135",
     "jaam_137",
     "jaam_132"
+  ],
+  "u87153d3b-2c0e-45d0-adf6-11c3307cee48:asg": [
+    "37786",
+    "39339",
+    "37826"
+  ],
+  "u87153d3b-2c0e-45d0-adf6-11c3307cee48:quera": [],
+  "u87153d3b-2c0e-45d0-adf6-11c3307cee48:posts": [],
+  "u87153d3b-2c0e-45d0-adf6-11c3307cee48:ev": [
+    "jaam_135",
+    "jaam_145",
+    "jaam_137",
+    "jaam_142",
+    "jaam_152",
+    "jaam_140",
+    "jaam_146",
+    "jaam_130",
+    "jaam_144",
+    "jaam_132"
+  ],
+  "uf72d73b4-e111-4462-bffc-45046fbd1a8e:asg": [
+    "37786",
+    "39339",
+    "37826"
+  ],
+  "uf72d73b4-e111-4462-bffc-45046fbd1a8e:quera": [],
+  "uf72d73b4-e111-4462-bffc-45046fbd1a8e:posts": [
+    "adfd2ac73b7dab44",
+    "5cdc79a2643c8d83",
+    "47b36fbb27318aa8",
+    "80991c0e28a48854",
+    "257bc18e7bd4a44d",
+    "4186cb284903544c",
+    "ef842526ae115fea",
+    "ef40a0090e07a9f2",
+    "e9d3efb147d66152",
+    "49487bcc2d30b1d8"
+  ],
+  "uf72d73b4-e111-4462-bffc-45046fbd1a8e:ev": [
+    "jaam_137",
+    "jaam_142",
+    "jaam_138",
+    "jaam_150",
+    "jaam_140",
+    "jaam_146",
+    "jaam_130",
+    "jaam_144",
+    "jaam_132"
+  ],
+  "u2a2aae93-9856-454d-9dd5-5185b27b841b:asg": [],
+  "u2a2aae93-9856-454d-9dd5-5185b27b841b:quera": [],
+  "u2a2aae93-9856-454d-9dd5-5185b27b841b:posts": [
+    "8866ac1d97a5bfec",
+    "9e078c39dc84d429",
+    "a0a677c714d8d730",
+    "33fe8fd7722c0556",
+    "abeb02cc499bb666",
+    "624a946ca7b0dcf3",
+    "4ff78f6c9d40bbb2",
+    "d68e518a1742158b",
+    "361e651eb26b6129",
+    "c538e1917f838c84"
+  ],
+  "u2a2aae93-9856-454d-9dd5-5185b27b841b:ev": [
+    "jaam_135",
+    "jaam_141"
   ]
 }
