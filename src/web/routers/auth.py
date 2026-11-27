@@ -201,13 +201,17 @@ async def login(request: Request, body: LoginRequest, response: Response) -> dic
     user = _maybe_bootstrap_admin(repo, user)
 
     cookies_json = dump_httpx_cookies(assistant.client.cookies)
-    repo.save_secrets(
-        user["id"],
-        lms_password=password,
-        lms_cookies_json=cookies_json,
-        quera_username=(body.quera_username or "").strip() or None,
-        quera_password=body.quera_password or None,
-    )
+    secrets_kwargs = {
+        "lms_password": password,
+        "lms_cookies_json": cookies_json,
+    }
+    quera_u = (body.quera_username or "").strip()
+    quera_p = (body.quera_password or "").strip()
+    if quera_u:
+        secrets_kwargs["quera_username"] = quera_u
+    if quera_p:
+        secrets_kwargs["quera_password"] = quera_p
+    repo.save_secrets(user["id"], **secrets_kwargs)
 
     if REVOKE_OTHER_SESSIONS:
         repo.delete_user_sessions(user["id"])

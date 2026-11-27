@@ -109,8 +109,39 @@ async def reply_ticket(request: Request, ticket_id: str, body: MessageBody) -> d
         body.body,
         is_staff=is_admin,
     )
+    if is_admin and ticket["status"] == "closed":
+        repo.set_status(ticket_id, "answered")
     return {"ok": True, "message_id": msg["id"]}
 
+class OwnerStatusBody(BaseModel):
+    status: str = Field(..., pattern="^(open|closed)$")
+
+
+@router.patch("/tickets/{ticket_id}/status")
+async def owner_set_status(request: Request, ticket_id: str, body: OwnerStatusBody) -> dict:
+    user = get_current_user(request)
+    repo = _repo(request)
+    ticket = repo.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(404, "تیکت یافت نشد")
+    if ticket["user_id"] != user["id"]:
+        raise HTTPException(403, "دسترسی ندارید")
+    repo.set_status(ticket_id, body.status)
+    return {"ok": True, "status": body.status}
+
+
+@router.patch("/tickets/{ticket_id}/status")
+async def owner_set_status(request: Request, ticket_id: str, body: OwnerStatusBody) -> dict:
+    """کاربر فقط تیکت خودش را می‌بندد یا باز می‌کند (answered مخصوص ادمین است)."""
+    user = get_current_user(request)
+    repo = _repo(request)
+    ticket = repo.get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(404, "تیکت یافت نشد")
+    if ticket["user_id"] != user["id"]:
+        raise HTTPException(403, "دسترسی ندارید")
+    repo.set_status(ticket_id, body.status)
+    return {"ok": True, "status": body.status}
 
 # ---- ادمین ----
 

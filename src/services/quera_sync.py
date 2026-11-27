@@ -1,9 +1,6 @@
-"""Sync Service برای Quera — نسخه اصلاح‌شده."""
-
+"""Sync Service برای Quera — نسخه ساده با username/password."""
 import time
-
 from loguru import logger
-
 from src.core.quera_auth import QueraAuth
 from src.core.quera_client import QueraHttpClient
 from src.parsers.quera import QueraParser
@@ -23,11 +20,12 @@ class QueraSyncService:
     ) -> None:
         if not user_id:
             raise ValueError("QueraSyncService نیازمند user_id است")
+        
         self.username = username
         self.password = password
         self.db = db
         self.user_id = user_id
-
+        
         self.client = QueraHttpClient()
         self.auth = QueraAuth(self.client)
         self.parser = QueraParser()
@@ -49,18 +47,37 @@ class QueraSyncService:
         try:
             # === ۱. Login ===
             logger.info("🔐 Login به Quera...")
-            if not self.auth.login(self.username, self.password):
-                result["error"] = "Login ناموفق"
-                return result
+            
+            # اولویت ۱: استفاده از کوکی (اگر در password ذخیره شده باشد)
+            if self.password and len(self.password) > 20:
+                logger.info("تلاش ورود با کوکی کوئرا...")
+                if self.auth.login_with_cookie(self.password):
+                    logger.success("✅ ورود با کوکی موفق")
+                else:
+                    logger.warning("کوکی نامعتبر بود، تلاش با username/password...")
+                    if not self.auth.login(self.username, self.password):
+                        result["error"] = (
+                            "ورود به کوئرا ناموفق بود. "
+                            "لطفاً از تنظیمات، کوکی نشست کوئرا را دوباره وارد کنید."
+                        )
+                        return result
+            else:
+                # اولویت ۲: استفاده از username/password
+                logger.info("تلاش ورود با username/password...")
+                if not self.auth.login(self.username, self.password):
+                    result["error"] = (
+                        "ورود به کوئرا ناموفق بود (احتمالاً به دلیل کپچا). "
+                        "لطفاً از تنظیمات، کوکی نشست کوئرا را وارد کنید."
+                    )
+                    return result
 
             logger.info("✅ Login موفق")
-
             # === ۲. دریافت /course ===
             logger.info("📥 دریافت /course...")
             r = self.client.get("/course")
-
+            
             if r.status_code != 200:
-                result["error"] = f"HTTP {r.status_code}"
+                result["error"] = f"HTTP {r.status_code} در دریافت صفحه"
                 return result
 
             # === ۳. Parse assignments ===
@@ -91,7 +108,6 @@ class QueraSyncService:
 
             result["total"] = len(assignments)
             result["courses"] = len(courses)
-
             logger.info(
                 f"✅ Quera Sync: {result['new']} جدید, "
                 f"{result['updated']} به‌روزرسانی, "
@@ -101,7 +117,6 @@ class QueraSyncService:
         except Exception as e:
             logger.exception("خطا در Quera Sync")
             result["error"] = str(e)
-
         finally:
             self.client.close()
             result["duration"] = time.perf_counter() - start

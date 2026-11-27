@@ -304,7 +304,9 @@ async def list_contents(request: Request, new_only: bool = False) -> list[dict]:
             "url": c.url,
             "content_type": c.content_type,
             "filename": c.filename,
-            "last_seen_at": c.first_seen_at.isoformat() if hasattr(c, "first_seen_at") and c.first_seen_at else None,
+            "first_seen_at": c.first_seen_at.isoformat() if getattr(c, "first_seen_at", None) else None,
+            "last_seen_at": c.last_seen_at.isoformat() if getattr(c, "last_seen_at", None) else None,
+            "is_new": bool(getattr(c, "is_new", False)),
         })
     return result
 
@@ -501,6 +503,32 @@ async def mark_posts_read(request: Request) -> dict:
     repo.mark_all_seen()
     return {"ok": True}
 
+class PostsReadBulkBody(BaseModel):
+    ids: list[str] = []
+    read: bool = True
+
+
+@router.post("/posts/read-bulk")
+async def mark_posts_read_bulk(request: Request, body: PostsReadBulkBody) -> dict:
+    """خوانده/نخوانده کردن انتخابی پیام‌ها (برای undo و خواندن تکی/گروهی)."""
+    user = _require_user(request)
+    repo = PostRepository(request.app.state.db, user["id"])
+    updated = []
+    for pid in (body.ids or [])[:300]:
+        pid = str(pid)
+        row = repo.db.fetch_one(
+            "SELECT id FROM posts WHERE user_id = ? AND id = ?",
+            (user["id"], pid),
+        )
+        if not row:
+            continue
+        repo.db.execute(
+            "UPDATE posts SET is_new = ? WHERE user_id = ? AND id = ?",
+            (0 if body.read else 1, user["id"], pid),
+        )
+        updated.append(pid)
+    repo.db.connection.commit()
+    return {"ok": True, "updated": updated}
 
 # === Assignments ===
 
@@ -1082,3 +1110,159 @@ async def delete_place(request: Request, place_id: str):
     _places_save(left)
     return {"ok": True, "id": place_id}
 
+
+# =========================================================================
+# ترجیحات per-user تنظیمات (بدون migration — از SettingRepository استفاده می‌کند)
+# =========================================================================
+from src.storage.repositories.setting_repo import SettingRepository
+
+STG_DEFAULTS = {
+    "auto_sync": "1",
+    "auto_sync_hours": "6",
+    "default_page": "dashboard",
+    "deadline_warn_hours": "48",
+    "nav_badges": "1",
+    "density": "cozy",
+    "font_scale": "100",
+    "reduce_motion": "0",
+    "sync_order": "courses,contents,events,wall,members",
+}
+STG_PAGES = {
+    "dashboard", "courses", "assignments", "calendar", "map",
+    "library", "posts", "contents", "changes", "quera",
+}
+STG_PHASE_KEYS = ["courses", "contents", "events", "wall", "members"]
+
+
+class PrefsBody(BaseModel):
+    prefs: dict[str, str] = {}
+
+
+def _stg_clean(key: str, raw) -> str | None:
+    v = str(raw if raw is not None else "").strip()
+    if key in ("auto_sync", "nav_badges", "reduce_motion"):
+        return "1" if v in ("1", "true", "True", "on", "yes") else "0"
+    if key == "auto_sync_hours":
+        try:
+            return str(max(1, min(48, int(float(v)))))
+        except ValueError:
+            return None
+    if key == "deadline_warn_hours":
+        try:
+            return str(max(6, min(168, int(float(v)))))
+        except ValueError:
+            return None
+    if key == "font_scale":
+        try:
+            return str(max(90, min(115, int(float(v)))))
+        except ValueError:
+            return None
+    if key == "density":
+        return v if v in ("cozy", "compact") else None
+    if key == "default_page":
+        return v if v in STG_PAGES else None
+    if key == "sync_order":
+        seen, out = set(), []
+        for k in v.split(","):
+            k = k.strip()
+            if k in STG_PHASE_KEYS and k not in seen:
+                seen.add(k)
+                out.append(k)
+        for k in STG_PHASE_KEYS:
+            if k not in seen:
+                out.append(k)
+        return ",".join(out)
+    return None
+
+
+@router.get("/settings/prefs")
+async def get_prefs(request: Request) -> dict:
+    user = _require_user(request)
+    repo = SettingRepository(request.app.state.db, user["id"])
+    out = {}
+    for k, d in STG_DEFAULTS.items():
+        try:
+            val = repo.get(k, d)
+        except Exception:
+            val = d
+        cleaned = _stg_clean(k, val)
+        out[k] = cleaned if cleaned is not None else d
+    return {"ok": True, "prefs": out, "defaults": STG_DEFAULTS}
+
+
+@router.post("/settings/prefs")
+async def set_prefs(request: Request, body: PrefsBody) -> dict:
+    user = _require_user(request)
+    repo = SettingRepository(request.app.state.db, user["id"])
+    saved = {}
+    for k, raw in (body.prefs or {}).items():
+        if k not in STG_DEFAULTS:
+            continue
+        cleaned = _stg_clean(k, raw)
+        if cleaned is None:
+            raise HTTPException(400, f"مقدار نامعتبر برای {k}")
+        repo.set(k, cleaned)
+        saved[k] = cleaned
+    return {"ok": True, "prefs": saved}
+
+
+@router.get("/account/sessions")
+async def list_my_sessions(request: Request) -> dict:
+    """لیست نشست‌های کاربر — best-effort؛ اگر schema در دسترس نبود supported=false."""
+    from src.storage.repositories.user_repo import UserRepository
+    user = _require_user(request)
+    repo = UserRepository(request.app.state.db)
+
+    rows = []
+    fn = getattr(repo, "list_sessions", None) or getattr(repo, "get_sessions", None)
+    if fn:
+        try:
+            rows = fn(user["id"]) or []
+        except Exception:
+            rows = []
+    if not rows:
+        try:
+            rows = request.app.state.db.fetch_all(
+                "SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC",
+                (user["id"],),
+            ) or []
+        except Exception:
+            return {"ok": True, "supported": False, "sessions": []}
+
+    out = []
+    for i, r in enumerate(rows):
+        g = r.get if hasattr(r, "get") else (lambda k, d=None: d)
+        out.append({
+            "id": str(g("id", None) or g("session_id", None) or i),
+            "user_agent": g("user_agent", "") or "",
+            "created_at": g("created_at", None),
+            "last_seen_at": g("last_seen_at", None) or g("updated_at", None),
+            "expires_at": g("expires_at", None),
+        })
+    return {"ok": True, "supported": True, "sessions": out}
+
+class ContentsReadBody(BaseModel):
+    ids: list[str] = []
+    read: bool = True
+
+
+@router.post("/contents/read-bulk")
+async def contents_read_bulk(request: Request, body: ContentsReadBody) -> dict:
+    """دیده‌شدن انتخابی محتواها (برای undo و خواندن گروهی)."""
+    user = _require_user(request)
+    repo = ContentRepository(request.app.state.db, user["id"])
+    updated = []
+    for cid in (body.ids or [])[:300]:
+        cid = str(cid)
+        row = repo.db.fetch_one(
+            "SELECT id FROM contents WHERE user_id = ? AND id = ?", (user["id"], cid)
+        )
+        if not row:
+            continue
+        repo.db.execute(
+            "UPDATE contents SET is_new = ? WHERE user_id = ? AND id = ?",
+            (0 if body.read else 1, user["id"], cid),
+        )
+        updated.append(cid)
+    repo.db.connection.commit()
+    return {"ok": True, "updated": updated}

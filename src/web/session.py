@@ -405,19 +405,22 @@ class SessionManager:
 
         threading.Thread(target=run, daemon=True, name=f"full-sync-{uid[:8]}").start()
         return True
-
     def run_quera_sync(self, user_id: str | None = None) -> dict:
+
         uid = user_id or self._active_user_id
         if not uid:
             return {"error": "کاربر مشخص نیست"}
-
+        
         secrets = UserRepository(self.db).load_secrets(uid)
-        if not secrets.get("quera_username") or not secrets.get("quera_password"):
-            return {"error": "اعتبارنامه Quera تنظیم نشده"}
-
+        username = (secrets.get("quera_username") or "").strip()
+        password = (secrets.get("quera_password") or "").strip()
+        
+        if not username or not password:
+            return {"error": "اعتبارنامه Quera تنظیم نشده است. از تنظیمات، نام کاربری و رمز کوئرا را وارد کنید."}
+        
         service = QueraSyncService(
-            secrets["quera_username"],
-            secrets["quera_password"],
+            username,
+            password,
             self.db,
             uid,
         )

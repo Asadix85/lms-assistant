@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="LMS Assistant — دستیار LMS">
+  <defs>
+    <linearGradient id="bgd" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#04060c"/><stop offset=".55" stop-color="#040b17"/><stop offset="1" stop-color="#02100c"/>
+    </linearGradient>
+    <radialGradient id="b1" cx=".18" cy=".18" r=".55"><stop offset="0" stop-color="#1e50c8" stop-opacity=".42"/><stop offset="1" stop-color="#1e50c8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="b2" cx=".86" cy=".22" r=".45"><stop offset="0" stop-color="#0e5a8c" stop-opacity=".34"/><stop offset="1" stop-color="#0e5a8c" stop-opacity="0"/></radialGradient>
+    <radialGradient id="b3" cx=".72" cy=".92" r=".5"><stop offset="0" stop-color="#055f46" stop-opacity=".4"/><stop offset="1" stop-color="#055f46" stop-opacity="0"/></radialGradient>
+    <linearGradient id="crestd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#2dd4a7"/></linearGradient>
+    <linearGradient id="ruled" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5b8cff" stop-opacity="0"/><stop offset=".5" stop-color="#5b8cff" stop-opacity=".6"/><stop offset="1" stop-color="#2dd4a7" stop-opacity="0"/></linearGradient>
+  </defs>
+
+  <rect width="1280" height="400" rx="28" fill="url(#bgd)"/>
+  <rect width="1280" height="400" rx="28" fill="url(#b1)"/>
+  <rect width="1280" height="400" rx="28" fill="url(#b2)"/>
+  <rect width="1280" height="400" rx="28" fill="url(#b3)"/>
+  <rect x=".5" y=".5" width="1279" height="399" rx="28" fill="none" stroke="#ffffff" stroke-opacity=".12"/>
+
+  <g transform="translate(96 118)">
+    <circle cx="82" cy="82" r="80" fill="#0b1220" fill-opacity=".6" stroke="#5b8cff" stroke-opacity=".22"/>
+    <path d="M82 20l58 33v66l-58 33-58-33V53z" fill="#5b8cff" fill-opacity=".1" stroke="url(#crestd)" stroke-width="2.5"/>
+    <path d="M54 72h56M54 88h56M54 104h34" stroke="url(#crestd)" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="132" cy="42" r="14" fill="#2dd4a7"/>
+    <path d="M126 42l4.5 4.5 7.5-9" stroke="#04231a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <g font-family="Vazirmatn, Segoe UI, Tahoma, sans-serif">
+    <text x="320" y="132" font-size="15" font-weight="700" fill="#5b8cff" letter-spacing="3">OPEN SOURCE · MIT · UNIVERSITY OF ISFAHAN</text>
+    <text x="320" y="196" font-size="62" font-weight="800" fill="#e7edf7" letter-spacing="-1.5">LMS Assistant</text>
+    <text x="320" y="240" font-size="30" font-weight="700" fill="#2dd4a7">دستیار LMS — دانشگاه اصفهان</text>
+    <text x="320" y="282" font-size="17" fill="#9aa8bd">One login. One sync. One answer to “what do I need to do today?”</text>
+    <rect x="320" y="300" width="860" height="1.5" fill="url(#ruled)"/>
+    <g font-size="14" font-weight="600">
+      <g transform="translate(320 320)">
+        <rect width="104" height="34" rx="17" fill="#5b8cff" fill-opacity=".12" stroke="#5b8cff" stroke-opacity=".35"/>
+        <text x="52" y="22" text-anchor="middle" fill="#7aa2ff">FastAPI</text>
+      </g>
+      <g transform="translate(436 320)">
+        <rect width="92" height="34" rx="17" fill="#38bdf8" fill-opacity=".12" stroke="#38bdf8" stroke-opacity=".35"/>
+        <text x="46" y="22" text-anchor="middle" fill="#38bdf8">SQLite</text>
+      </g>
+      <g transform="translate(540 320)">
+        <rect width="126" height="34" rx="17" fill="#2dd4a7" fill-opacity=".12" stroke="#2dd4a7" stroke-opacity=".35"/>
+        <text x="63" y="22" text-anchor="middle" fill="#2dd4a7">Vanilla JS</text>
+      </g>
+      <g transform="translate(678 320)">
+        <rect width="80" height="34" rx="17" fill="#fbbf24" fill-opacity=".12" stroke="#fbbf24" stroke-opacity=".35"/>
+        <text x="40" y="22" text-anchor="middle" fill="#fbbf24">PWA</text>
+      </g>
+      <g transform="translate(770 320)">
+        <rect width="72" height="34" rx="17" fill="#fb7185" fill-opacity=".12" stroke="#fb7185" stroke-opacity=".35"/>
+        <text x="36" y="22" text-anchor="middle" fill="#fb7185">RTL</text>
+      </g>
+      <g transform="translate(854 320)">
+        <rect width="140" height="34" rx="17" fill="#5b8cff" fill-opacity=".12" stroke="#5b8cff" stroke-opacity=".35"/>
+        <text x="70" y="22" text-anchor="middle" fill="#7aa2ff">Liquid Lens UI</text>
+      </g>
+    </g>
+  </g>
+</svg>

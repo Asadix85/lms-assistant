@@ -2463,6 +2463,216 @@ document.querySelectorAll(".nav-item").forEach((el) => {
   el.addEventListener("click", closeSidebar);
 });
 
+// ---------- Nav v2 (سایدبار جمع‌شونده + پالت فرمان) ----------
+const Nav = {
+  collapsed: localStorage.getItem("nav:collapsed") === "1",
+  groups: JSON.parse(localStorage.getItem("nav:groups") || "{}"),
+  layers: [], wired: false, paletteOpen: false,
+  extra: { changes: 0, today: 0 },
+};
+const nesc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nfa = (n) => faDigits(String(n));
+
+/* ---- جمع/باز کردن سایدبار ---- */
+function navApplyCollapsed() {
+  document.body.classList.toggle("nav-collapsed", Nav.collapsed);
+  localStorage.setItem("nav:collapsed", Nav.collapsed ? "1" : "0");
+  const btn = document.getElementById("btn-nav-collapse");
+  if (btn) { btn.setAttribute("aria-pressed", Nav.collapsed); btn.textContent = Nav.collapsed ? "»" : "«"; }
+}
+function navToggleCollapse() { Nav.collapsed = !Nav.collapsed; navApplyCollapsed(); }
+
+/* ---- برچسب‌گذاری برای تولتیپ در حالت جمع‌شده ---- */
+function navLabelItems() {
+  document.querySelectorAll(".nav-item").forEach((el) => {
+    const txt = el.querySelector(".nav-text");
+    if (txt && !el.dataset.label) el.dataset.label = txt.textContent.trim();
+  });
+}
+
+/* ---- بج‌های اضافی: تغییرات امروز + رویدادهای امروز ---- */
+async function navRefreshExtraBadges() {
+  try {
+    const ch = await api("/changes?limit=100");
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    Nav.extra.changes = (ch || []).filter((c) => c.detected_at && new Date(c.detected_at) >= now).length;
+    const b1 = document.querySelector('[data-badge="changes"]');
+    if (b1) { b1.textContent = nfa(Nav.extra.changes); b1.classList.toggle("hidden", Nav.extra.changes <= 0); }
+  } catch (_) {}
+  try {
+    const evs = await api("/events");
+    const t = new Date(); const key = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+    Nav.extra.today = (evs || []).filter((e) => e.start_at && e.start_at.startsWith(key)).length;
+    const b2 = document.querySelector('[data-badge="today"]');
+    if (b2) { b2.textContent = nfa(Nav.extra.today); b2.classList.toggle("hidden", Nav.extra.today <= 0); }
+  } catch (_) {}
+}
+
+/* ---- پالت فرمان (Ctrl+K) ---- */
+function navPaletteItems() {
+  const pages = [
+    { t: "page", label: "داشبورد", route: "", icon: "▦" },
+    { t: "page", label: "درس‌ها", route: "courses", icon: "▤" },
+    { t: "page", label: "تکالیف", route: "assignments", icon: "✎" },
+    { t: "page", label: "تقویم", route: "calendar", icon: "▣" },
+    { t: "page", label: "نقشه", route: "map", icon: "🗺" },
+    { t: "page", label: "پیام‌های وال", route: "posts", icon: "◉" },
+    { t: "page", label: "محتواها", route: "contents", icon: "▧" },
+    { t: "page", label: "تغییرات", route: "changes", icon: "↻" },
+    { t: "page", label: "کتابخانه", route: "library", icon: "📚" },
+    { t: "page", label: "کوئرا", route: "quera", icon: "⚙️" },
+    { t: "page", label: "تنظیمات", route: "settings", icon: "🔧" },
+    { t: "page", label: "پشتیبانی", route: "support", icon: "💬" },
+    { t: "page", label: "راهنما", route: "help", icon: "📘" },
+    { t: "page", label: "درباره ما", route: "about", icon: "💡" },
+    { t: "page", label: "سایر امکانات", route: "more", icon: "☰" },
+  ];
+  if (authRole === "admin") pages.push({ t: "page", label: "پنل ادمین", route: "admin", icon: "🛡️" });
+  const actions = [
+    { t: "action", label: "🔄 همگام‌سازی الآن", run: () => { document.getElementById("btn-sync")?.click(); } },
+    { t: "action", label: "🌗 تغییر پوسته روشن/تیره", run: () => { document.getElementById("btn-theme")?.click(); } },
+    { t: "action", label: "📥 دانلود خروجی تقویم ICS", run: () => { window.open("/api/calendar.ics", "_blank"); } },
+    { t: "action", label: "📊 داشبورد", run: () => { location.hash = "#/"; } },
+    { t: "action", label: "↩ خروج از حساب", run: () => { document.getElementById("btn-logout")?.click(); } },
+  ];
+  return { pages, actions };
+}
+function navOpenPalette() {
+  if (Nav.paletteOpen) return;
+  Nav.paletteOpen = true;
+  const { pages, actions } = navPaletteItems();
+  const all = [...pages, ...actions];
+  let filtered = all.slice();
+  let selIdx = 0;
+
+  const wrap = document.createElement("div");
+  wrap.className = "nav-palette-backdrop";
+  wrap.innerHTML = `
+    <div class="nav-palette" role="dialog" aria-modal="true" aria-label="پالت فرمان">
+      <div class="nav-palette-input-wrap">
+        <span class="nav-palette-ico">🔍</span>
+        <input id="nav-palette-input" class="nav-palette-input" type="text"
+          placeholder="جستجوی صفحه، درس یا فرمان… (Esc برای بستن)" autocomplete="off" />
+        <kbd class="nav-kbd">Esc</kbd>
+      </div>
+      <div class="nav-palette-list" id="nav-palette-list" role="listbox"></div>
+      <div class="nav-palette-foot">
+        <span><kbd class="nav-kbd">↑↓</kbd> حرکت</span>
+        <span><kbd class="nav-kbd">Enter</kbd> انتخاب</span>
+        <span><kbd class="nav-kbd">Ctrl K</kbd> باز/بستن</span>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  document.body.classList.add("nav-locked");
+
+  const input = wrap.querySelector("#nav-palette-input");
+  const list = wrap.querySelector("#nav-palette-list");
+
+  const render = () => {
+    list.innerHTML = filtered.length ? filtered.map((it, i) => `
+      <button class="nav-palette-item ${i === selIdx ? "is-sel" : ""}" data-idx="${i}" role="option">
+        <span class="nav-palette-item-ico">${it.icon || "⚡"}</span>
+        <span class="nav-palette-item-label">${nesc(it.label)}</span>
+        ${it.t === "page" ? `<span class="nav-palette-item-type">صفحه</span>` : `<span class="nav-palette-item-type is-act">فرمان</span>`}
+      </button>`).join("")
+      : `<div class="nav-palette-empty">نتیجه‌ای پیدا نشد</div>`;
+    const sel = list.querySelector(".is-sel");
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+  };
+  const applyFilter = () => {
+    const q = input.value.trim().toLowerCase();
+    filtered = q ? all.filter((it) => it.label.toLowerCase().includes(q)) : all.slice();
+    selIdx = 0; render();
+  };
+  const choose = (it) => {
+    navClosePalette();
+    if (it.t === "page") location.hash = "#/" + (it.route || "");
+    else if (it.run) it.run();
+  };
+  const move = (d) => { selIdx = Math.max(0, Math.min(filtered.length - 1, selIdx + d)); render(); };
+
+  input.addEventListener("input", applyFilter);
+  list.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-idx]"); if (b) choose(filtered[+b.dataset.idx]);
+  });
+  wrap.addEventListener("click", (e) => { if (e.target === wrap) navClosePalette(); });
+  wrap.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.preventDefault(); navClosePalette(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+    else if (e.key === "Enter") { e.preventDefault(); if (filtered[selIdx]) choose(filtered[selIdx]); }
+  });
+
+  render();
+  setTimeout(() => input.focus(), 40);
+  Nav._paletteWrap = wrap;
+}
+function navClosePalette() {
+  if (!Nav.paletteOpen) return;
+  Nav.paletteOpen = false;
+  const w = Nav._paletteWrap;
+  if (w) { w.classList.add("is-leaving"); setTimeout(() => w.remove(), 180); }
+  document.body.classList.remove("nav-locked");
+}
+
+/* ---- تزریق دکمه جمع‌کردن و پالت به سایدبار ---- */
+function navInjectControls() {
+  const sidebar = document.getElementById("sidebar");
+  if (!sidebar || sidebar.querySelector("#btn-nav-collapse")) return;
+  const bar = document.createElement("div");
+  bar.className = "nav-topbar";
+  bar.innerHTML = `
+    <button class="nav-icon-btn" id="btn-nav-palette" title="پالت فرمان (Ctrl+K)" aria-label="پالت فرمان">⌘</button>
+    <span class="spacer"></span>
+    <button class="nav-icon-btn" id="btn-nav-collapse" title="جمع/باز کردن منو" aria-label="جمع/باز کردن منو" aria-pressed="${Nav.collapsed}">${Nav.collapsed ? "»" : "«"}</button>`;
+  const brand = sidebar.querySelector(".brand");
+  if (brand) brand.insertAdjacentElement("afterend", bar);
+  else sidebar.insertAdjacentElement("afterbegin", bar);
+  document.getElementById("btn-nav-collapse").addEventListener("click", navToggleCollapse);
+  document.getElementById("btn-nav-palette").addEventListener("click", navOpenPalette);
+
+  // افزودن بج‌های اضافی به آیتم‌های تغییرات و تقویم اگر ندارند
+  const changesLink = sidebar.querySelector('a[href="#/changes"]');
+  if (changesLink && !changesLink.querySelector('[data-badge="changes"]')) {
+    const b = document.createElement("span");
+    b.className = "nav-badge hidden"; b.dataset.badge = "changes"; b.textContent = "۰";
+    changesLink.appendChild(b);
+  }
+  const calLink = sidebar.querySelector('a[href="#/calendar"]');
+  if (calLink && !calLink.querySelector('[data-badge="today"]')) {
+    const b = document.createElement("span");
+    b.className = "nav-badge nav-badge-info hidden"; b.dataset.badge = "today"; b.textContent = "۰";
+    calLink.appendChild(b);
+  }
+}
+
+/* ---- سیم‌کشی ---- */
+function navWire() {
+  if (Nav.wired) return;
+  Nav.wired = true;
+  navInjectControls();
+  navLabelItems();
+  navApplyCollapsed();
+  navRefreshExtraBadges();
+  document.addEventListener("keydown", (e) => {
+    const tag = (e.target.tagName || "").toLowerCase();
+    const typing = tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      Nav.paletteOpen ? navClosePalette() : navOpenPalette();
+      return;
+    }
+    if (typing || Nav.paletteOpen) return;
+    const map = { "1": "", "2": "courses", "3": "assignments", "4": "calendar", "5": "map",
+                  "6": "posts", "7": "contents", "8": "changes", "9": "library" };
+    if (map[e.key] !== undefined) { location.hash = "#/" + map[e.key]; }
+  });
+  // بعد از هر بار رندر صفحه، آیتم فعال و برچسب‌ها را به‌روز کن
+  window.addEventListener("hashchange", () => { navLabelItems(); });
+}
+navWire();
+window.NavUI = { openPalette: navOpenPalette, toggleCollapse: navToggleCollapse, refreshBadges: navRefreshExtraBadges };
+
 // ---------- Init ----------
 
 (async function init() {
