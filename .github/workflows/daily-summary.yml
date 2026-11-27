@@ -1,28 +1,47 @@
-name: Daily Summary
+name: Daily Summary (6 AM Tehran)
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    # ۶ صبح تهران = ۰۲:۳۰ UTC (تهران UTC+3:30)
+    - cron: "30 4 * * *"
   workflow_dispatch:
 
 jobs:
-  summary:
+  send-summary:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.11"
+          cache: "pip"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests jdatetime
-      - name: Send daily summary
+
+      - name: Restore database
+        uses: actions/cache@v4
+        with:
+          path: data/lms.db
+          key: lms-db-${{ github.run_id }}
+          restore-keys: |
+            lms-db-
+
+      - name: Run daily summary
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python scripts/daily_summary.py
+          TZ: Asia/Tehran
+        run: python scripts/telegram/daily_summary.py
+
+      - name: Save database
+        uses: actions/cache@v4
+        with:
+          path: data/lms.db
+          key: lms-db-${{ github.run_id }}

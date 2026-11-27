@@ -1,4 +1,5 @@
-"""خلاصه‌ی روزانه — امروز + فردا."""
+"""خلاصهٔ روزانه — امروز + فردا، برای همهٔ کاربران فعال."""
+from __future__ import annotations
 
 import os
 import sqlite3
@@ -33,15 +34,25 @@ def send_telegram(token: str, chat_id: str, text: str) -> bool:
         return False
 
 
-def fmt_time(dt_str: str) -> str:
+def fmt_time(dt_str: str | None) -> str:
     if not dt_str:
         return ""
     try:
         dt = datetime.fromisoformat(dt_str)
-        jd = jdatetime.datetime.fromgregorian(datetime=dt)
-        return jd.strftime("%H:%M")
-    except Exception:
-        return dt_str[:16]
+        return dt.strftime("%H:%M")
+    except (ValueError, TypeError):
+        return ""
+
+
+def _greet() -> str:
+    h = datetime.now().hour
+    if 5 <= h < 12:
+        return "☀️ صبح بخیر!"
+    if 12 <= h < 17:
+        return "🌤 ظهر بخیر!"
+    if 17 <= h < 21:
+        return "🌇 عصر بخیر!"
+    return "🌙 شب بخیر!"
 
 
 def main() -> None:
@@ -49,9 +60,11 @@ def main() -> None:
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
     if not token or not chat_id:
+        print("❌ TELEGRAM_BOT_TOKEN یا TELEGRAM_CHAT_ID تنظیم نشده")
         return
 
     if not DB_FILE.exists():
+        print(f"❌ دیتابیس پیدا نشد: {DB_FILE}")
         return
 
     conn = sqlite3.connect(str(DB_FILE))
@@ -62,77 +75,85 @@ def main() -> None:
     tomorrow_start = today_start + timedelta(days=1)
     tomorrow_end = tomorrow_start + timedelta(days=1)
 
-    # === تکالیف امروز ===
-    today_assignments = conn.execute(
-        "SELECT title, deadline FROM assignments "
-        "WHERE deadline >= ? AND deadline < ? "
-        "ORDER BY deadline",
-        (today_start.isoformat(), tomorrow_start.isoformat()),
+    # همهٔ کاربران فعال
+    users = conn.execute(
+        "SELECT id, full_name, lms_username FROM users WHERE is_active = 1"
     ).fetchall()
+    if not users:
+        conn.close()
+        print("✨ هیچ کاربر فعالی نیست")
+        return
 
-    # === تکالیف فردا ===
-    tomorrow_assignments = conn.execute(
-        "SELECT title, deadline FROM assignments "
-        "WHERE deadline >= ? AND deadline < ? "
-        "ORDER BY deadline",
-        (tomorrow_start.isoformat(), tomorrow_end.isoformat()),
-    ).fetchall()
+    for user in users:
+        uid = user["id"]
+        name = user["full_name"] or user["lms_username"] or "کاربر"
+        first_name = name.split()[0] if name else "کاربر"
 
-    # === رویدادهای امروز ===
-    today_events = conn.execute(
-        "SELECT title, start_at FROM events "
-        "WHERE start_at >= ? AND start_at < ? "
-        "ORDER BY start_at",
-        (today_start.isoformat(), tomorrow_start.isoformat()),
-    ).fetchall()
+        today_asg = conn.execute(
+            "SELECT title, deadline FROM assignments "
+            "WHERE user_id = ? AND is_done = 0 AND deadline IS NOT NULL "
+            "  AND deadline >= ? AND deadline < ? ORDER BY deadline",
+            (uid, today_start.isoformat(), tomorrow_start.isoformat()),
+        ).fetchall()
 
-    conn.close()
+        tomorrow_asg = conn.execute(
+            "SELECT title, deadline FROM assignments "
+            "WHERE user_id = ? AND is_done = 0 AND deadline IS NOT NULL "
+            "  AND deadline >= ? AND deadline < ? ORDER BY deadline",
+            (uid, tomorrow_start.isoformat(), tomorrow_end.isoformat()),
+        ).fetchall()
 
-    # === تاریخ شمسی ===
-    jd_now = jdatetime.datetime.fromgregorian(datetime=now)
-    jd_tomorrow = jdatetime.datetime.fromgregorian(datetime=now + timedelta(days=1))
+        today_ev = conn.execute(
+            "SELECT title, start_at FROM events "
+            "WHERE user_id = ? AND start_at IS NOT NULL "
+            "  AND start_at >= ? AND start_at < ? ORDER BY start_at",
+            (uid, today_start.isoformat(), tomorrow_start.isoformat()),
+        ).fetchall()
 
-    lines = [
-        "☀️ <b>صبح بخیر!</b>",
-        f"📅 {jd_now.strftime('%A، %d %B %Y')}",
-        "",
-    ]
+        jd_now = jdatetime.datetime.fromgregorian(datetime=now)
+        jd_tomorrow = jdatetime.datetime.fromgregorian(datetime=now + timedelta(days=1))
 
-    # === امروز ===
-    if today_assignments or today_events:
-        lines.append(f"📌 <b>برنامه‌ی امروز:</b>")
+        lines = [
+            f"{_greet()} <b>{first_name}</b> 👋",
+            f"📅 {jd_now.strftime('%A، %d %B %Y')}",
+            "",
+        ]
 
-        if today_assignments:
-            lines.append(f"📋 <b>{len(today_assignments)} تکلیف:</b>")
-            for a in today_assignments:
+        if today_asg or today_ev:
+            lines.append("📌 <b>برنامهٔ امروز:</b>")
+            if today_asg:
+                lines.append(f"📋 <b>{len(today_asg)} تکلیف:</b>")
+                for a in today_asg:
+                    lines.append(f"  • {a['title'][:50]}")
+                    if a["deadline"]:
+                        lines.append(f"    ⏰ {fmt_time(a['deadline'])}")
+                lines.append("")
+            if today_ev:
+                lines.append(f"📅 <b>{len(today_ev)} رویداد:</b>")
+                for e in today_ev:
+                    lines.append(f"  • {e['title'][:50]}")
+                    if e["start_at"]:
+                        lines.append(f"    ⏰ {fmt_time(e['start_at'])}")
+                lines.append("")
+        else:
+            lines.append("✨ امروز هیچ برنامه‌ای نداری!")
+            lines.append("")
+
+        if tomorrow_asg:
+            lines.append(
+                f"📆 <b>فردا ({jd_tomorrow.strftime('%A، %d %B')}):</b>"
+            )
+            lines.append(f"📋 <b>{len(tomorrow_asg)} تکلیف:</b>")
+            for a in tomorrow_asg:
                 lines.append(f"  • {a['title'][:50]}")
                 if a["deadline"]:
                     lines.append(f"    ⏰ {fmt_time(a['deadline'])}")
             lines.append("")
 
-        if today_events:
-            lines.append(f"📅 <b>{len(today_events)} رویداد:</b>")
-            for e in today_events:
-                lines.append(f"  • {e['title'][:50]}")
-                if e["start_at"]:
-                    lines.append(f"    ⏰ {fmt_time(e['start_at'])}")
-            lines.append("")
-    else:
-        lines.append("✨ امروز هیچ برنامه‌ای نداری!")
-        lines.append("")
+        send_telegram(token, chat_id, "\n".join(lines))
 
-    # === فردا ===
-    if tomorrow_assignments:
-        lines.append(f"📅 <b>فردا ({jd_tomorrow.strftime('%A، %d %B')}):</b>")
-        lines.append(f"📋 <b>{len(tomorrow_assignments)} تکلیف:</b>")
-        for a in tomorrow_assignments:
-            lines.append(f"  • {a['title'][:50]}")
-            if a["deadline"]:
-                lines.append(f"    ⏰ {fmt_time(a['deadline'])}")
-        lines.append("")
-
-    if send_telegram(token, chat_id, "\n".join(lines)):
-        print("✅ خلاصه ارسال شد")
+    conn.close()
+    print(f"✅ خلاصه برای {len(users)} کاربر ارسال شد")
 
 
 if __name__ == "__main__":
